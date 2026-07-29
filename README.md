@@ -1,26 +1,25 @@
 # Wellar AI Frontend 🚀
 
-Frontend application for **Wellar AI**, a production-ready SaaS platform built to provide intelligent workforce management and AI-powered productivity solutions.
+Frontend application for Wellar AI SaaS platform built with Angular 21 and TypeScript.
 
-This repository contains the Angular web application responsible for user interfaces, workflows, authentication experiences, and communication with backend services through REST APIs.
+This project focuses on building responsive, scalable, and production-ready web interfaces with modern Angular architecture, reusable components, and REST API integration.
 
 ---
 
 ## 🌟 Overview
 
-Wellar AI combines modern frontend architecture with AI-powered services to deliver a complete business platform.
-
 The frontend provides:
 
-- Responsive web interfaces
+- Responsive user interfaces
 - Role-based user experiences
-- Workspace management workflows
-- Real-time notifications
-- API-driven architecture
-- Production-ready Angular components
+- Authentication workflows
+- API-driven communication
+- Reusable Angular components
+- Form handling and validation
+- State management using RxJS
+- Production-ready frontend architecture
 
 ---
-
 ## 🎥 Demo
 
 Live Demo:
@@ -34,11 +33,6 @@ Screenshots:
 <img width="1920" height="924" alt="image" src="https://github.com/user-attachments/assets/9003c3ba-132d-4ef2-8b59-ae261f68c11f" />
 <img width="1920" height="925" alt="image" src="https://github.com/user-attachments/assets/28695ba7-1ee6-422a-8e63-c8f7161050a3" />
 
-
-
-
-
-
 ---
 
 ## 🛠 Tech Stack
@@ -47,6 +41,7 @@ Screenshots:
 
 - Angular 21
 - TypeScript
+- JavaScript
 - RxJS
 - HTML5
 - CSS3
@@ -54,101 +49,57 @@ Screenshots:
 - Angular Components
 - Reactive Forms
 - Route Guards
-- HTTP Client
+- HttpClient
 - REST API Integration
-
-
-### Backend Integration
-
-- Directus 11
-- PostgreSQL
-- REST APIs
-- Role-Based Access Control (RBAC)
-
-
-### Mobile Application
-
-A companion Android application built with Flutter.
-
-- Flutter
-- Android Release Builds
-- Firebase Cloud Messaging (FCM)
-- REST API Integration
-- Role-based mobile experiences
-
-### AI Services
-
-- Python
-- FastAPI
-- OpenCV
-- MediaPipe
-- Whisper
-- PyTorch
-
-
-### DevOps
-
-- Docker
-- Nginx
-- EasyPanel
-- Production Deployment
-- Git/GitHub
 
 ---
 
 ## ✨ Features
 
-### User Management
+### User Experience
 
-- Role-based experiences:
+- Responsive layouts for different devices
+- Role-based interfaces:
   - Owner
   - HR
   - Manager
   - Employee
 
+### Application Features
 
-### Productivity Features
-
-- Focus task workflows
-- Camera and audio processing
-- AI-assisted analysis
-- Notifications system
-
-
-### Platform Features
-
-- Workspace management
-- Invitations
-- Workforce management
-- Scan requests
-- Persistent notifications
-- Secure authentication flows
-
+- Authentication flows
+- Dashboard interfaces
+- Workspace management UI
+- Notification interfaces
+- API integration with backend services
 
 ---
 
-## 🏗 Project Architecture
-```text
-Angular 21 Frontend
-        |
-        |
-    REST APIs
-        |
-        |
-Directus + PostgreSQL
-        |
-        |
-Python FastAPI AI Service
-```
+## 🔌 Backend Communication
 
-## 🚀 Running Locally
+The frontend communicates with backend services through REST APIs.
 
-Clone the repository:
+Integrated technologies:
+
+- Directus REST APIs
+- PostgreSQL-based backend services
+- Authentication and authorization workflows
+
+---
+
+## 📱 Mobile Experience
+
+The platform also includes a Flutter mobile application that shares backend services and business workflows.
+
+---
+
+## 🚀 Development
+
+Install dependencies:
 
 ```bash
-git clone https://github.com/mnashat18/wellar-ai-frontend.git
+npm install
 ```
-
 📦 Deployment
 
 The application is containerized and deployed using:
