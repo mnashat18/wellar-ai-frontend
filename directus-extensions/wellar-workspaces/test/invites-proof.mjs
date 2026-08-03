@@ -7,7 +7,7 @@ const roleIds = {
   owner: '44444444-4444-4444-8444-444444444444',
   hr: '55555555-5555-4555-8555-555555555555',
   manager: '66666666-6666-4666-8666-666666666666',
-  employee: '77777777-7777-4777-8777-777777777777'
+  employee: '77777777-7777-4777-8777-777777777777',
 };
 
 function createFakeRouter() {
@@ -22,7 +22,7 @@ function createFakeRouter() {
     },
     patch(path, handler) {
       handlers.set(`PATCH ${path}`, handler);
-    }
+    },
   };
 }
 
@@ -37,7 +37,7 @@ function createFakeResponse() {
     json(payload) {
       this.body = payload;
       return this;
-    }
+    },
   };
 }
 
@@ -51,7 +51,9 @@ function pickString(value) {
 
 function buildRow(table, call, state) {
   const filters = call.filters ?? [];
-  const eq = Object.fromEntries(filters.map((item) => [String(item.column).split('.').at(-1), item.value]));
+  const eq = Object.fromEntries(
+    filters.map((item) => [String(item.column).split('.').at(-1), item.value]),
+  );
 
   if (table === 'directus_users') {
     if (eq.id) {
@@ -65,21 +67,30 @@ function buildRow(table, call, state) {
 
   if (table === 'business_profile_members as member') {
     if (eq.user && eq.business_profile) {
-      const match = state.memberships.find((membership) =>
-        membership.user === String(eq.user) &&
-        membership.business_profile === String(eq.business_profile) &&
-        (!eq.status || Array.isArray(eq.status) || normalizeText(membership.status) === normalizeText(eq.status)) &&
-        (!call.whereInValues?.length || call.whereInValues.includes(normalizeText(membership.status)))
-      ) ?? null;
+      const match =
+        state.memberships.find(
+          (membership) =>
+            membership.user === String(eq.user) &&
+            membership.business_profile === String(eq.business_profile) &&
+            (!eq.status ||
+              Array.isArray(eq.status) ||
+              normalizeText(membership.status) === normalizeText(eq.status)) &&
+            (!call.whereInValues?.length ||
+              call.whereInValues.includes(normalizeText(membership.status))),
+        ) ?? null;
       return match;
     }
 
     if (eq.user && eq.member_role === 'owner') {
-      return state.ownerMemberships.find((membership) => membership.user === String(eq.user)) ?? null;
+      return (
+        state.ownerMemberships.find((membership) => membership.user === String(eq.user)) ?? null
+      );
     }
 
     if (eq.user) {
-      return state.activeMemberships.find((membership) => membership.user === String(eq.user)) ?? null;
+      return (
+        state.activeMemberships.find((membership) => membership.user === String(eq.user)) ?? null
+      );
     }
   }
 
@@ -89,11 +100,15 @@ function buildRow(table, call, state) {
     }
 
     if (eq.business_profile && eq.email) {
-      return state.pendingInvites.find((invite) =>
-        invite.business_profile === String(eq.business_profile) &&
-        normalizeText(invite.email) === normalizeText(eq.email) &&
-        (!call.whereInValues?.length || call.whereInValues.includes(normalizeText(invite.status)))
-      ) ?? null;
+      return (
+        state.pendingInvites.find(
+          (invite) =>
+            invite.business_profile === String(eq.business_profile) &&
+            normalizeText(invite.email) === normalizeText(eq.email) &&
+            (!call.whereInValues?.length ||
+              call.whereInValues.includes(normalizeText(invite.status))),
+        ) ?? null
+      );
     }
   }
 
@@ -103,20 +118,27 @@ function buildRow(table, call, state) {
     }
 
     if (eq.business_profile && eq.email) {
-      return state.pendingInvites.find((invite) =>
-        invite.business_profile === String(eq.business_profile) &&
-        normalizeText(invite.email) === normalizeText(eq.email) &&
-        (!call.whereInValues?.length || call.whereInValues.includes(normalizeText(invite.status)))
-      ) ?? null;
+      return (
+        state.pendingInvites.find(
+          (invite) =>
+            invite.business_profile === String(eq.business_profile) &&
+            normalizeText(invite.email) === normalizeText(eq.email) &&
+            (!call.whereInValues?.length ||
+              call.whereInValues.includes(normalizeText(invite.status))),
+        ) ?? null
+      );
     }
   }
 
   if (table === 'notifications') {
-    return state.notifications.find((notification) =>
-      notification.user === String(eq.user) &&
-      notification.link_type === String(eq.link_type) &&
-      notification.link_id === String(eq.link_id)
-    ) ?? null;
+    return (
+      state.notifications.find(
+        (notification) =>
+          notification.user === String(eq.user) &&
+          notification.link_type === String(eq.link_type) &&
+          notification.link_id === String(eq.link_id),
+      ) ?? null
+    );
   }
 
   if (table === 'departments as department') {
@@ -135,7 +157,7 @@ function createQueryBuilder(table, state, scope) {
     table,
     scope,
     filters: [],
-    whereInValues: []
+    whereInValues: [],
   };
   let recordedRead = false;
 
@@ -149,17 +171,23 @@ function createQueryBuilder(table, state, scope) {
       table,
       scope,
       filters: [...call.filters],
-      whereInValues: [...call.whereInValues]
+      whereInValues: [...call.whereInValues],
     });
   }
 
   const builder = {
-    leftJoin() { return builder; },
-    innerJoin() { return builder; },
-    select() { return builder; },
+    leftJoin() {
+      return builder;
+    },
+    innerJoin() {
+      return builder;
+    },
+    select() {
+      return builder;
+    },
     where(columnOrObject, value) {
       if (typeof columnOrObject === 'object' && columnOrObject !== null) {
-    for (const [column, item] of Object.entries(columnOrObject)) {
+        for (const [column, item] of Object.entries(columnOrObject)) {
           call.filters.push({ column, value: item });
         }
       } else {
@@ -175,48 +203,54 @@ function createQueryBuilder(table, state, scope) {
       call.whereInValues = Array.isArray(values) ? values.map((item) => normalizeText(item)) : [];
       return builder;
     },
-    orderBy() { return builder; },
-    forUpdate() { return builder; },
-    count() { return builder; },
+    orderBy() {
+      return builder;
+    },
+    forUpdate() {
+      return builder;
+    },
+    count() {
+      return builder;
+    },
     insert(payload) {
       state.calls.push({ type: 'insert', table, payload, scope });
 
       if (table === 'request_invites') {
         const invite = {
           id: `invite-${state.nextInviteId++}`,
-          ...payload
+          ...payload,
         };
         state.invitesById[invite.id] = invite;
         state.pendingInvites.push(invite);
         return {
-          returning: async () => [invite]
+          returning: async () => [invite],
         };
       }
 
       if (table === 'notifications') {
         const notification = {
           id: `notification-${state.nextNotificationId++}`,
-          ...payload
+          ...payload,
         };
         state.notifications.push(notification);
         return {
-          returning: async () => [{ id: notification.id }]
+          returning: async () => [{ id: notification.id }],
         };
       }
 
       if (table === 'business_profile_members') {
         const membership = {
           id: `membership-${state.nextMembershipId++}`,
-          ...payload
+          ...payload,
         };
         state.memberships.push(membership);
         return {
-          returning: async () => [membership]
+          returning: async () => [membership],
         };
       }
 
       return {
-        returning: async () => []
+        returning: async () => [],
       };
     },
     update(payload) {
@@ -256,14 +290,14 @@ function createQueryBuilder(table, state, scope) {
       recordRead();
       if (table === 'directus_roles' && call.whereInValues.length) {
         const rows = call.whereInValues
-          .map((id) => state.roleIds.includes(id) ? { id } : null)
+          .map((id) => (state.roleIds.includes(id) ? { id } : null))
           .filter(Boolean);
         return Promise.resolve(rows).then(resolve, reject);
       }
 
       const row = buildRow(table, call, state);
       return Promise.resolve(row ? [row] : []).then(resolve, reject);
-    }
+    },
   };
 
   return builder;
@@ -284,17 +318,19 @@ function createFakeDatabase(scenario) {
     invitesById: scenario.invitesById ?? {},
     pendingInvites: scenario.pendingInvites ?? [],
     notifications: scenario.notifications ?? [],
-    departments: scenario.departments ?? {}
+    departments: scenario.departments ?? {},
   };
 
   const database = (table) => createQueryBuilder(table, state, 'outside');
   database.raw = async () => undefined;
   database.fn = {
-    now: () => '2026-06-29T00:00:00.000Z'
+    now: () => '2026-06-29T00:00:00.000Z',
   };
   database.transaction = async (callback) => {
     const trx = (table) => createQueryBuilder(table, state, 'transaction');
-    trx.raw = async () => undefined;
+    trx.raw = async (sql, bindings) => {
+      state.calls.push({ type: 'raw', sql, bindings, scope: 'transaction' });
+    };
     trx.fn = database.fn;
     return callback(trx);
   };
@@ -309,8 +345,8 @@ function mountEndpoint(database, routeErrors = []) {
     logger: {
       error(meta, message) {
         routeErrors.push({ meta, message });
-      }
-    }
+      },
+    },
   });
   return router.handlers;
 }
@@ -322,7 +358,7 @@ async function withRoleEnv(callback) {
     manager: process.env.WELLAR_MANAGER_ROLE_ID,
     employee: process.env.WELLAR_EMPLOYEE_ROLE_ID,
     directusUrl: process.env.DIRECTUS_URL,
-    apiUrl: process.env.API_URL
+    apiUrl: process.env.API_URL,
   };
 
   process.env.WELLAR_OWNER_ROLE_ID = roleIds.owner;
@@ -351,8 +387,8 @@ function routePayload(inviteId, userId, email = 'new.person@example.com') {
     body: {
       email,
       member_role: 'manager',
-      department: 'department-1'
-    }
+      department: 'department-1',
+    },
   };
 }
 
@@ -363,40 +399,40 @@ await withRoleEnv(async () => {
         id: 'user-owner',
         email: 'owner@example.com',
         first_name: 'Owner',
-        last_name: 'User'
+        last_name: 'User',
       },
       'user-target': {
         id: 'user-target',
         email: 'new.person@example.com',
         first_name: 'New',
-        last_name: 'Person'
+        last_name: 'Person',
       },
       'user-target-2': {
         id: 'user-target-2',
         email: 'second.person@example.com',
         first_name: 'Second',
-        last_name: 'Person'
-      }
+        last_name: 'Person',
+      },
     },
     usersByEmail: {
       'owner@example.com': {
         id: 'user-owner',
         email: 'owner@example.com',
         first_name: 'Owner',
-        last_name: 'User'
+        last_name: 'User',
       },
       'new.person@example.com': {
         id: 'user-target',
         email: 'new.person@example.com',
         first_name: 'New',
-        last_name: 'Person'
+        last_name: 'Person',
       },
       'second.person@example.com': {
         id: 'user-target-2',
         email: 'second.person@example.com',
         first_name: 'Second',
-        last_name: 'Person'
-      }
+        last_name: 'Person',
+      },
     },
     activeMemberships: [
       {
@@ -409,8 +445,8 @@ await withRoleEnv(async () => {
         company_name: 'Northwind Logistics',
         workspace_is_active: true,
         plan_code: 'free',
-        billing_status: 'trialing'
-      }
+        billing_status: 'trialing',
+      },
     ],
     invitesById: {},
     notifications: [],
@@ -419,9 +455,9 @@ await withRoleEnv(async () => {
         id: 'department-1',
         name: 'Operations',
         is_active: true,
-        business_profile: 'profile-1'
-      }
-    }
+        business_profile: 'profile-1',
+      },
+    },
   });
   const routeErrors = [];
 
@@ -442,70 +478,215 @@ await withRoleEnv(async () => {
     assert.equal(inAppResponse.statusCode, 201);
     assert.equal(inAppResponse.body.data.deliveryChannel, 'in_app');
     assert.equal(inAppResponse.body.data.message, 'Invitation sent in Wellar.');
-    assert.equal(database.state.calls.filter((call) => call.table === 'notifications' && call.type === 'insert').length, 1);
-    assert.equal(database.state.calls.filter((call) => call.table === 'business_profile_members' && call.type === 'insert').length, 0);
-    assert.equal(database.state.calls.filter((call) => call.table === 'directus_users' && call.type === 'update').length, 0);
-    assert.equal(database.state.calls.filter((call) => call.table === 'request_invites' && call.type === 'insert').length, 1);
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'notifications' && call.type === 'insert',
+      ).length,
+      1,
+    );
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'business_profile_members' && call.type === 'insert',
+      ).length,
+      0,
+    );
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'directus_users' && call.type === 'update',
+      ).length,
+      0,
+    );
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'request_invites' && call.type === 'insert',
+      ).length,
+      1,
+    );
     assert.equal(database.state.notifications[0].business_profile, null);
     assert.equal(database.state.notifications[0].link_type, 'invite');
     assert.equal(database.state.notifications[0].link_id, inAppResponse.body.data.inviteId);
 
+    const expiredInviteId = inAppResponse.body.data.inviteId;
+    database.state.invitesById[expiredInviteId].expires_at = new Date(
+      Date.now() - 60_000,
+    ).toISOString();
+
+    const expiredDetailResponse = createFakeResponse();
+    await getInvite(
+      { accountability: { user: 'user-target' }, params: { inviteId: expiredInviteId } },
+      expiredDetailResponse,
+    );
+    assert.equal(expiredDetailResponse.statusCode, 200);
+    assert.equal(expiredDetailResponse.body.data.canAct, false);
+
+    const expiredAcceptResponse = createFakeResponse();
+    await acceptInvite(
+      { accountability: { user: 'user-target' }, params: { inviteId: expiredInviteId } },
+      expiredAcceptResponse,
+    );
+    assert.equal(expiredAcceptResponse.statusCode, 409);
+    assert.equal(expiredAcceptResponse.body.error.message, 'Invitation expired.');
+
+    const expiredDeclineResponse = createFakeResponse();
+    await declineInvite(
+      { accountability: { user: 'user-target' }, params: { inviteId: expiredInviteId } },
+      expiredDeclineResponse,
+    );
+    assert.equal(expiredDeclineResponse.statusCode, 409);
+    assert.equal(expiredDeclineResponse.body.error.message, 'Invitation expired.');
+
+    const reinviteAfterExpirationResponse = createFakeResponse();
+    await createInvite(routePayload(null, 'user-owner'), reinviteAfterExpirationResponse);
+    assert.equal(reinviteAfterExpirationResponse.statusCode, 201);
+    assert.notEqual(reinviteAfterExpirationResponse.body.data.inviteId, expiredInviteId);
+    database.state.invitesById[expiredInviteId].status = 'expired';
+
     const duplicateInviteResponse = createFakeResponse();
     await createInvite(routePayload(null, 'user-owner'), duplicateInviteResponse);
     assert.equal(duplicateInviteResponse.statusCode, 200);
-    assert.equal(duplicateInviteResponse.body.data.inviteId, inAppResponse.body.data.inviteId);
-    assert.equal(database.state.calls.filter((call) => call.table === 'request_invites' && call.type === 'insert').length, 1);
-    assert.equal(database.state.calls.filter((call) => call.table === 'notifications' && call.type === 'insert').length, 1);
-    const pendingInviteLookup = database.state.calls.find((call) =>
-      call.table === 'request_invites as invite' &&
-      call.scope === 'transaction' &&
-      call.filters?.some((filter) => filter.column === 'invite.business_profile' && filter.value === 'profile-1') &&
-      call.filters?.some((filter) => filter.column === 'invite.email' && filter.value === 'new.person@example.com')
+    assert.equal(
+      duplicateInviteResponse.body.data.inviteId,
+      reinviteAfterExpirationResponse.body.data.inviteId,
     );
-    assert.ok(pendingInviteLookup, 'existing pending invite lookup should qualify invite.business_profile and invite.email');
+    assert.equal(duplicateInviteResponse.body.data.deliveryChannel, 'in_app');
+    assert.deepEqual(
+      database.state.calls
+        .filter(
+          (call) =>
+            call.type === 'raw' &&
+            String(call.bindings?.[0] ?? '').startsWith('wellar-workspace-invite:'),
+        )
+        .map((call) => call.bindings[0]),
+      Array(3).fill('wellar-workspace-invite:profile-1:new.person@example.com'),
+    );
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'request_invites' && call.type === 'insert',
+      ).length,
+      2,
+    );
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'notifications' && call.type === 'insert',
+      ).length,
+      2,
+    );
+    const pendingInviteLookup = database.state.calls.find(
+      (call) =>
+        call.table === 'request_invites as invite' &&
+        call.scope === 'transaction' &&
+        call.filters?.some(
+          (filter) => filter.column === 'invite.business_profile' && filter.value === 'profile-1',
+        ) &&
+        call.filters?.some(
+          (filter) => filter.column === 'invite.email' && filter.value === 'new.person@example.com',
+        ),
+    );
+    assert.ok(
+      pendingInviteLookup,
+      'existing pending invite lookup should qualify invite.business_profile and invite.email',
+    );
 
-    const inviteId = inAppResponse.body.data.inviteId;
+    const inviteId = reinviteAfterExpirationResponse.body.data.inviteId;
     const detailResponse = createFakeResponse();
-    await getInvite({ accountability: { user: 'user-target' }, params: { inviteId } }, detailResponse);
+    await getInvite(
+      { accountability: { user: 'user-target' }, params: { inviteId } },
+      detailResponse,
+    );
     assert.equal(detailResponse.statusCode, 200);
     assert.equal(detailResponse.body.data.canAct, true);
     assert.equal(detailResponse.body.data.inviteType, 'in_app');
 
     const wrongUserResponse = createFakeResponse();
-    await getInvite({ accountability: { user: 'user-owner' }, params: { inviteId } }, wrongUserResponse);
+    await getInvite(
+      { accountability: { user: 'user-owner' }, params: { inviteId } },
+      wrongUserResponse,
+    );
     assert.equal(wrongUserResponse.statusCode, 404);
 
     const acceptResponse = createFakeResponse();
-    await acceptInvite({ accountability: { user: 'user-target' }, params: { inviteId } }, acceptResponse);
-    assert.equal(acceptResponse.statusCode, 200, JSON.stringify({ body: acceptResponse.body, routeErrors }));
+    await acceptInvite(
+      { accountability: { user: 'user-target' }, params: { inviteId } },
+      acceptResponse,
+    );
+    assert.equal(
+      acceptResponse.statusCode,
+      200,
+      JSON.stringify({ body: acceptResponse.body, routeErrors }),
+    );
     assert.equal(acceptResponse.body.data.ok, true);
     assert.equal(acceptResponse.body.data.membershipId, 'membership-1');
-    assert.equal(database.state.memberships.filter((item) => item.user === 'user-target' && item.business_profile === 'profile-1').length, 1);
-    assert.equal(database.state.calls.filter((call) => call.table === 'directus_users' && call.type === 'update').length, 0);
+    assert.equal(
+      database.state.memberships.filter(
+        (item) => item.user === 'user-target' && item.business_profile === 'profile-1',
+      ).length,
+      1,
+    );
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'directus_users' && call.type === 'update',
+      ).length,
+      0,
+    );
     assert.equal(database.state.invitesById[inviteId].status, 'claimed');
     assert.equal(database.state.invitesById[inviteId].accepted_user, 'user-target');
     assert.ok(database.state.invitesById[inviteId].claimed_at);
 
     const acceptAgain = createFakeResponse();
-    await acceptInvite({ accountability: { user: 'user-target' }, params: { inviteId } }, acceptAgain);
+    await acceptInvite(
+      { accountability: { user: 'user-target' }, params: { inviteId } },
+      acceptAgain,
+    );
     assert.equal(acceptAgain.statusCode, 200);
-    assert.equal(database.state.memberships.filter((item) => item.user === 'user-target' && item.business_profile === 'profile-1').length, 1);
+    assert.equal(
+      database.state.memberships.filter(
+        (item) => item.user === 'user-target' && item.business_profile === 'profile-1',
+      ).length,
+      1,
+    );
 
     const declineInviteResponse = createFakeResponse();
     const declineCreate = createFakeResponse();
-    await createInvite(routePayload(null, 'user-owner', 'second.person@example.com'), declineCreate);
+    await createInvite(
+      routePayload(null, 'user-owner', 'second.person@example.com'),
+      declineCreate,
+    );
     const declinedInviteId = declineCreate.body.data.inviteId;
 
-    await declineInvite({ accountability: { user: 'user-target-2' }, params: { inviteId: declinedInviteId } }, declineInviteResponse);
+    await declineInvite(
+      { accountability: { user: 'user-target-2' }, params: { inviteId: declinedInviteId } },
+      declineInviteResponse,
+    );
     assert.equal(declineInviteResponse.statusCode, 200);
     assert.equal(database.state.invitesById[declinedInviteId].status, 'revoked');
-    assert.equal(database.state.memberships.filter((item) => item.user === 'user-target-2' && item.business_profile === 'profile-1').length, 0);
-    assert.equal(database.state.calls.filter((call) => call.table === 'directus_users' && call.type === 'update').length, 0);
+    assert.equal(
+      database.state.memberships.filter(
+        (item) => item.user === 'user-target-2' && item.business_profile === 'profile-1',
+      ).length,
+      0,
+    );
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'directus_users' && call.type === 'update',
+      ).length,
+      0,
+    );
 
     const declineAgain = createFakeResponse();
-    await declineInvite({ accountability: { user: 'user-target-2' }, params: { inviteId: declinedInviteId } }, declineAgain);
+    await declineInvite(
+      { accountability: { user: 'user-target-2' }, params: { inviteId: declinedInviteId } },
+      declineAgain,
+    );
     assert.equal(declineAgain.statusCode, 200);
     assert.equal(declineAgain.body.data.message, 'Invitation already declined.');
+
+    const reinviteAfterDecline = createFakeResponse();
+    await createInvite(
+      routePayload(null, 'user-owner', 'second.person@example.com'),
+      reinviteAfterDecline,
+    );
+    assert.equal(reinviteAfterDecline.statusCode, 201);
+    assert.notEqual(reinviteAfterDecline.body.data.inviteId, declinedInviteId);
   } finally {
     globalThis.fetch = originalFetch;
   }
@@ -516,11 +697,11 @@ await withRoleEnv(async () => {
     usersById: {
       'user-owner': {
         id: 'user-owner',
-        email: 'owner@example.com'
-      }
+        email: 'owner@example.com',
+      },
     },
     usersByEmail: {
-      'external@example.com': null
+      'external@example.com': null,
     },
     activeMemberships: [
       {
@@ -533,8 +714,8 @@ await withRoleEnv(async () => {
         company_name: 'Northwind Logistics',
         workspace_is_active: true,
         plan_code: 'free',
-        billing_status: 'trialing'
-      }
+        billing_status: 'trialing',
+      },
     ],
     pendingInvites: [],
     notifications: [],
@@ -543,9 +724,9 @@ await withRoleEnv(async () => {
         id: 'department-1',
         name: 'Operations',
         is_active: true,
-        business_profile: 'profile-1'
-      }
-    }
+        business_profile: 'profile-1',
+      },
+    },
   });
 
   const fetchCalls = [];
@@ -556,14 +737,14 @@ await withRoleEnv(async () => {
     const invite = {
       id: 'invite-external',
       ...payload,
-      company_name: 'Northwind Logistics'
+      company_name: 'Northwind Logistics',
     };
     database.state.invitesById[invite.id] = invite;
     database.state.pendingInvites.push(invite);
     return {
       ok: true,
       status: 201,
-      json: async () => ({ data: { id: invite.id } })
+      json: async () => ({ data: { id: invite.id } }),
     };
   };
 
@@ -577,8 +758,18 @@ await withRoleEnv(async () => {
     assert.equal(response.body.data.deliveryChannel, 'email');
     assert.equal(response.body.data.message, 'Email invitation sent.');
     assert.equal(fetchCalls.length, 1);
-    assert.equal(database.state.calls.filter((call) => call.table === 'notifications' && call.type === 'insert').length, 0);
-    assert.equal(database.state.calls.filter((call) => call.table === 'request_invites' && call.type === 'insert').length, 0);
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'notifications' && call.type === 'insert',
+      ).length,
+      0,
+    );
+    assert.equal(
+      database.state.calls.filter(
+        (call) => call.table === 'request_invites' && call.type === 'insert',
+      ).length,
+      0,
+    );
 
     const duplicateExternal = createFakeResponse();
     await createInvite(routePayload(null, 'user-owner', 'external@example.com'), duplicateExternal);
@@ -594,18 +785,18 @@ await withRoleEnv(async () => {
     usersById: {
       'user-owner': {
         id: 'user-owner',
-        email: 'owner@example.com'
+        email: 'owner@example.com',
       },
       'user-member': {
         id: 'user-member',
-        email: 'new.person@example.com'
-      }
+        email: 'new.person@example.com',
+      },
     },
     usersByEmail: {
       'new.person@example.com': {
         id: 'user-member',
-        email: 'new.person@example.com'
-      }
+        email: 'new.person@example.com',
+      },
     },
     activeMemberships: [
       {
@@ -618,8 +809,8 @@ await withRoleEnv(async () => {
         company_name: 'Northwind Logistics',
         workspace_is_active: true,
         plan_code: 'free',
-        billing_status: 'trialing'
-      }
+        billing_status: 'trialing',
+      },
     ],
     memberships: [
       {
@@ -627,17 +818,17 @@ await withRoleEnv(async () => {
         user: 'user-member',
         business_profile: 'profile-1',
         status: 'active',
-        member_role: 'employee'
-      }
+        member_role: 'employee',
+      },
     ],
     departments: {
       'department-1': {
         id: 'department-1',
         name: 'Operations',
         is_active: true,
-        business_profile: 'profile-1'
-      }
-    }
+        business_profile: 'profile-1',
+      },
+    },
   });
 
   const handlers = mountEndpoint(database);
@@ -646,8 +837,17 @@ await withRoleEnv(async () => {
   await createInvite(routePayload(null, 'user-owner'), response);
   assert.equal(response.statusCode, 409);
   assert.equal(response.body.error.code, 'CONFLICT');
-  assert.equal(database.state.calls.filter((call) => call.type === 'insert' && call.table === 'request_invites').length, 0);
-  assert.equal(database.state.calls.filter((call) => call.type === 'insert' && call.table === 'notifications').length, 0);
+  assert.equal(
+    database.state.calls.filter(
+      (call) => call.type === 'insert' && call.table === 'request_invites',
+    ).length,
+    0,
+  );
+  assert.equal(
+    database.state.calls.filter((call) => call.type === 'insert' && call.table === 'notifications')
+      .length,
+    0,
+  );
 });
 
 console.log('invites-proof: ok');
