@@ -6,7 +6,16 @@ import { catchError, map, timeout } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth';
 
-export type WorkforceRosterState = 'verified_member' | 'pending_invitation' | 'repair_required' | 'inactive';
+export type WorkforceRosterState =
+  | 'verified_member'
+  | 'pending_invitation'
+  | 'repair_required'
+  | 'inactive';
+export type WorkforceRosterCategory =
+  | 'ACTIVE_MEMBER'
+  | 'PENDING_INVITATION'
+  | 'INACTIVE_MEMBER'
+  | 'NEEDS_ATTENTION';
 
 export type WorkforceRosterUser = {
   id: string;
@@ -36,6 +45,15 @@ export type WorkforceRosterActive = {
 } | null;
 
 export type WorkforceRosterSummary = {
+  activeMembers: number;
+  pendingInvitations: number;
+  inactiveMembers: number;
+  needsAttention: number;
+  eligibleMembers: number;
+  completedToday: number;
+  participationRate: number;
+  totalRecords: number;
+  departments: number;
   total: number;
   verified_members: number;
   pending_invitations: number;
@@ -51,6 +69,7 @@ export type WorkforceRosterRow = {
   id: string;
   type: 'member' | 'invite';
   state: WorkforceRosterState;
+  category: WorkforceRosterCategory;
   member_id: string | null;
   invite_id: string | null;
   user_id: string | null;
@@ -155,19 +174,21 @@ export class WorkforceRosterApiService {
 
   constructor(
     private readonly http: HttpClient,
-    private readonly auth: AuthService
+    private readonly auth: AuthService,
   ) {}
 
   getWorkforceRoster(): Observable<WorkforceRosterPayload> {
     const token = this.requireToken();
-    return this.http.get<unknown>(`${this.api}/wellar/workforce`, {
-      headers: this.auth.getAuthHeaders(token),
-      withCredentials: true
-    }).pipe(
-      timeout(12000),
-      map((response) => this.parseRosterResponse(response)),
-      catchError((error) => this.handleError(error, 'Workforce roster could not be loaded.'))
-    );
+    return this.http
+      .get<unknown>(`${this.api}/wellar/workforce`, {
+        headers: this.auth.getAuthHeaders(token),
+        withCredentials: true,
+      })
+      .pipe(
+        timeout(12000),
+        map((response) => this.parseRosterResponse(response)),
+        catchError((error) => this.handleError(error, 'Workforce roster could not be loaded.')),
+      );
   }
 
   private requireToken(): string {
@@ -188,11 +209,17 @@ export class WorkforceRosterApiService {
     return {
       active: this.parseActive(data['active']),
       permissions: this.parsePermissions(data['permissions']),
-      departments: this.asArray(data['departments']).map((item) => this.parseDepartment(item)).filter((item): item is WorkforceRosterDepartment => Boolean(item)),
-      rows: this.asArray(data['rows']).map((item) => this.parseRosterRow(item)).filter((item): item is WorkforceRosterRow => Boolean(item)),
-      eligible_scan_targets: this.asArray(data['eligible_scan_targets']).map((item) => this.parseEligibleTarget(item)).filter((item): item is WorkforceEligibleTarget => Boolean(item)),
+      departments: this.asArray(data['departments'])
+        .map((item) => this.parseDepartment(item))
+        .filter((item): item is WorkforceRosterDepartment => Boolean(item)),
+      rows: this.asArray(data['rows'])
+        .map((item) => this.parseRosterRow(item))
+        .filter((item): item is WorkforceRosterRow => Boolean(item)),
+      eligible_scan_targets: this.asArray(data['eligible_scan_targets'])
+        .map((item) => this.parseEligibleTarget(item))
+        .filter((item): item is WorkforceEligibleTarget => Boolean(item)),
       scan_requests: this.parseQueue(data['scan_requests']),
-      summary: this.parseRosterSummary(data['summary'])
+      summary: this.parseRosterSummary(data['summary']),
     };
   }
 
@@ -204,7 +231,7 @@ export class WorkforceRosterApiService {
     return {
       workspace: this.parseWorkspace(record['workspace'])!,
       membership: this.parseMembership(record['membership'])!,
-      department: this.parseDepartment(record['department'])
+      department: this.parseDepartment(record['department']),
     };
   }
 
@@ -215,7 +242,7 @@ export class WorkforceRosterApiService {
       canManageDepartments: record['canManageDepartments'] === true,
       canViewMembers: record['canViewMembers'] === true,
       canViewInvites: record['canViewInvites'] === true,
-      canUseComingSoonControls: record['canUseComingSoonControls'] === true
+      canUseComingSoonControls: record['canUseComingSoonControls'] === true,
     };
   }
 
@@ -235,7 +262,7 @@ export class WorkforceRosterApiService {
       companyName: this.pickString(record['companyName']),
       isActive: record['isActive'] === true,
       planCode: this.pickString(record['planCode']),
-      billingStatus: this.pickString(record['billingStatus'])
+      billingStatus: this.pickString(record['billingStatus']),
     };
   }
 
@@ -254,7 +281,7 @@ export class WorkforceRosterApiService {
     return {
       id,
       status: this.pickString(record['status']) ?? 'active',
-      memberRole
+      memberRole,
     };
   }
 
@@ -273,7 +300,7 @@ export class WorkforceRosterApiService {
     return {
       id,
       name,
-      is_active: record['is_active'] === true || record['isActive'] === true
+      is_active: record['is_active'] === true || record['isActive'] === true,
     };
   }
 
@@ -300,7 +327,7 @@ export class WorkforceRosterApiService {
       department_id: this.pickString(record['department_id']),
       department_name: this.pickString(record['department_name']),
       member_role,
-      status
+      status,
     };
   }
 
@@ -321,6 +348,7 @@ export class WorkforceRosterApiService {
       id,
       type,
       state,
+      category: this.parseRosterCategory(record['category'], state),
       member_id: this.pickString(record['member_id']),
       invite_id: this.pickString(record['invite_id']),
       user_id: this.pickString(record['user_id']),
@@ -343,15 +371,17 @@ export class WorkforceRosterApiService {
       readiness_label: this.pickString(record['readiness_label']),
       presence_status: this.pickString(record['presence_status']),
       presence_label: this.pickString(record['presence_label']),
-      business_profile_name: this.pickString(record['business_profile_name'])
+      business_profile_name: this.pickString(record['business_profile_name']),
     };
   }
 
   private parseQueue(value: unknown): WorkforceRosterPayload['scan_requests'] {
     const record = this.asRecord(value) ?? {};
     return {
-      rows: this.asArray(record['rows']).map((item) => this.parseQueueRow(item)).filter((item): item is WorkforceRosterQueueRow => Boolean(item)),
-      summary: this.parseQueueSummary(record['summary'])
+      rows: this.asArray(record['rows'])
+        .map((item) => this.parseQueueRow(item))
+        .filter((item): item is WorkforceRosterQueueRow => Boolean(item)),
+      summary: this.parseQueueSummary(record['summary']),
     };
   }
 
@@ -377,7 +407,7 @@ export class WorkforceRosterApiService {
       business_profile: this.parseQueueWorkspace(record['business_profile']),
       department: this.parseQueueDepartment(record['department']),
       target_member: this.parseQueueTargetMember(record['target_member']),
-      requested_by_user: this.parseQueueUser(record['requested_by_user'])
+      requested_by_user: this.parseQueueUser(record['requested_by_user']),
     };
   }
 
@@ -395,7 +425,7 @@ export class WorkforceRosterApiService {
     return {
       id,
       companyName: this.pickString(record['companyName'] ?? record['company_name']),
-      isActive: record['isActive'] === true || record['is_active'] === true
+      isActive: record['isActive'] === true || record['is_active'] === true,
     };
   }
 
@@ -422,7 +452,7 @@ export class WorkforceRosterApiService {
         status: 'active',
         member_role: 'employee',
         user: null,
-        department: null
+        department: null,
       };
     }
 
@@ -431,18 +461,22 @@ export class WorkforceRosterApiService {
       status: this.pickString(record['status']) ?? 'active',
       member_role: this.pickString(record['member_role']) ?? 'employee',
       user: this.parseQueueUser(record['user']),
-      department: this.parseQueueDepartment(record['department'])
+      department: this.parseQueueDepartment(record['department']),
     };
   }
 
-  private parseQueueUser(value: unknown): WorkforceRosterQueueRow['requested_by_user'] | WorkforceRosterQueueRow['target_member']['user'] {
+  private parseQueueUser(
+    value: unknown,
+  ):
+    | WorkforceRosterQueueRow['requested_by_user']
+    | WorkforceRosterQueueRow['target_member']['user'] {
     const record = this.asRecord(value);
     if (!record) {
       return {
         id: '',
         email: null,
         first_name: null,
-        last_name: null
+        last_name: null,
       };
     }
 
@@ -450,7 +484,7 @@ export class WorkforceRosterApiService {
       id: this.pickString(record['id']) ?? '',
       email: this.pickString(record['email']),
       first_name: this.pickString(record['first_name']),
-      last_name: this.pickString(record['last_name'])
+      last_name: this.pickString(record['last_name']),
     };
   }
 
@@ -460,23 +494,63 @@ export class WorkforceRosterApiService {
       total: this.toNumber(record['total']) ?? 0,
       pending: this.toNumber(record['pending']) ?? 0,
       completed: this.toNumber(record['completed']) ?? 0,
-      overdue: this.toNumber(record['overdue']) ?? 0
+      overdue: this.toNumber(record['overdue']) ?? 0,
     };
   }
 
   private parseRosterSummary(value: unknown): WorkforceRosterSummary {
     const record = this.asRecord(value) ?? {};
+    const activeMembers = this.toNumber(record['activeMembers'] ?? record['verified_members']) ?? 0;
+    const pendingInvitations =
+      this.toNumber(record['pendingInvitations'] ?? record['pending_invitations']) ?? 0;
+    const inactiveMembers = this.toNumber(record['inactiveMembers'] ?? record['inactive']) ?? 0;
+    const needsAttention =
+      this.toNumber(record['needsAttention'] ?? record['repair_required']) ?? 0;
+    const eligibleMembers =
+      this.toNumber(record['eligibleMembers'] ?? record['eligible_scan_targets']) ?? 0;
+    const completedToday = this.toNumber(record['completedToday']) ?? 0;
+    const participationRate = this.toNumber(record['participationRate']) ?? 0;
+    const totalRecords = this.toNumber(record['totalRecords'] ?? record['total']) ?? 0;
+    const departments = this.toNumber(record['departments']) ?? 0;
     return {
-      total: this.toNumber(record['total']) ?? 0,
-      verified_members: this.toNumber(record['verified_members']) ?? 0,
-      pending_invitations: this.toNumber(record['pending_invitations']) ?? 0,
-      repair_required: this.toNumber(record['repair_required']) ?? 0,
-      inactive: this.toNumber(record['inactive']) ?? 0,
-      eligible_scan_targets: this.toNumber(record['eligible_scan_targets']) ?? 0,
+      activeMembers,
+      pendingInvitations,
+      inactiveMembers,
+      needsAttention,
+      eligibleMembers,
+      completedToday,
+      participationRate,
+      totalRecords,
+      departments,
+      total: totalRecords,
+      verified_members: activeMembers,
+      pending_invitations: pendingInvitations,
+      repair_required: needsAttention,
+      inactive: inactiveMembers,
+      eligible_scan_targets: eligibleMembers,
       open_scan_requests: this.toNumber(record['open_scan_requests']) ?? 0,
       completed_scan_requests: this.toNumber(record['completed_scan_requests']) ?? 0,
-      overdue_scan_requests: this.toNumber(record['overdue_scan_requests']) ?? 0
+      overdue_scan_requests: this.toNumber(record['overdue_scan_requests']) ?? 0,
     };
+  }
+
+  private parseRosterCategory(
+    value: unknown,
+    state: WorkforceRosterState,
+  ): WorkforceRosterCategory {
+    const category = this.pickString(value);
+    if (
+      category === 'ACTIVE_MEMBER' ||
+      category === 'PENDING_INVITATION' ||
+      category === 'INACTIVE_MEMBER' ||
+      category === 'NEEDS_ATTENTION'
+    ) {
+      return category;
+    }
+    if (state === 'pending_invitation') return 'PENDING_INVITATION';
+    if (state === 'inactive') return 'INACTIVE_MEMBER';
+    if (state === 'repair_required') return 'NEEDS_ATTENTION';
+    return 'ACTIVE_MEMBER';
   }
 
   private asRecord(value: unknown): Record<string, unknown> | null {

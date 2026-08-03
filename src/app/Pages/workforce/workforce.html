@@ -80,15 +80,15 @@
           label="Scan Coverage"
           [value]="scanCoverageLabel"
           [helper]="scanCoverageHelper"
-          [tone]="summary.scannedToday > 0 ? 'success' : 'neutral'"
+          [tone]="summary.completedToday > 0 ? 'success' : 'neutral'"
           toneLabel="Today"></app-kpi-card>
 
         <app-kpi-card
           *ngIf="canShowInvitations"
           label="Pending Invitations"
-          [value]="summary.pendingInvites.toString()"
+          [value]="summary.pendingInvitations.toString()"
           helper="Pending invitations returned for this organization."
-          [tone]="summary.pendingInvites > 0 ? 'warning' : 'neutral'"
+          [tone]="summary.pendingInvitations > 0 ? 'warning' : 'neutral'"
           toneLabel="Pending"></app-kpi-card>
       </div>
     </app-dashboard-section>

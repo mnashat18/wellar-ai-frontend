@@ -1292,6 +1292,12 @@ function publicWorkforceMember(row, options = {}) {
     'Needs data repair';
   const state =
     status !== 'active' ? 'inactive' : !userId || !rawEmail ? 'repair_required' : 'verified_member';
+  const category =
+    state === 'inactive'
+      ? 'INACTIVE_MEMBER'
+      : state === 'repair_required'
+        ? 'NEEDS_ATTENTION'
+        : 'ACTIVE_MEMBER';
   const reason =
     state === 'repair_required'
       ? !userId
@@ -1304,6 +1310,7 @@ function publicWorkforceMember(row, options = {}) {
     id: String(row.id),
     type: 'member',
     state,
+    category,
     member_id: String(row.id),
     invite_id: null,
     user_id: userId ?? null,
@@ -1341,6 +1348,7 @@ function publicWorkforceInvite(row, options = {}) {
     id: String(row.id),
     type: 'invite',
     state: 'pending_invitation',
+    category: 'PENDING_INVITATION',
     member_id: null,
     invite_id: String(row.id),
     user_id: null,
@@ -1906,13 +1914,53 @@ async function loadWorkforceRoster(trx, workspaceId, role, departmentId = null, 
       member_role: row.member_role,
       status: row.status,
     }));
+  const activeMembers = rows.filter((row) => row.category === 'ACTIVE_MEMBER').length;
+  const pendingInvitations = rows.filter((row) => row.category === 'PENDING_INVITATION').length;
+  const inactiveMembers = rows.filter((row) => row.category === 'INACTIVE_MEMBER').length;
+  const needsAttention = rows.filter((row) => row.category === 'NEEDS_ATTENTION').length;
+  const eligibleMembers = eligibleScanTargets.length;
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const completedTodayMemberIds = new Set(
+    scanRequests.rows
+      .filter((request) => {
+        const status = pickString(request.status)?.toLowerCase() ?? '';
+        const completedAt = pickString(request.completed_at);
+        return status === 'completed' && completedAt?.slice(0, 10) === todayUtc;
+      })
+      .map((request) => pickString(request.target_member?.id))
+      .filter(Boolean),
+  );
+  const eligibleMemberIds = new Set(eligibleScanTargets.map((target) => target.member_id));
+  const completedToday = [...completedTodayMemberIds].filter((memberId) =>
+    eligibleMemberIds.has(memberId),
+  ).length;
+  const participationRate =
+    eligibleMembers > 0 ? Math.round((completedToday / eligibleMembers) * 100) : 0;
+  const totalRecords = rows.length;
+  const scanRequested = scanRequests.summary.pending + scanRequests.summary.overdue;
+  const missingScans = Math.max(eligibleMembers - completedToday, 0);
   const summary = {
-    total: rows.length,
-    verified_members: rows.filter((row) => row.state === 'verified_member').length,
-    pending_invitations: rows.filter((row) => row.state === 'pending_invitation').length,
-    repair_required: rows.filter((row) => row.state === 'repair_required').length,
-    inactive: rows.filter((row) => row.state === 'inactive').length,
-    eligible_scan_targets: eligibleScanTargets.length,
+    activeMembers,
+    pendingInvitations,
+    inactiveMembers,
+    needsAttention,
+    eligibleMembers,
+    completedToday,
+    participationRate,
+    totalRecords,
+    departments: (departments ?? []).filter((department) => department.is_active === true).length,
+    scanRequested,
+    missingScans,
+    ownerCount: rows.filter((row) => row.member_role === 'owner' && row.category === 'ACTIVE_MEMBER').length,
+    hrCount: rows.filter((row) => row.member_role === 'hr' && row.category === 'ACTIVE_MEMBER').length,
+    managerCount: rows.filter((row) => row.member_role === 'manager' && row.category === 'ACTIVE_MEMBER').length,
+    employeeCount: rows.filter((row) => row.member_role === 'employee' && row.category === 'ACTIVE_MEMBER').length,
+    total: totalRecords,
+    verified_members: activeMembers,
+    pending_invitations: pendingInvitations,
+    repair_required: needsAttention,
+    inactive: inactiveMembers,
+    eligible_scan_targets: eligibleMembers,
     open_scan_requests: scanRequests.summary.pending + scanRequests.summary.overdue,
     completed_scan_requests: scanRequests.summary.completed,
     overdue_scan_requests: scanRequests.summary.overdue,

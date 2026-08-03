@@ -1,5 +1,13 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  HostListener,
+  OnDestroy,
+  OnInit,
+  ViewChild,
+} from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
@@ -15,7 +23,7 @@ import {
   type WorkforceRosterRow,
   type WorkforceScanRequestRow,
   type WorkforceScanStatus,
-  type WorkforceSummary
+  type WorkforceSummary,
 } from '../../services/operations-admin.service';
 import { CardSkeletonLoaderComponent } from '../../shared/ui/card-skeleton-loader/card-skeleton-loader.component';
 import { DashboardSectionComponent } from '../../shared/ui/dashboard-section/dashboard-section.component';
@@ -75,10 +83,10 @@ type DestructiveAction = {
     TableShellComponent,
     ErrorStateComponent,
     CardSkeletonLoaderComponent,
-    ViewportDialogComponent
+    ViewportDialogComponent,
   ],
   templateUrl: './workforce.html',
-  styleUrls: ['./workforce.css']
+  styleUrls: ['./workforce.css'],
 })
 export class WorkforcePageComponent implements OnInit, OnDestroy {
   @ViewChild('detailsCloseButton') private detailsCloseButton?: ElementRef<HTMLButtonElement>;
@@ -93,6 +101,14 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
   pageData: WorkforceRosterPageData | null = null;
   summary: WorkforceSummary = {
     activeMembers: 0,
+    pendingInvitations: 0,
+    inactiveMembers: 0,
+    needsAttention: 0,
+    eligibleMembers: 0,
+    completedToday: 0,
+    participationRate: 0,
+    totalRecords: 0,
+    departments: 0,
     scanEligible: 0,
     scanRequested: 0,
     scannedToday: 0,
@@ -102,7 +118,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     hrCount: 0,
     managerCount: 0,
     employeeCount: 0,
-    needsReviewCount: 0
+    needsReviewCount: 0,
   };
 
   filters: WorkforceFilters = {
@@ -110,20 +126,20 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     role: '',
     department: '',
     status: 'all',
-    todayScan: 'all'
+    todayScan: 'all',
   };
 
   readonly statusFilterOptions: StatusFilterOption[] = [
     { value: 'all', label: 'All rows' },
     { value: 'active_member', label: 'Active members' },
-    { value: 'pending_invite', label: 'Pending invitations' }
+    { value: 'pending_invite', label: 'Pending invitations' },
   ];
 
   readonly todayScanFilterOptions: StatusFilterOption[] = [
     { value: 'all', label: 'All scan states' },
     { value: 'eligible', label: 'Scan Eligible' },
     { value: 'requested', label: 'Scan Requested' },
-    { value: 'none_assigned', label: 'No Scan Assigned' }
+    { value: 'none_assigned', label: 'No Scan Assigned' },
   ];
 
   showInviteModal = false;
@@ -159,7 +175,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private router: Router,
     private route: ActivatedRoute,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
   ) {}
 
   ngOnInit(): void {
@@ -170,8 +186,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     this.loadPage();
   }
 
-  ngOnDestroy(): void {
-  }
+  ngOnDestroy(): void {}
 
   @HostListener('document:keydown.escape')
   onEscape(): void {
@@ -193,8 +208,8 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
     const focusable = Array.from(
       panel.querySelectorAll<HTMLElement>(
-        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
-      )
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      ),
     ).filter((item) => item.offsetParent !== null);
 
     if (!focusable.length) {
@@ -243,7 +258,9 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     }
 
     if (this.isOwnerOrHr) {
-      const organization = this.companyContext.snapshot().context.activeBusinessProfileName || 'the active organization';
+      const organization =
+        this.companyContext.snapshot().context.activeBusinessProfileName ||
+        'the active organization';
       return `Organization workforce overview for ${organization}.`;
     }
 
@@ -260,14 +277,20 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
   get scopeLabel(): string {
     if (this.isManager) {
-      return this.managerDepartmentLabel ? `Department: ${this.managerDepartmentLabel}` : 'Department scope';
+      return this.managerDepartmentLabel
+        ? `Department: ${this.managerDepartmentLabel}`
+        : 'Department scope';
     }
 
     return 'Organization scope';
   }
 
   get showNoActiveDepartmentState(): boolean {
-    return this.isManager && !this.companyContext.snapshot().context.activeDepartmentId && this.viewState !== 'loading';
+    return (
+      this.isManager &&
+      !this.companyContext.snapshot().context.activeDepartmentId &&
+      this.viewState !== 'loading'
+    );
   }
 
   get currentRole(): ActiveMemberRole | null {
@@ -285,12 +308,14 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
   get roleOptions(): string[] {
     const rows = this.rosterRows;
     return Array.from(new Set(rows.map((row) => row.member_role).filter(Boolean))).sort((a, b) =>
-      a.localeCompare(b)
+      a.localeCompare(b),
     );
   }
 
   get visibleStatusFilterOptions(): StatusFilterOption[] {
-    return this.statusFilterOptions.filter((option) => option.value !== 'pending_invite' || this.canShowInvitations);
+    return this.statusFilterOptions.filter(
+      (option) => option.value !== 'pending_invite' || this.canShowInvitations,
+    );
   }
 
   get rosterRows(): WorkforceRosterRow[] {
@@ -310,8 +335,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
         (row.identity?.email ?? '').toLowerCase().includes(search) ||
         (row.department_name ?? '').toLowerCase().includes(search);
 
-      const matchesRole =
-        !roleFilter || this.normalizeRoleForUi(row.member_role) === roleFilter;
+      const matchesRole = !roleFilter || this.normalizeRoleForUi(row.member_role) === roleFilter;
 
       const matchesDepartment =
         !this.filters.department || row.department_id === this.filters.department;
@@ -319,13 +343,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       const matchesStatus = this.matchesStatusFilter(row, this.filters.status);
       const matchesScan = this.matchesScanFilter(row, this.filters.todayScan);
 
-      return (
-        matchesSearch &&
-        matchesRole &&
-        matchesDepartment &&
-        matchesStatus &&
-        matchesScan
-      );
+      return matchesSearch && matchesRole && matchesDepartment && matchesStatus && matchesScan;
     });
   }
 
@@ -339,7 +357,8 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     }
 
     return this.filteredRows.filter(
-      (row) => row.type === 'invite' && ['pending', 'sent'].includes(this.normalizeStatus(row.status))
+      (row) =>
+        row.type === 'invite' && ['pending', 'sent'].includes(this.normalizeStatus(row.status)),
     );
   }
 
@@ -348,7 +367,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
   }
 
   get resultCountLabel(): string {
-    const total = this.rosterRows.length;
+    const total = this.summary.totalRecords;
     const visible = this.filteredRows.length;
     return `${visible} of ${total} shown`;
   }
@@ -358,7 +377,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       return this.managerDepartmentLabel || 'Unavailable';
     }
 
-    return String(this.departmentOptions.length);
+    return String(this.summary.departments);
   }
 
   get departmentSummaryLabel(): string {
@@ -372,17 +391,11 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
   }
 
   get scanCoverageLabel(): string {
-    const eligible = this.summary.scanEligible;
-    const completed = this.summary.scannedToday;
-    if (!eligible) {
-      return '0%';
-    }
-
-    return `${Math.round((completed / eligible) * 100)}%`;
+    return `${this.summary.participationRate}%`;
   }
 
   get scanCoverageHelper(): string {
-    return `${this.summary.scannedToday} of ${this.summary.scanEligible} scan-eligible members scanned today.`;
+    return `${this.summary.completedToday} of ${this.summary.eligibleMembers} scan-eligible members scanned today.`;
   }
 
   get rosterEmptyTitle(): string {
@@ -417,7 +430,9 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
   get openScanRequestRows(): WorkforceScanRequestRow[] {
     const rows = this.pageData?.scanRequestRows ?? [];
-    return rows.filter((row) => !row.cancelled && !this.isClosedRequestStatus(row.status)).slice(0, 5);
+    return rows
+      .filter((row) => !row.cancelled && !this.isClosedRequestStatus(row.status))
+      .slice(0, 5);
   }
 
   get hasOpenScanRequests(): boolean {
@@ -435,7 +450,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       role: '',
       department: '',
       status: 'all',
-      todayScan: 'all'
+      todayScan: 'all',
     };
   }
 
@@ -483,27 +498,30 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     const inviteInput: CreateInviteInput = {
       email,
       member_role: this.normalizeRoleForUi(this.inviteForm.role || 'employee'),
-      department: this.toNullable(this.inviteForm.department)
+      department: this.toNullable(this.inviteForm.department),
     };
 
     this.savingInvite = true;
     this.inviteFormError = '';
 
-    this.operationsAdmin.createInvite(inviteInput).pipe(
-      finalize(() => {
-        this.savingInvite = false;
-      })
-    ).subscribe({
-      next: (result) => {
-        this.showInviteModal = false;
-        void result;
-        this.pushFeedback('success', 'Invitation sent.');
-        this.loadPage();
-      },
-      error: (error) => {
-        this.inviteFormError = this.toFriendlyError(error, 'Failed to send invite.');
-      }
-    });
+    this.operationsAdmin
+      .createInvite(inviteInput)
+      .pipe(
+        finalize(() => {
+          this.savingInvite = false;
+        }),
+      )
+      .subscribe({
+        next: (result) => {
+          this.showInviteModal = false;
+          void result;
+          this.pushFeedback('success', 'Invitation sent.');
+          this.loadPage();
+        },
+        error: (error) => {
+          this.inviteFormError = this.toFriendlyError(error, 'Failed to send invite.');
+        },
+      });
   }
 
   openMemberView(row: WorkforceRosterRow): void {
@@ -513,7 +531,8 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
     this.selectedMember = row;
     this.showDetailsModal = true;
-    this.previouslyFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    this.previouslyFocusedElement =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null;
     queueMicrotask(() => this.detailsCloseButton?.nativeElement.focus());
   }
 
@@ -525,7 +544,12 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
   }
 
   canSendScanRequest(row: WorkforceRosterRow): boolean {
-    return row.state === 'verified_member' && ['hr', 'manager', 'employee'].includes(row.member_role) && Boolean(row.email) && (this.currentRole === 'owner' || this.currentRole === 'hr');
+    return (
+      row.state === 'verified_member' &&
+      ['hr', 'manager', 'employee'].includes(row.member_role) &&
+      Boolean(row.email) &&
+      (this.currentRole === 'owner' || this.currentRole === 'hr')
+    );
   }
 
   sendScanRequest(row: WorkforceRosterRow): void {
@@ -538,8 +562,8 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
         openCreateRequest: true,
         workforceTargetMemberId: row.member_id,
         workforceTargetName: this.memberName(row),
-        workforceTargetEmail: this.memberSecondaryLabel(row)
-      }
+        workforceTargetEmail: this.memberSecondaryLabel(row),
+      },
     });
   }
 
@@ -592,20 +616,23 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     this.savingRole = true;
     const role = this.normalizeRoleForUi(this.roleModalValue);
 
-    this.operationsAdmin.updateMember(member.member_id, { member_role: role }).pipe(
-      finalize(() => {
-        this.savingRole = false;
-      })
-    ).subscribe({
-      next: () => {
-        this.closeRoleModal();
-        this.pushFeedback('success', 'Member role updated.');
-        this.loadPage();
-      },
-      error: (error) => {
-        this.pushFeedback('error', this.toFriendlyError(error, 'Failed to update role.'));
-      }
-    });
+    this.operationsAdmin
+      .updateMember(member.member_id, { member_role: role })
+      .pipe(
+        finalize(() => {
+          this.savingRole = false;
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.closeRoleModal();
+          this.pushFeedback('success', 'Member role updated.');
+          this.loadPage();
+        },
+        error: (error) => {
+          this.pushFeedback('error', this.toFriendlyError(error, 'Failed to update role.'));
+        },
+      });
   }
 
   canAssignDepartment(row: WorkforceRosterRow | null): boolean {
@@ -638,22 +665,25 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
     this.savingDepartment = true;
 
-    this.operationsAdmin.updateMember(member.member_id, {
-      department: this.toNullable(this.departmentModalValue)
-    }).pipe(
-      finalize(() => {
-        this.savingDepartment = false;
+    this.operationsAdmin
+      .updateMember(member.member_id, {
+        department: this.toNullable(this.departmentModalValue),
       })
-    ).subscribe({
-      next: () => {
-        this.closeDepartmentModal();
-        this.pushFeedback('success', 'Department updated.');
-        this.loadPage();
-      },
-      error: (error) => {
-        this.pushFeedback('error', this.toFriendlyError(error, 'Failed to update department.'));
-      }
-    });
+      .pipe(
+        finalize(() => {
+          this.savingDepartment = false;
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.closeDepartmentModal();
+          this.pushFeedback('success', 'Department updated.');
+          this.loadPage();
+        },
+        error: (error) => {
+          this.pushFeedback('error', this.toFriendlyError(error, 'Failed to update department.'));
+        },
+      });
   }
 
   canDeactivate(row: WorkforceRosterRow | null): boolean {
@@ -674,7 +704,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       row,
       title: 'Remove Member',
       description: `Deactivate ${label} from active workforce?`,
-      confirmLabel: 'Remove Member'
+      confirmLabel: 'Remove Member',
     };
     this.showDestructiveModal = true;
   }
@@ -699,7 +729,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.pushFeedback('error', this.toFriendlyError(error, 'Failed to resend invite.'));
-      }
+      },
     });
   }
 
@@ -718,7 +748,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       row,
       title: 'Cancel Invite',
       description: `Cancel pending invite for ${label}?`,
-      confirmLabel: 'Cancel Invite'
+      confirmLabel: 'Cancel Invite',
     };
     this.showDestructiveModal = true;
   }
@@ -731,8 +761,8 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     this.router.navigate(['/app/scan-requests'], {
       state: {
         workforceRequestTargetName: request.target_identity.displayName,
-        workforceRequestTargetEmail: request.target_identity.email
-      }
+        workforceRequestTargetEmail: request.target_identity.email,
+      },
     });
   }
 
@@ -760,20 +790,23 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
         return;
       }
 
-      this.operationsAdmin.deactivateMember(memberId).pipe(
-        finalize(() => {
-          this.destructiveLoading = false;
-        })
-      ).subscribe({
-        next: () => {
-          this.closeDestructiveModal();
-          this.pushFeedback('success', 'Member removed from active roster.');
-          this.loadPage();
-        },
-        error: (error: unknown) => {
-          this.pushFeedback('error', this.toFriendlyError(error, 'Failed to deactivate member.'));
-        }
-      });
+      this.operationsAdmin
+        .deactivateMember(memberId)
+        .pipe(
+          finalize(() => {
+            this.destructiveLoading = false;
+          }),
+        )
+        .subscribe({
+          next: () => {
+            this.closeDestructiveModal();
+            this.pushFeedback('success', 'Member removed from active roster.');
+            this.loadPage();
+          },
+          error: (error: unknown) => {
+            this.pushFeedback('error', this.toFriendlyError(error, 'Failed to deactivate member.'));
+          },
+        });
       return;
     }
 
@@ -784,20 +817,23 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.operationsAdmin.revokeInvite(inviteId).pipe(
-      finalize(() => {
-        this.destructiveLoading = false;
-      })
-    ).subscribe({
-      next: () => {
-        this.closeDestructiveModal();
-        this.pushFeedback('success', 'Invite cancelled.');
-        this.loadPage();
-      },
-      error: (error) => {
-        this.pushFeedback('error', this.toFriendlyError(error, 'Failed to cancel invite.'));
-      }
-    });
+    this.operationsAdmin
+      .revokeInvite(inviteId)
+      .pipe(
+        finalize(() => {
+          this.destructiveLoading = false;
+        }),
+      )
+      .subscribe({
+        next: () => {
+          this.closeDestructiveModal();
+          this.pushFeedback('success', 'Invite cancelled.');
+          this.loadPage();
+        },
+        error: (error) => {
+          this.pushFeedback('error', this.toFriendlyError(error, 'Failed to cancel invite.'));
+        },
+      });
   }
 
   roleLabel(value: string | null | undefined): string {
@@ -823,7 +859,10 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
   rowBadgeLabel(row: WorkforceRosterRow): string {
     if (row.type === 'invite') {
-      if (this.normalizeStatus(row.status) === 'accepted' || this.normalizeStatus(row.status) === 'claimed') {
+      if (
+        this.normalizeStatus(row.status) === 'accepted' ||
+        this.normalizeStatus(row.status) === 'claimed'
+      ) {
         return 'Invite Claimed';
       }
       if (this.isInviteExpired(row)) {
@@ -849,7 +888,10 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
   rowBadgeClass(row: WorkforceRosterRow): string {
     if (row.type === 'invite') {
-      if (this.normalizeStatus(row.status) === 'accepted' || this.normalizeStatus(row.status) === 'claimed') {
+      if (
+        this.normalizeStatus(row.status) === 'accepted' ||
+        this.normalizeStatus(row.status) === 'claimed'
+      ) {
         return 'workforce-badge workforce-badge--claimed';
       }
       if (this.isInviteExpired(row)) {
@@ -912,7 +954,10 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     if (row.type !== 'member') {
       return false;
     }
-    return this.normalizeStatus(row.status) === 'active' && this.normalizeRoleForUi(row.member_role) === 'employee';
+    return (
+      this.normalizeStatus(row.status) === 'active' &&
+      this.normalizeRoleForUi(row.member_role) === 'employee'
+    );
   }
 
   lastScanLabel(row: WorkforceRosterRow): string {
@@ -1024,7 +1069,9 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
   }
 
   departmentLabel(row: WorkforceRosterRow): string {
-    return row.department_name || (this.isManager ? this.managerDepartmentLabel : '') || 'Unassigned';
+    return (
+      row.department_name || (this.isManager ? this.managerDepartmentLabel : '') || 'Unassigned'
+    );
   }
 
   employmentLabel(row: WorkforceRosterRow): string {
@@ -1138,7 +1185,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false
+      hour12: false,
     }).format(date);
   }
 
@@ -1164,38 +1211,41 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       this.errorDetails = '';
       this.relationWarning = null;
 
-      this.companyContext.ensureLoaded().pipe(take(1)).subscribe({
-        next: () => {
-          const settled = this.companyContext.snapshot().context;
-          const settledToken = this.auth.getStoredAccessToken();
-          if (
-            settled.authInitialized &&
-            settled.workspaceInitialized &&
-            settled.isAuthenticated &&
-            settledToken &&
-            settled.activeBusinessProfileId
-          ) {
-            queueMicrotask(() => this.loadPage(manualRetry));
-            return;
-          }
+      this.companyContext
+        .ensureLoaded()
+        .pipe(take(1))
+        .subscribe({
+          next: () => {
+            const settled = this.companyContext.snapshot().context;
+            const settledToken = this.auth.getStoredAccessToken();
+            if (
+              settled.authInitialized &&
+              settled.workspaceInitialized &&
+              settled.isAuthenticated &&
+              settledToken &&
+              settled.activeBusinessProfileId
+            ) {
+              queueMicrotask(() => this.loadPage(manualRetry));
+              return;
+            }
 
-          if (!settledToken || !settled.isAuthenticated) {
+            if (!settledToken || !settled.isAuthenticated) {
+              this.viewState = 'error';
+              this.errorMessage = 'Please sign in to load workforce data.';
+              this.errorDetails = '';
+              return;
+            }
+
             this.viewState = 'error';
-            this.errorMessage = 'Please sign in to load workforce data.';
+            this.errorMessage = 'Select an active workspace before opening Workforce.';
             this.errorDetails = '';
-            return;
-          }
-
-          this.viewState = 'error';
-          this.errorMessage = 'Select an active workspace before opening Workforce.';
-          this.errorDetails = '';
-        },
-        error: (error: unknown) => {
-          this.viewState = 'error';
-          this.errorMessage = this.resolveSetupError(error);
-          this.errorDetails = '';
-        }
-      });
+          },
+          error: (error: unknown) => {
+            this.viewState = 'error';
+            this.errorMessage = this.resolveSetupError(error);
+            this.errorDetails = '';
+          },
+        });
       return;
     }
 
@@ -1203,6 +1253,14 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       this.pageData = null;
       this.summary = {
         activeMembers: 0,
+        pendingInvitations: 0,
+        inactiveMembers: 0,
+        needsAttention: 0,
+        eligibleMembers: 0,
+        completedToday: 0,
+        participationRate: 0,
+        totalRecords: 0,
+        departments: 0,
         scanEligible: 0,
         scanRequested: 0,
         scannedToday: 0,
@@ -1212,7 +1270,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
         hrCount: 0,
         managerCount: 0,
         employeeCount: 0,
-        needsReviewCount: 0
+        needsReviewCount: 0,
       };
       this.viewState = 'empty';
       this.errorMessage = '';
@@ -1227,68 +1285,82 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     this.errorDetails = '';
     this.relationWarning = null;
 
-    this.operationsAdmin.getWorkforceRosterData().pipe(
-      finalize(() => {
-        this.requestInFlight = false;
-        this.cdr.detectChanges();
-      })
-    ).subscribe({
-      next: (pageData) => {
-        this.pageData = pageData;
-        this.summary = pageData.summary;
-        this.relationWarning = pageData.relationWarning;
+    this.operationsAdmin
+      .getWorkforceRosterData()
+      .pipe(
+        finalize(() => {
+          this.requestInFlight = false;
+          this.cdr.detectChanges();
+        }),
+      )
+      .subscribe({
+        next: (pageData) => {
+          this.pageData = pageData;
+          this.summary = pageData.summary;
+          this.relationWarning = pageData.relationWarning;
 
-        if (pageData.relationWarning === 'Workforce data access is not configured for this role.') {
-          this.blockedByForbidden = true;
+          if (
+            pageData.relationWarning === 'Workforce data access is not configured for this role.'
+          ) {
+            this.blockedByForbidden = true;
+            this.viewState = 'error';
+            this.errorMessage = pageData.relationWarning;
+            this.errorDetails =
+              'Ask an administrator to grant read access for workforce collections.';
+            return;
+          }
+
+          const hasRows = pageData.rows.length > 0;
+          this.viewState = hasRows ? 'ready' : 'empty';
+        },
+        error: (error) => {
+          this.pageData = null;
+          this.summary = {
+            activeMembers: 0,
+            pendingInvitations: 0,
+            inactiveMembers: 0,
+            needsAttention: 0,
+            eligibleMembers: 0,
+            completedToday: 0,
+            participationRate: 0,
+            totalRecords: 0,
+            departments: 0,
+            scanEligible: 0,
+            scanRequested: 0,
+            scannedToday: 0,
+            missingScans: 0,
+            pendingInvites: 0,
+            ownerCount: 0,
+            hrCount: 0,
+            managerCount: 0,
+            employeeCount: 0,
+            needsReviewCount: 0,
+          };
           this.viewState = 'error';
-          this.errorMessage = pageData.relationWarning;
-          this.errorDetails = 'Ask an administrator to grant read access for workforce collections.';
-          return;
-        }
-
-        const hasRows = pageData.rows.length > 0;
-        this.viewState = hasRows ? 'ready' : 'empty';
-      },
-      error: (error) => {
-        this.pageData = null;
-        this.summary = {
-          activeMembers: 0,
-          scanEligible: 0,
-          scanRequested: 0,
-          scannedToday: 0,
-          missingScans: 0,
-          pendingInvites: 0,
-          ownerCount: 0,
-          hrCount: 0,
-          managerCount: 0,
-          employeeCount: 0,
-          needsReviewCount: 0
-        };
-        this.viewState = 'error';
-        const status = (error as { status?: number } | null)?.status ?? 0;
-        if (status === 403) {
-          this.blockedByForbidden = true;
-          this.errorMessage = 'Workforce data access is not configured for this role.';
-          this.errorDetails = 'Directus returned 403 FORBIDDEN for workforce collections.';
-          return;
-        }
-        const normalized = this.toFriendlyError(error, 'Failed to load workforce data.');
-        if (normalized === 'AUTH_REQUIRED' || normalized === 'AUTH_TOKEN_MISSING') {
-          this.errorMessage = 'Your session has expired. Please sign in again.';
-          this.errorDetails = '';
-          void this.router.navigateByUrl('/?auth=login&reason=session');
-          return;
-        }
-        if (normalized === 'WORKSPACE_CONTEXT_MISSING') {
-          this.errorMessage = 'Select an active workspace before opening Workforce.';
-          this.errorDetails = '';
-          void this.router.navigateByUrl('/app/workspace-access');
-          return;
-        }
-        this.errorMessage = normalized;
-        this.errorDetails = this.extractErrorDetails(error);
-      }
-    });
+          const status = (error as { status?: number } | null)?.status ?? 0;
+          if (status === 403) {
+            this.blockedByForbidden = true;
+            this.errorMessage = 'Workforce data access is not configured for this role.';
+            this.errorDetails = 'Directus returned 403 FORBIDDEN for workforce collections.';
+            return;
+          }
+          const normalized = this.toFriendlyError(error, 'Failed to load workforce data.');
+          if (normalized === 'AUTH_REQUIRED' || normalized === 'AUTH_TOKEN_MISSING') {
+            this.errorMessage = 'Your session has expired. Please sign in again.';
+            this.errorDetails = '';
+            void this.router.navigateByUrl('/?auth=login&reason=session');
+            return;
+          }
+          if (normalized === 'WORKSPACE_CONTEXT_MISSING') {
+            this.errorMessage = 'Select an active workspace before opening Workforce.';
+            this.errorDetails = '';
+            void this.router.navigateByUrl('/app/workspace-access');
+            return;
+          }
+          this.errorMessage = normalized;
+          this.errorDetails = this.extractErrorDetails(error);
+        },
+      });
   }
 
   private resolveSetupError(error: unknown): string {
@@ -1313,7 +1385,11 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     }
 
     if (filter === 'pending_invite') {
-      return row.type === 'invite' && ['pending', 'sent'].includes(this.normalizeStatus(row.status)) && !this.isInviteExpired(row);
+      return (
+        row.type === 'invite' &&
+        ['pending', 'sent'].includes(this.normalizeStatus(row.status)) &&
+        !this.isInviteExpired(row)
+      );
     }
 
     return false;
@@ -1337,7 +1413,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     return {
       email: '',
       role: 'employee',
-      department: ''
+      department: '',
     };
   }
 
@@ -1351,7 +1427,12 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
   private isClosedRequestStatus(status: string): boolean {
     const normalized = this.normalizeStatus(status);
-    return normalized === 'completed' || normalized === 'cancelled' || normalized === 'canceled' || normalized === 'expired';
+    return (
+      normalized === 'completed' ||
+      normalized === 'cancelled' ||
+      normalized === 'canceled' ||
+      normalized === 'expired'
+    );
   }
 
   private normalizeRoleForUi(value: string | null | undefined): string {
@@ -1392,7 +1473,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     return new Intl.DateTimeFormat('en-US', {
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false
+      hour12: false,
     }).format(date);
   }
 
@@ -1402,7 +1483,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: false
+      hour12: false,
     }).format(date);
   }
 
@@ -1465,5 +1546,4 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     const reasonPart = reason ? String(reason).trim() : '';
     return [statusPart, reasonPart].filter(Boolean).join(' - ');
   }
-
 }
