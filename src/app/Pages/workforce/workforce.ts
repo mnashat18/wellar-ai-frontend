@@ -46,9 +46,11 @@ type WorkforceFilters = {
   search: string;
   role: string;
   department: string;
-  status: string;
+  eligibility: string;
   todayScan: string;
 };
+
+type WorkforceTab = 'ACTIVE_MEMBER' | 'PENDING_INVITATION' | 'NEEDS_ATTENTION' | 'INACTIVE_MEMBER';
 
 type InviteForm = {
   email: string;
@@ -125,21 +127,25 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     search: '',
     role: '',
     department: '',
-    status: 'all',
+    eligibility: 'all',
     todayScan: 'all',
   };
 
-  readonly statusFilterOptions: StatusFilterOption[] = [
-    { value: 'all', label: 'All rows' },
-    { value: 'active_member', label: 'Active members' },
-    { value: 'pending_invite', label: 'Pending invitations' },
+  activeTab: WorkforceTab = 'ACTIVE_MEMBER';
+
+  readonly eligibilityFilterOptions: StatusFilterOption[] = [
+    { value: 'all', label: 'All eligibility' },
+    { value: 'eligible', label: 'Eligible' },
+    { value: 'not_eligible', label: 'Not Eligible' },
+    { value: 'needs_attention', label: 'Needs Attention' },
   ];
 
   readonly todayScanFilterOptions: StatusFilterOption[] = [
-    { value: 'all', label: 'All scan states' },
-    { value: 'eligible', label: 'Scan Eligible' },
-    { value: 'requested', label: 'Scan Requested' },
-    { value: 'none_assigned', label: 'No Scan Assigned' },
+    { value: 'all', label: "All today's scan states" },
+    { value: 'none_assigned', label: 'No Request' },
+    { value: 'requested', label: 'Pending' },
+    { value: 'completed', label: 'Completed' },
+    { value: 'missing', label: 'Overdue' },
   ];
 
   showInviteModal = false;
@@ -312,19 +318,37 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     );
   }
 
-  get visibleStatusFilterOptions(): StatusFilterOption[] {
-    return this.statusFilterOptions.filter(
-      (option) => option.value !== 'pending_invite' || this.canShowInvitations,
-    );
-  }
-
   get rosterRows(): WorkforceRosterRow[] {
     const rows = this.pageData?.rows ?? [];
     return this.canShowInvitations ? rows : rows.filter((row) => row.type === 'member');
   }
 
+  get availableTabs(): Array<{ category: WorkforceTab; label: string; count: number }> {
+    const tabs: Array<{ category: WorkforceTab; label: string; count: number }> = [
+      { category: 'ACTIVE_MEMBER', label: 'Active Members', count: this.summary.activeMembers },
+      { category: 'NEEDS_ATTENTION', label: 'Needs Attention', count: this.summary.needsAttention },
+      {
+        category: 'INACTIVE_MEMBER',
+        label: 'Inactive Members',
+        count: this.summary.inactiveMembers,
+      },
+    ];
+    if (this.canShowInvitations) {
+      tabs.splice(1, 0, {
+        category: 'PENDING_INVITATION',
+        label: 'Pending Invitations',
+        count: this.summary.pendingInvitations,
+      });
+    }
+    return tabs;
+  }
+
+  get currentTabRows(): WorkforceRosterRow[] {
+    return this.rosterRows.filter((row) => row.category === this.activeTab);
+  }
+
   get filteredRows(): WorkforceRosterRow[] {
-    const rows = this.rosterRows;
+    const rows = this.currentTabRows;
     const search = this.filters.search.trim().toLowerCase();
     const roleFilter = this.normalizeRoleForUi(this.filters.role);
 
@@ -340,10 +364,10 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       const matchesDepartment =
         !this.filters.department || row.department_id === this.filters.department;
 
-      const matchesStatus = this.matchesStatusFilter(row, this.filters.status);
+      const matchesEligibility = this.matchesEligibilityFilter(row, this.filters.eligibility);
       const matchesScan = this.matchesScanFilter(row, this.filters.todayScan);
 
-      return matchesSearch && matchesRole && matchesDepartment && matchesStatus && matchesScan;
+      return matchesSearch && matchesRole && matchesDepartment && matchesEligibility && matchesScan;
     });
   }
 
@@ -363,13 +387,60 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
   }
 
   get needsReviewRows(): WorkforceRosterRow[] {
-    return [];
+    return this.rosterRows.filter((row) => row.category === 'NEEDS_ATTENTION');
   }
 
   get resultCountLabel(): string {
-    const total = this.summary.totalRecords;
+    const total = this.currentTabTotal;
     const visible = this.filteredRows.length;
-    return `${visible} of ${total} shown`;
+    const population = this.currentTabLabel;
+    return this.hasActiveFilters()
+      ? `Showing ${visible} of ${total} ${population}`
+      : `Showing ${total} ${population}`;
+  }
+
+  get currentTabTotal(): number {
+    if (this.activeTab === 'ACTIVE_MEMBER') return this.summary.activeMembers;
+    if (this.activeTab === 'PENDING_INVITATION') return this.summary.pendingInvitations;
+    if (this.activeTab === 'NEEDS_ATTENTION') return this.summary.needsAttention;
+    return this.summary.inactiveMembers;
+  }
+
+  get currentTabLabel(): string {
+    if (this.activeTab === 'ACTIVE_MEMBER')
+      return this.currentTabTotal === 1 ? 'Active Member' : 'Active Members';
+    if (this.activeTab === 'PENDING_INVITATION')
+      return this.currentTabTotal === 1 ? 'Pending Invitation' : 'Pending Invitations';
+    if (this.activeTab === 'NEEDS_ATTENTION') return 'Needs Attention';
+    return this.currentTabTotal === 1 ? 'Inactive Member' : 'Inactive Members';
+  }
+
+  get currentTabDescription(): string {
+    if (this.activeTab === 'ACTIVE_MEMBER')
+      return 'Current workforce members available in this scope.';
+    if (this.activeTab === 'PENDING_INVITATION')
+      return 'Onboarding invitations awaiting completion.';
+    if (this.activeTab === 'NEEDS_ATTENTION') return 'Employee records that require HR follow-up.';
+    return 'Former or deactivated workforce memberships.';
+  }
+
+  get currentEmptyTitle(): string {
+    if (this.activeTab === 'PENDING_INVITATION') return 'No pending invitations';
+    if (this.activeTab === 'NEEDS_ATTENTION') return 'All employee records are healthy';
+    if (this.activeTab === 'INACTIVE_MEMBER') return 'No inactive members';
+    return this.isManager ? 'No active members in this department' : 'No active members';
+  }
+
+  get currentEmptyMessage(): string {
+    if (this.activeTab === 'PENDING_INVITATION')
+      return 'New onboarding invitations will appear here until they are accepted, declined, revoked, or expire.';
+    if (this.activeTab === 'NEEDS_ATTENTION')
+      return 'There are no workforce identity or membership issues requiring follow-up.';
+    if (this.activeTab === 'INACTIVE_MEMBER')
+      return 'Deactivated workforce memberships will appear here.';
+    return this.canInviteMember
+      ? 'Invite a team member to begin building the active workforce roster.'
+      : 'No active workforce members are available in this scope.';
   }
 
   get departmentSummaryValue(): string {
@@ -444,12 +515,20 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     this.loadPage(true);
   }
 
+  selectTab(category: WorkforceTab): void {
+    if (category === 'PENDING_INVITATION' && !this.canShowInvitations) {
+      return;
+    }
+    this.activeTab = category;
+    this.clearFilters();
+  }
+
   clearFilters(): void {
     this.filters = {
       search: '',
       role: '',
       department: '',
-      status: 'all',
+      eligibility: 'all',
       todayScan: 'all',
     };
   }
@@ -713,6 +792,12 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     return this.canShowInvitations && row.state === 'pending_invitation' && Boolean(row.invite_id);
   }
 
+  canCancelInvite(row: WorkforceRosterRow): boolean {
+    return (
+      this.canShowInvitations && row.category === 'PENDING_INVITATION' && Boolean(row.invite_id)
+    );
+  }
+
   resendInvite(row: WorkforceRosterRow): void {
     if (!this.canShowInvitations) {
       return;
@@ -868,11 +953,11 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       if (this.isInviteExpired(row)) {
         return 'Invite Expired';
       }
-      return 'Pending invitation';
+      return 'Invitation Pending';
     }
 
     if (row.state === 'repair_required') {
-      return 'Data repair required';
+      return 'Needs Attention';
     }
 
     if (row.state === 'inactive') {
@@ -880,7 +965,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     }
 
     if (row.state === 'verified_member' && this.normalizeStatus(row.status) === 'active') {
-      return 'Verified Active Member';
+      return 'Active';
     }
 
     return `${this.statusLabel(row.status)} Member`;
@@ -917,11 +1002,34 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
 
   scanBadgeLabel(row: WorkforceRosterRow): string {
     if (row.type === 'invite') return 'Not applicable';
-    if (row.scan_status === 'completed') return 'Scan Completed';
-    if (row.scan_status === 'requested') return 'Scan Requested';
-    if (row.scan_status === 'missing') return 'Missing Scan';
-    if (row.scan_status === 'none_assigned') return 'No Scan Assigned';
-    return 'No Scan Assigned';
+    if (row.scan_status === 'completed') return 'Completed';
+    if (row.scan_status === 'requested') return 'Pending';
+    if (row.scan_status === 'missing') return 'Overdue';
+    if (row.scan_status === 'none_assigned') return 'No Request';
+    return 'No Request';
+  }
+
+  attentionIssueLabel(row: WorkforceRosterRow): string {
+    return this.repairReasonLabel(row.needs_review_reason || row.reason);
+  }
+
+  attentionImpactLabel(row: WorkforceRosterRow): string {
+    const reason = this.normalizeStatus(row.needs_review_reason || row.reason);
+    if (reason.includes('department'))
+      return 'Department reporting and management scope may be incorrect.';
+    if (reason.includes('email'))
+      return 'The employee cannot reliably receive invitations or scan requests.';
+    if (reason.includes('user'))
+      return 'The membership is not connected to a usable employee account.';
+    return 'The record cannot be treated as a healthy active workforce identity.';
+  }
+
+  attentionActionLabel(row: WorkforceRosterRow): string {
+    const reason = this.normalizeStatus(row.needs_review_reason || row.reason);
+    if (reason.includes('department')) return 'Assign a valid active department.';
+    if (reason.includes('email')) return 'Add or verify the employee email address.';
+    if (reason.includes('user')) return 'Link the membership to the correct user account.';
+    return 'Review and complete the membership record.';
   }
 
   scanBadgeClass(row: WorkforceRosterRow): string {
@@ -1128,7 +1236,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       Boolean(this.filters.search.trim()) ||
       Boolean(this.filters.role) ||
       Boolean(this.filters.department) ||
-      this.filters.status !== 'all' ||
+      this.filters.eligibility !== 'all' ||
       this.filters.todayScan !== 'all'
     );
   }
@@ -1375,21 +1483,21 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     return normalized;
   }
 
-  private matchesStatusFilter(row: WorkforceRosterRow, filter: string): boolean {
+  private matchesEligibilityFilter(row: WorkforceRosterRow, filter: string): boolean {
     if (!filter || filter === 'all') {
       return true;
     }
 
-    if (filter === 'active_member') {
-      return row.type === 'member' && this.normalizeStatus(row.status) === 'active';
+    if (filter === 'eligible') {
+      return row.category === 'ACTIVE_MEMBER' && this.canSendScanRequest(row);
     }
 
-    if (filter === 'pending_invite') {
-      return (
-        row.type === 'invite' &&
-        ['pending', 'sent'].includes(this.normalizeStatus(row.status)) &&
-        !this.isInviteExpired(row)
-      );
+    if (filter === 'not_eligible') {
+      return row.category === 'ACTIVE_MEMBER' && !this.canSendScanRequest(row);
+    }
+
+    if (filter === 'needs_attention') {
+      return row.category === 'NEEDS_ATTENTION';
     }
 
     return false;
@@ -1400,12 +1508,7 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
       return true;
     }
 
-    if (row.type === 'invite') {
-      return true;
-    }
-    if (filter === 'eligible') {
-      return this.isScanEligible(row);
-    }
+    if (row.category !== 'ACTIVE_MEMBER') return true;
     return row.scan_status === (filter as WorkforceScanStatus);
   }
 

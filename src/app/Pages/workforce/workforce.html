@@ -2,16 +2,15 @@
   <app-page-header
     title="Workforce"
     [description]="workforceDescription"
-    [breadcrumbs]="[
-      { label: 'Dashboard', url: '/app/dashboard' },
-      { label: 'Workforce' }
-    ]">
+    [breadcrumbs]="[{ label: 'Dashboard', url: '/app/dashboard' }, { label: 'Workforce' }]"
+  >
     <button
       *ngIf="canShowInvitations"
       pageActions
       type="button"
       class="dashboard-action-button dashboard-action-button--primary"
-      (click)="openInviteModal()">
+      (click)="openInviteModal()"
+    >
       Invite Member
     </button>
     <button
@@ -19,7 +18,8 @@
       type="button"
       class="dashboard-action-button"
       [disabled]="viewState === 'loading'"
-      (click)="refresh()">
+      (click)="refresh()"
+    >
       {{ viewState === 'loading' ? 'Refreshing...' : 'Refresh' }}
     </button>
   </app-page-header>
@@ -29,7 +29,8 @@
     class="workforce-feedback"
     [class.workforce-feedback--success]="feedback.type === 'success'"
     [class.workforce-feedback--error]="feedback.type === 'error'"
-    [class.workforce-feedback--info]="feedback.type === 'info'">
+    [class.workforce-feedback--info]="feedback.type === 'info'"
+  >
     {{ feedback.text }}
   </section>
 
@@ -41,47 +42,66 @@
     *ngIf="viewState === 'error'"
     title="Workforce could not be loaded"
     [message]="errorMessage || 'Workforce records are unavailable for the active workspace.'"
-    (retry)="refresh()">
+    (retry)="refresh()"
+  >
   </app-error-state>
 
   <section
     *ngIf="viewState !== 'loading' && viewState !== 'error' && relationWarning"
-    class="workforce-state-card">
+    class="workforce-state-card"
+  >
     <p>{{ relationWarning }}</p>
   </section>
 
-  <section *ngIf="showNoActiveDepartmentState" class="workforce-state-card workforce-state-card--warning">
+  <section
+    *ngIf="showNoActiveDepartmentState"
+    class="workforce-state-card workforce-state-card--warning"
+  >
     <p class="workforce-state-card__title">No active department context</p>
-    <p>This manager account needs an assigned active department before Workforce data can be shown.</p>
-    <button type="button" class="dashboard-action-button dashboard-action-button--primary" (click)="refresh()">Retry</button>
+    <p>
+      This manager account needs an assigned active department before Workforce data can be shown.
+    </p>
+    <button
+      type="button"
+      class="dashboard-action-button dashboard-action-button--primary"
+      (click)="refresh()"
+    >
+      Retry
+    </button>
   </section>
 
-  <ng-container *ngIf="(viewState === 'ready' || viewState === 'empty') && !showNoActiveDepartmentState">
+  <ng-container
+    *ngIf="(viewState === 'ready' || viewState === 'empty') && !showNoActiveDepartmentState"
+  >
     <app-dashboard-section
       eyebrow="Overview"
       title="Roster Summary"
-      [description]="isManager ? 'Real department-scoped roster signals from the current data.' : 'Real organization roster signals from the current data.'">
+      [description]="
+        isManager
+          ? 'Real department-scoped roster signals from the current data.'
+          : 'Real organization roster signals from the current data.'
+      "
+    >
       <div class="workforce-summary-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <app-kpi-card
           label="Active Members"
           [value]="summary.activeMembers.toString()"
-          [helper]="isManager ? 'Active members in the assigned department.' : 'Active members in the organization roster.'"
+          [helper]="
+            isManager
+              ? 'Active members in the assigned department.'
+              : 'Active members in the organization roster.'
+          "
           tone="success"
-          toneLabel="Active"></app-kpi-card>
+          toneLabel="Active"
+        ></app-kpi-card>
 
         <app-kpi-card
           [label]="departmentSummaryLabel"
           [value]="departmentSummaryValue"
           [helper]="departmentSummaryHelper"
           tone="neutral"
-          [toneLabel]="isManager ? 'Scope' : 'Departments'"></app-kpi-card>
-
-        <app-kpi-card
-          label="Scan Coverage"
-          [value]="scanCoverageLabel"
-          [helper]="scanCoverageHelper"
-          [tone]="summary.completedToday > 0 ? 'success' : 'neutral'"
-          toneLabel="Today"></app-kpi-card>
+          [toneLabel]="isManager ? 'Scope' : 'Departments'"
+        ></app-kpi-card>
 
         <app-kpi-card
           *ngIf="canShowInvitations"
@@ -89,17 +109,80 @@
           [value]="summary.pendingInvitations.toString()"
           helper="Pending invitations returned for this organization."
           [tone]="summary.pendingInvitations > 0 ? 'warning' : 'neutral'"
-          toneLabel="Pending"></app-kpi-card>
+          toneLabel="Pending"
+        ></app-kpi-card>
+
+        <app-kpi-card
+          label="Needs Attention"
+          [value]="summary.needsAttention.toString()"
+          helper="Employee records requiring HR follow-up."
+          [tone]="summary.needsAttention > 0 ? 'warning' : 'neutral'"
+          toneLabel="Review"
+        ></app-kpi-card>
       </div>
     </app-dashboard-section>
+
+    <app-dashboard-section
+      eyebrow="Today"
+      title="Today's Scan Activity"
+      description="Current scan participation signals for eligible workforce members."
+    >
+      <div class="workforce-summary-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <app-kpi-card
+          label="Eligible Members"
+          [value]="summary.eligibleMembers.toString()"
+          helper="Active members eligible to receive scan requests."
+          tone="neutral"
+          toneLabel="Eligible"
+        ></app-kpi-card>
+        <app-kpi-card
+          label="Open Requests"
+          [value]="summary.scanRequested.toString()"
+          helper="Scan requests still awaiting completion."
+          [tone]="summary.scanRequested > 0 ? 'warning' : 'neutral'"
+          toneLabel="Open"
+        ></app-kpi-card>
+        <app-kpi-card
+          label="Completed Today"
+          [value]="summary.completedToday.toString()"
+          helper="Eligible members who completed a scan today."
+          [tone]="summary.completedToday > 0 ? 'success' : 'neutral'"
+          toneLabel="Completed"
+        ></app-kpi-card>
+        <app-kpi-card
+          label="Participation Rate"
+          [value]="scanCoverageLabel"
+          [helper]="scanCoverageHelper"
+          [tone]="summary.completedToday > 0 ? 'success' : 'neutral'"
+          toneLabel="Today"
+        ></app-kpi-card>
+      </div>
+    </app-dashboard-section>
+
+    <nav class="workforce-tabs" aria-label="Workforce populations">
+      <button
+        *ngFor="let tab of availableTabs"
+        type="button"
+        class="workforce-tab"
+        [class.workforce-tab--active]="activeTab === tab.category"
+        [attr.aria-current]="activeTab === tab.category ? 'page' : null"
+        (click)="selectTab(tab.category)"
+      >
+        <span>{{ tab.label }}</span>
+        <span class="workforce-tab__count">{{ tab.count }}</span>
+      </button>
+    </nav>
 
     <ng-container>
       <app-filter-bar-shell>
         <input
           [(ngModel)]="filters.search"
           name="workforceSearch"
-          [placeholder]="isManager ? 'Search member or department' : 'Search member, email, department'"
-          class="app-form-control workforce-search-control" />
+          [placeholder]="
+            isManager ? 'Search member or department' : 'Search member, email, department'
+          "
+          class="app-form-control workforce-search-control"
+        />
 
         <select [(ngModel)]="filters.role" name="workforceRole" class="app-form-control">
           <option value="">All roles</option>
@@ -110,49 +193,84 @@
           *ngIf="!isManager"
           [(ngModel)]="filters.department"
           name="workforceDepartment"
-          class="app-form-control">
+          class="app-form-control"
+        >
           <option value="">All departments</option>
-          <option *ngFor="let department of departmentOptions" [value]="department.id">{{ department.name }}</option>
+          <option *ngFor="let department of departmentOptions" [value]="department.id">
+            {{ department.name }}
+          </option>
         </select>
 
-        <select [(ngModel)]="filters.status" name="workforceStatus" class="app-form-control">
-          <option *ngFor="let option of visibleStatusFilterOptions" [value]="option.value">{{ option.label }}</option>
+        <select
+          [hidden]="activeTab !== 'ACTIVE_MEMBER' && activeTab !== 'NEEDS_ATTENTION'"
+          [(ngModel)]="filters.eligibility"
+          name="workforceEligibility"
+          class="app-form-control"
+        >
+          <option *ngFor="let option of eligibilityFilterOptions" [value]="option.value">
+            {{ option.label }}
+          </option>
         </select>
 
-        <select [(ngModel)]="filters.todayScan" name="workforceTodayScan" class="app-form-control">
-          <option *ngFor="let option of todayScanFilterOptions" [value]="option.value">{{ option.label }}</option>
+        <select
+          [hidden]="activeTab !== 'ACTIVE_MEMBER'"
+          [(ngModel)]="filters.todayScan"
+          name="workforceTodayScan"
+          class="app-form-control"
+        >
+          <option *ngFor="let option of todayScanFilterOptions" [value]="option.value">
+            {{ option.label }}
+          </option>
         </select>
 
-        <button type="button" class="dashboard-action-button" [disabled]="!hasActiveFilters()" (click)="clearFilters()">
+        <button
+          type="button"
+          class="dashboard-action-button"
+          [disabled]="!hasActiveFilters()"
+          (click)="clearFilters()"
+        >
           Clear
         </button>
       </app-filter-bar-shell>
 
-      <section *ngIf="viewState === 'empty'" class="workforce-state-card">
-        <p class="workforce-state-card__title">{{ rosterEmptyTitle }}</p>
-        <p>{{ rosterEmptyMessage }}</p>
+      <section *ngIf="currentTabTotal === 0" class="workforce-state-card">
+        <p class="workforce-state-card__title">{{ currentEmptyTitle }}</p>
+        <p>{{ currentEmptyMessage }}</p>
         <button
-          *ngIf="canShowInvitations"
+          *ngIf="activeTab === 'ACTIVE_MEMBER' && canShowInvitations"
           type="button"
           class="dashboard-action-button dashboard-action-button--primary"
-          (click)="openInviteModal()">
+          (click)="openInviteModal()"
+        >
           Invite Member
         </button>
       </section>
 
-      <section *ngIf="viewState === 'ready' && filteredRows.length === 0" class="workforce-state-card">
-        <p class="workforce-state-card__title">No roster records match these filters</p>
-        <p>Change or clear filters to return to the available roster.</p>
-        <button type="button" class="dashboard-action-button dashboard-action-button--primary" (click)="clearFilters()">
+      <section
+        *ngIf="currentTabTotal > 0 && filteredRows.length === 0"
+        class="workforce-state-card"
+      >
+        <p class="workforce-state-card__title">
+          No {{ currentTabLabel.toLowerCase() }} match these filters
+        </p>
+        <p>
+          Change or clear filters to return to the available {{ currentTabLabel.toLowerCase() }}.
+        </p>
+        <button
+          type="button"
+          class="dashboard-action-button dashboard-action-button--primary"
+          (click)="clearFilters()"
+        >
           Clear Filters
         </button>
       </section>
 
       <app-dashboard-section
-        *ngIf="viewState === 'ready' && filteredRows.length > 0"
+        *ngIf="filteredRows.length > 0"
         eyebrow="Roster"
-        title="Workforce Roster"
-        [description]="isManager ? 'Department members available in your assigned scope.' : 'Organization members and supported onboarding records.'">
+        [title]="currentTabLabel"
+        [description]="currentTabDescription"
+      >
         <app-table-shell>
           <div tableHeader class="workforce-table-header">
             <div>
@@ -161,15 +279,18 @@
             </div>
           </div>
 
-          <table class="workforce-table min-w-[74rem] w-full text-left">
+          <table
+            *ngIf="activeTab === 'ACTIVE_MEMBER' || activeTab === 'INACTIVE_MEMBER'"
+            class="workforce-table min-w-[74rem] w-full text-left"
+          >
             <thead>
               <tr>
-                <th>Person / invitation</th>
+                <th>Employee</th>
                 <th>Department</th>
                 <th>Role</th>
                 <th>Employment</th>
-                <th>Last Scan</th>
-                <th>Readiness</th>
+                <th>Today's Scan</th>
+                <th>Last Activity</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -180,42 +301,161 @@
                 (click)="openMemberView(row)"
                 tabindex="0"
                 (keydown.enter)="openMemberView(row)"
-                (keydown.space)="$event.preventDefault(); openMemberView(row)">
+                (keydown.space)="$event.preventDefault(); openMemberView(row)"
+              >
                 <td>
                   <div class="workforce-member-cell">
-                      <div class="workforce-avatar">{{ memberInitials(row) }}</div>
-                      <div class="min-w-0 workforce-identity-copy">
-                        <p class="workforce-identity-name">{{ memberName(row) }}</p>
+                    <div class="workforce-avatar">{{ memberInitials(row) }}</div>
+                    <div class="min-w-0 workforce-identity-copy">
+                      <p class="workforce-identity-name">{{ memberName(row) }}</p>
                       <p
                         *ngIf="memberSecondaryLabel(row)"
                         class="workforce-identity-email"
                         [attr.title]="memberSecondaryLabel(row)"
-                        [attr.aria-label]="memberSecondaryLabel(row)">
+                        [attr.aria-label]="memberSecondaryLabel(row)"
+                      >
                         {{ memberSecondaryLabel(row) }}
                       </p>
                     </div>
                   </div>
                 </td>
                 <td>{{ departmentLabel(row) }}</td>
-                <td><span class="workforce-badge workforce-badge--neutral">{{ roleLabel(row.member_role) }}</span></td>
-                <td><span [class]="rowBadgeClass(row)">{{ employmentLabel(row) }}</span></td>
-                <td>{{ lastScanLabel(row) }}</td>
                 <td>
-                  <div class="workforce-readiness-cell">
-                    <span [class]="scanBadgeClass(row)">{{ scanBadgeLabel(row) }}</span>
-                    <span>{{ readinessLabel(row) }}</span>
-                  </div>
+                  <span class="workforce-badge workforce-badge--neutral">{{
+                    roleLabel(row.member_role)
+                  }}</span>
                 </td>
+                <td>
+                  <span [class]="rowBadgeClass(row)">{{ employmentLabel(row) }}</span>
+                </td>
+                <td>
+                  <span [class]="scanBadgeClass(row)">{{ scanBadgeLabel(row) }}</span>
+                </td>
+                <td>{{ detailUnavailableLabel(row.presence_label, lastScanLabel(row)) }}</td>
                 <td>
                   <div
                     class="workforce-table-actions"
                     (click)="$event.stopPropagation()"
                     (keydown.enter)="$event.stopPropagation()"
-                    (keydown.space)="$event.stopPropagation()">
-                    <button type="button" class="workforce-row-action workforce-row-action--view" (click)="openMemberView(row)">
+                    (keydown.space)="$event.stopPropagation()"
+                  >
+                    <button
+                      type="button"
+                      class="workforce-row-action workforce-row-action--view"
+                      (click)="openMemberView(row)"
+                    >
                       View
                     </button>
                   </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table
+            *ngIf="activeTab === 'PENDING_INVITATION'"
+            class="workforce-table min-w-[72rem] w-full text-left"
+          >
+            <thead>
+              <tr>
+                <th>Email</th>
+                <th>Proposed Role</th>
+                <th>Department</th>
+                <th>Invited By</th>
+                <th>Sent</th>
+                <th>Expiration</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let row of filteredRows; trackBy: trackByMember"
+                class="workforce-table-row"
+                (click)="openMemberView(row)"
+              >
+                <td>
+                  <p class="workforce-identity-name">{{ inviteContact(row) }}</p>
+                </td>
+                <td>{{ roleLabel(row.member_role) }}</td>
+                <td>{{ departmentLabel(row) }}</td>
+                <td>{{ detailUnavailableLabel(row.invited_by_name, 'Unavailable') }}</td>
+                <td>Unavailable</td>
+                <td>{{ dateOrDash(row.expires_at) }}</td>
+                <td>
+                  <span [class]="rowBadgeClass(row)">{{ rowBadgeLabel(row) }}</span>
+                </td>
+                <td>
+                  <div class="workforce-table-actions" (click)="$event.stopPropagation()">
+                    <button
+                      type="button"
+                      class="workforce-row-action workforce-row-action--view"
+                      (click)="openMemberView(row)"
+                    >
+                      View</button
+                    ><button
+                      *ngIf="canResendInvite(row)"
+                      type="button"
+                      class="workforce-row-action"
+                      (click)="resendInvite(row)"
+                    >
+                      Resend</button
+                    ><button
+                      *ngIf="canCancelInvite(row)"
+                      type="button"
+                      class="workforce-row-action workforce-row-action--danger"
+                      (click)="requestCancelInvite(row)"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <table
+            *ngIf="activeTab === 'NEEDS_ATTENTION'"
+            class="workforce-table min-w-[70rem] w-full text-left"
+          >
+            <thead>
+              <tr>
+                <th>Employee Record</th>
+                <th>Department</th>
+                <th>Role</th>
+                <th>Issue</th>
+                <th>Operational Impact</th>
+                <th>Recommended Action</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                *ngFor="let row of filteredRows; trackBy: trackByMember"
+                class="workforce-table-row"
+                (click)="openMemberView(row)"
+              >
+                <td>
+                  <p class="workforce-identity-name">{{ memberName(row) }}</p>
+                  <p class="workforce-identity-email">{{ memberSecondaryLabel(row) }}</p>
+                </td>
+                <td>{{ departmentLabel(row) }}</td>
+                <td>{{ roleLabel(row.member_role) }}</td>
+                <td>
+                  <span class="workforce-badge workforce-badge--neutral">{{
+                    attentionIssueLabel(row)
+                  }}</span>
+                </td>
+                <td>{{ attentionImpactLabel(row) }}</td>
+                <td>{{ attentionActionLabel(row) }}</td>
+                <td>
+                  <button
+                    type="button"
+                    class="workforce-row-action workforce-row-action--view"
+                    (click)="$event.stopPropagation(); openMemberView(row)"
+                  >
+                    View
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -227,25 +467,38 @@
         *ngIf="showOpenScanRequests"
         eyebrow="Operations"
         title="Open Scan Requests"
-        [description]="isManager ? 'Recent active scan requests in the assigned department.' : 'Recent active scan requests for the organization workforce.'">
+        [description]="
+          isManager
+            ? 'Recent active scan requests in the assigned department.'
+            : 'Recent active scan requests for the organization workforce.'
+        "
+      >
         <div class="workforce-operations-list">
           <article
             class="workforce-operation-row"
-            *ngFor="let request of openScanRequestRows; trackBy: trackByScanRequest">
+            *ngFor="let request of openScanRequestRows; trackBy: trackByScanRequest"
+          >
             <div>
               <p class="workforce-identity-name">{{ request.target_member_name }}</p>
               <p
                 *ngIf="request.target_identity.email"
                 class="workforce-identity-email"
                 [attr.title]="request.target_identity.email"
-                [attr.aria-label]="request.target_identity.email">
+                [attr.aria-label]="request.target_identity.email"
+              >
                 {{ request.target_identity.email }}
               </p>
             </div>
             <span>{{ request.department_name || 'Unassigned' }}</span>
-            <span class="workforce-badge workforce-badge--scan-requested">{{ requestStatusLabel(request.status) }}</span>
+            <span class="workforce-badge workforce-badge--scan-requested">{{
+              requestStatusLabel(request.status)
+            }}</span>
             <span>{{ dateOrDash(request.requested_at) }}</span>
-            <button type="button" class="workforce-row-action workforce-row-action--view" (click)="openInScanRequests(request)">
+            <button
+              type="button"
+              class="workforce-row-action workforce-row-action--view"
+              (click)="openInScanRequests(request)"
+            >
               Open
             </button>
           </article>
@@ -259,15 +512,25 @@
     [panelClass]="'app-dashboard-panel workforce-dialog-panel'"
     [lockScroll]="true"
     labelledBy="workforce-detail-title"
-    (backdropClick)="closeMemberView()">
+    (backdropClick)="closeMemberView()"
+  >
     <div
       #detailsDrawerPanel
       tabindex="-1"
       class="workforce-detail-dialog"
-      (keydown.tab)="trapDetailsFocus($event)">
+      (keydown.tab)="trapDetailsFocus($event)"
+    >
       <div class="flex items-start justify-between gap-4">
         <div>
-          <p class="dashboard-eyebrow">{{ selectedMember.type === 'invite' ? 'Invitation' : selectedMember.state === 'repair_required' ? 'Data repair required' : 'Member' }}</p>
+          <p class="dashboard-eyebrow">
+            {{
+              selectedMember.type === 'invite'
+                ? 'Invitation'
+                : selectedMember.category === 'NEEDS_ATTENTION'
+                  ? 'Needs Attention'
+                  : 'Member'
+            }}
+          </p>
           <h3 id="workforce-detail-title" class="mt-2 text-2xl font-semibold text-slate-50">
             {{ memberName(selectedMember) }}
           </h3>
@@ -275,42 +538,98 @@
             {{
               selectedMember.type === 'invite'
                 ? 'Onboarding record returned by the existing invitation flow.'
-                : selectedMember.state === 'repair_required'
-                  ? 'This membership cannot be treated as a healthy workforce identity until the underlying identity data is repaired.'
+                : selectedMember.category === 'NEEDS_ATTENTION'
+                  ? 'This employee record needs HR follow-up before it can be treated as a healthy workforce identity.'
                   : scopeLabel
             }}
           </p>
         </div>
-        <button #detailsCloseButton type="button" class="dashboard-action-button" (click)="closeMemberView()" aria-label="Close member details">Close</button>
+        <button
+          #detailsCloseButton
+          type="button"
+          class="dashboard-action-button"
+          (click)="closeMemberView()"
+          aria-label="Close member details"
+        >
+          Close
+        </button>
       </div>
 
       <div class="mt-5 workforce-detail-grid">
-        <div class="workforce-fact"><span>Name</span><strong>{{ memberName(selectedMember) }}</strong></div>
-        <div *ngIf="selectedMember.type === 'invite' || hasActualEmail(selectedMember)" class="workforce-fact"><span>Email</span><strong>{{ selectedMember.type === 'invite' ? inviteContact(selectedMember) : memberEmail(selectedMember) }}</strong></div>
-        <div class="workforce-fact"><span>Identity State</span><strong>{{ rowBadgeLabel(selectedMember) }}</strong></div>
-        <div class="workforce-fact"><span>Role</span><strong>{{ roleLabel(selectedMember.member_role) }}</strong></div>
-        <div class="workforce-fact"><span>Department</span><strong>{{ departmentLabel(selectedMember) }}</strong></div>
-        <div class="workforce-fact"><span>Status</span><strong>{{ statusLabel(selectedMember.status) }}</strong></div>
-        <div class="workforce-fact"><span>Last Scan</span><strong>{{ lastScanLabel(selectedMember) }}</strong></div>
+        <div class="workforce-fact">
+          <span>Name</span><strong>{{ memberName(selectedMember) }}</strong>
+        </div>
+        <div
+          *ngIf="selectedMember.type === 'invite' || hasActualEmail(selectedMember)"
+          class="workforce-fact"
+        >
+          <span>Email</span
+          ><strong>{{
+            selectedMember.type === 'invite'
+              ? inviteContact(selectedMember)
+              : memberEmail(selectedMember)
+          }}</strong>
+        </div>
+        <div class="workforce-fact">
+          <span>Identity State</span><strong>{{ rowBadgeLabel(selectedMember) }}</strong>
+        </div>
+        <div class="workforce-fact">
+          <span>Role</span><strong>{{ roleLabel(selectedMember.member_role) }}</strong>
+        </div>
+        <div class="workforce-fact">
+          <span>Department</span><strong>{{ departmentLabel(selectedMember) }}</strong>
+        </div>
+        <div class="workforce-fact">
+          <span>Status</span><strong>{{ statusLabel(selectedMember.status) }}</strong>
+        </div>
+        <div class="workforce-fact">
+          <span>Last Scan</span><strong>{{ lastScanLabel(selectedMember) }}</strong>
+        </div>
 
         <ng-container *ngIf="selectedMember.type === 'member'">
-          <div class="workforce-fact"><span>Readiness</span><strong>{{ readinessLabel(selectedMember) }}</strong></div>
-          <div class="workforce-fact"><span>Scan State</span><strong>{{ scanBadgeLabel(selectedMember) }}</strong></div>
-          <div class="workforce-fact"><span>Joined</span><strong>{{ dateOrDash(selectedMember.joined_at) }}</strong></div>
-          <div class="workforce-fact"><span>Presence</span><strong>{{ detailUnavailableLabel(selectedMember.presence_label, 'Unavailable') }}</strong></div>
+          <div class="workforce-fact">
+            <span>Readiness</span><strong>{{ readinessLabel(selectedMember) }}</strong>
+          </div>
+          <div class="workforce-fact">
+            <span>Scan State</span><strong>{{ scanBadgeLabel(selectedMember) }}</strong>
+          </div>
+          <div class="workforce-fact">
+            <span>Joined</span><strong>{{ dateOrDash(selectedMember.joined_at) }}</strong>
+          </div>
+          <div class="workforce-fact">
+            <span>Presence</span
+            ><strong>{{
+              detailUnavailableLabel(selectedMember.presence_label, 'Unavailable')
+            }}</strong>
+          </div>
         </ng-container>
 
         <ng-container *ngIf="selectedMember.type === 'invite' && canShowInvitations">
-          <div class="workforce-fact"><span>Expires</span><strong>{{ dateOrDash(selectedMember.expires_at) }}</strong></div>
-          <div class="workforce-fact"><span>Requested By</span><strong>{{ detailUnavailableLabel(selectedMember.invited_by_name, 'Unavailable') }}</strong></div>
+          <div class="workforce-fact">
+            <span>Expires</span><strong>{{ dateOrDash(selectedMember.expires_at) }}</strong>
+          </div>
+          <div class="workforce-fact">
+            <span>Requested By</span
+            ><strong>{{
+              detailUnavailableLabel(selectedMember.invited_by_name, 'Unavailable')
+            }}</strong>
+          </div>
         </ng-container>
 
-        <ng-container *ngIf="selectedMember.state === 'repair_required'">
-          <div class="workforce-fact"><span>Issue</span><strong>{{ memberSecondaryLabel(selectedMember) }}</strong></div>
-          <div class="workforce-fact"><span>Next Step</span><strong>Invite a real employee or repair the membership identity using a protected workflow.</strong></div>
+        <ng-container *ngIf="selectedMember.category === 'NEEDS_ATTENTION'">
+          <div class="workforce-fact">
+            <span>Issue</span><strong>{{ attentionIssueLabel(selectedMember) }}</strong>
+          </div>
+          <div class="workforce-fact">
+            <span>Operational Impact</span
+            ><strong>{{ attentionImpactLabel(selectedMember) }}</strong>
+          </div>
+          <div class="workforce-fact">
+            <span>Recommended Action</span
+            ><strong>{{ attentionActionLabel(selectedMember) }}</strong>
+          </div>
         </ng-container>
       </div>
-
     </div>
   </app-viewport-dialog>
 
@@ -319,15 +638,22 @@
     [panelClass]="'app-dashboard-panel workforce-dialog-panel'"
     [lockScroll]="true"
     labelledBy="workforce-invite-title"
-    (backdropClick)="closeInviteModal()">
+    (backdropClick)="closeInviteModal()"
+  >
     <div>
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="dashboard-eyebrow">Invite Member</p>
-          <h3 id="workforce-invite-title" class="mt-2 text-2xl font-semibold text-slate-50">Invite a team member</h3>
-          <p class="mt-2 text-sm text-slate-300">Creates a pending invitation first. Membership is created only after claim.</p>
+          <h3 id="workforce-invite-title" class="mt-2 text-2xl font-semibold text-slate-50">
+            Invite a team member
+          </h3>
+          <p class="mt-2 text-sm text-slate-300">
+            Creates a pending invitation first. Membership is created only after claim.
+          </p>
         </div>
-        <button type="button" class="dashboard-action-button" (click)="closeInviteModal()">Close</button>
+        <button type="button" class="dashboard-action-button" (click)="closeInviteModal()">
+          Close
+        </button>
       </div>
 
       <div class="mt-5 grid gap-4 md:grid-cols-2">
@@ -338,7 +664,8 @@
             name="inviteEmail"
             type="email"
             placeholder="name@company.com"
-            class="app-form-control" />
+            class="app-form-control"
+          />
         </label>
 
         <label class="grid gap-2 text-sm font-medium text-slate-200">
@@ -352,20 +679,34 @@
 
         <label class="grid gap-2 text-sm font-medium text-slate-200">
           Department
-          <select [(ngModel)]="inviteForm.department" name="inviteDepartment" class="app-form-control">
+          <select
+            [(ngModel)]="inviteForm.department"
+            name="inviteDepartment"
+            class="app-form-control"
+          >
             <option value="">Unassigned</option>
-            <option *ngFor="let department of departmentOptions" [value]="department.id">{{ department.name }}</option>
+            <option *ngFor="let department of departmentOptions" [value]="department.id">
+              {{ department.name }}
+            </option>
           </select>
-          <p *ngIf="!hasDepartments" class="text-xs text-slate-400">No departments are available for this workspace.</p>
+          <p *ngIf="!hasDepartments" class="text-xs text-slate-400">
+            No departments are available for this workspace.
+          </p>
         </label>
-
       </div>
 
       <p *ngIf="inviteFormError" class="mt-3 text-sm text-rose-300">{{ inviteFormError }}</p>
 
       <div class="mt-6 flex justify-end gap-3">
-        <button type="button" class="dashboard-action-button" (click)="closeInviteModal()">Cancel</button>
-        <button type="button" class="dashboard-action-button dashboard-action-button--primary" [disabled]="savingInvite" (click)="sendInvite()">
+        <button type="button" class="dashboard-action-button" (click)="closeInviteModal()">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="dashboard-action-button dashboard-action-button--primary"
+          [disabled]="savingInvite"
+          (click)="sendInvite()"
+        >
           {{ savingInvite ? 'Sending...' : 'Send Invite' }}
         </button>
       </div>
@@ -377,21 +718,35 @@
     [panelClass]="'app-dashboard-panel workforce-dialog-panel workforce-dialog-panel--compact'"
     [lockScroll]="true"
     ariaLabel="Edit Role"
-    (backdropClick)="closeRoleModal()">
+    (backdropClick)="closeRoleModal()"
+  >
     <div>
       <h3 class="text-xl font-semibold text-slate-50">Edit Role</h3>
-      <p class="mt-2 text-sm text-slate-300">Update role for {{ roleModalMember ? memberName(roleModalMember) : 'member' }}.</p>
+      <p class="mt-2 text-sm text-slate-300">
+        Update role for {{ roleModalMember ? memberName(roleModalMember) : 'member' }}.
+      </p>
 
       <label class="mt-5 grid gap-2 text-sm font-medium text-slate-200">
         Role
         <select [(ngModel)]="roleModalValue" name="roleModalValue" class="app-form-control">
-          <option *ngFor="let role of roleEditOptions(roleModalMember)" [value]="role">{{ roleLabel(role) }}</option>
+          <option *ngFor="let role of roleEditOptions(roleModalMember)" [value]="role">
+            {{ roleLabel(role) }}
+          </option>
         </select>
       </label>
 
       <div class="mt-6 flex justify-end gap-3">
-        <button type="button" class="dashboard-action-button" (click)="closeRoleModal()">Cancel</button>
-        <button type="button" class="dashboard-action-button dashboard-action-button--primary" [disabled]="savingRole" (click)="saveRole()">{{ savingRole ? 'Saving...' : 'Save Role' }}</button>
+        <button type="button" class="dashboard-action-button" (click)="closeRoleModal()">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="dashboard-action-button dashboard-action-button--primary"
+          [disabled]="savingRole"
+          (click)="saveRole()"
+        >
+          {{ savingRole ? 'Saving...' : 'Save Role' }}
+        </button>
       </div>
     </div>
   </app-viewport-dialog>
@@ -401,22 +756,41 @@
     [panelClass]="'app-dashboard-panel workforce-dialog-panel workforce-dialog-panel--compact'"
     [lockScroll]="true"
     ariaLabel="Change Department"
-    (backdropClick)="closeDepartmentModal()">
+    (backdropClick)="closeDepartmentModal()"
+  >
     <div>
       <h3 class="text-xl font-semibold text-slate-50">Change Department</h3>
-      <p class="mt-2 text-sm text-slate-300">Update department for {{ departmentModalMember ? memberName(departmentModalMember) : 'member' }}.</p>
+      <p class="mt-2 text-sm text-slate-300">
+        Update department for
+        {{ departmentModalMember ? memberName(departmentModalMember) : 'member' }}.
+      </p>
 
       <label class="mt-5 grid gap-2 text-sm font-medium text-slate-200">
         Department
-        <select [(ngModel)]="departmentModalValue" name="departmentModalValue" class="app-form-control">
+        <select
+          [(ngModel)]="departmentModalValue"
+          name="departmentModalValue"
+          class="app-form-control"
+        >
           <option value="">Unassigned</option>
-          <option *ngFor="let department of departmentOptions" [value]="department.id">{{ department.name }}</option>
+          <option *ngFor="let department of departmentOptions" [value]="department.id">
+            {{ department.name }}
+          </option>
         </select>
       </label>
 
       <div class="mt-6 flex justify-end gap-3">
-        <button type="button" class="dashboard-action-button" (click)="closeDepartmentModal()">Cancel</button>
-        <button type="button" class="dashboard-action-button dashboard-action-button--primary" [disabled]="savingDepartment" (click)="saveDepartment()">{{ savingDepartment ? 'Saving...' : 'Save Department' }}</button>
+        <button type="button" class="dashboard-action-button" (click)="closeDepartmentModal()">
+          Cancel
+        </button>
+        <button
+          type="button"
+          class="dashboard-action-button dashboard-action-button--primary"
+          [disabled]="savingDepartment"
+          (click)="saveDepartment()"
+        >
+          {{ savingDepartment ? 'Saving...' : 'Save Department' }}
+        </button>
       </div>
     </div>
   </app-viewport-dialog>
@@ -426,18 +800,27 @@
     [panelClass]="'app-dashboard-panel workforce-dialog-panel workforce-dialog-panel--compact'"
     [lockScroll]="true"
     [ariaLabel]="destructiveAction.title"
-    (backdropClick)="closeDestructiveModal()">
+    (backdropClick)="closeDestructiveModal()"
+  >
     <div>
       <h3 class="text-xl font-semibold text-slate-50">{{ destructiveAction.title }}</h3>
       <p class="mt-3 text-sm leading-6 text-slate-300">{{ destructiveAction.description }}</p>
 
       <div class="mt-6 flex justify-end gap-3">
-        <button type="button" class="dashboard-action-button" [disabled]="destructiveLoading" (click)="closeDestructiveModal()">Back</button>
+        <button
+          type="button"
+          class="dashboard-action-button"
+          [disabled]="destructiveLoading"
+          (click)="closeDestructiveModal()"
+        >
+          Back
+        </button>
         <button
           type="button"
           class="dashboard-action-button dashboard-action-button--danger"
           [disabled]="destructiveLoading"
-          (click)="confirmDestructiveAction()">
+          (click)="confirmDestructiveAction()"
+        >
           {{ destructiveLoading ? 'Working...' : destructiveAction.confirmLabel }}
         </button>
       </div>

@@ -16,6 +16,14 @@ describe('WorkforcePageComponent', () => {
     rosterResponse$ = of({
       summary: {
         activeMembers: 1,
+        pendingInvitations: 0,
+        inactiveMembers: 0,
+        needsAttention: 0,
+        eligibleMembers: 1,
+        completedToday: 1,
+        participationRate: 100,
+        totalRecords: 1,
+        departments: 0,
         scanEligible: 1,
         scanRequested: 0,
         scannedToday: 1,
@@ -25,12 +33,12 @@ describe('WorkforcePageComponent', () => {
         hrCount: 0,
         managerCount: 0,
         employeeCount: 0,
-        needsReviewCount: 0
+        needsReviewCount: 0,
       },
       rows: [],
       departments: [],
       scanRequestRows: [],
-      relationWarning: null
+      relationWarning: null,
     });
 
     await TestBed.configureTestingModule({
@@ -48,8 +56,8 @@ describe('WorkforcePageComponent', () => {
                 activeBusinessProfileName: 'Wellar',
                 activeDepartmentId: null,
                 activeDepartmentName: null,
-                activeMemberRole: 'owner'
-              }
+                activeMemberRole: 'owner',
+              },
             }),
             ensureLoaded: () =>
               of({
@@ -61,34 +69,34 @@ describe('WorkforcePageComponent', () => {
                   activeBusinessProfileName: 'Wellar',
                   activeDepartmentId: null,
                   activeDepartmentName: null,
-                  activeMemberRole: 'owner'
-              }
-            })
-          }
+                  activeMemberRole: 'owner',
+                },
+              }),
+          },
         },
         {
           provide: ActivatedRoute,
           useValue: {
             snapshot: {
               queryParamMap: {
-                get: () => null
-              }
-            }
-          }
+                get: () => null,
+              },
+            },
+          },
         },
         {
           provide: OperationsAdminService,
           useValue: {
-            getWorkforceRosterData: () => rosterResponse$
-          }
+            getWorkforceRosterData: () => rosterResponse$,
+          },
         },
         {
           provide: AuthService,
           useValue: {
-            getStoredAccessToken: () => 'token'
-          }
-        }
-      ]
+            getStoredAccessToken: () => 'token',
+          },
+        },
+      ],
     }).compileComponents();
 
     fixture = TestBed.createComponent(WorkforcePageComponent);
@@ -102,6 +110,16 @@ describe('WorkforcePageComponent', () => {
 
     expect(component.viewState).toBe('empty');
     expect(fixture.nativeElement.textContent).not.toContain('Loading organization...');
+  });
+
+  it('opens on Active Members and uses backend summary values for population tabs', async () => {
+    fixture.detectChanges();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(component.activeTab).toBe('ACTIVE_MEMBER');
+    expect(component.availableTabs.find((tab) => tab.category === 'ACTIVE_MEMBER')?.count).toBe(1);
+    expect(component.resultCountLabel).toBe('Showing 1 Active Member');
   });
 
   it('exits loading and shows a retryable error when the roster request fails', async () => {
@@ -119,6 +137,14 @@ describe('WorkforcePageComponent', () => {
     rosterResponse$ = of({
       summary: {
         activeMembers: 1,
+        pendingInvitations: 0,
+        inactiveMembers: 0,
+        needsAttention: 0,
+        eligibleMembers: 1,
+        completedToday: 1,
+        participationRate: 100,
+        totalRecords: 1,
+        departments: 1,
         scanEligible: 1,
         scanRequested: 0,
         scannedToday: 1,
@@ -128,11 +154,12 @@ describe('WorkforcePageComponent', () => {
         hrCount: 0,
         managerCount: 0,
         employeeCount: 0,
-        needsReviewCount: 0
+        needsReviewCount: 0,
       },
       rows: [
         {
           type: 'member',
+          category: 'ACTIVE_MEMBER',
           key: 'member-1',
           member_id: 'member-1',
           state: 'verified_member',
@@ -140,17 +167,17 @@ describe('WorkforcePageComponent', () => {
           status: 'active',
           identity: {
             displayName: 'Alex Parker',
-            email: 'alex@example.com'
+            email: 'alex@example.com',
           },
           department_name: 'Operations',
           scan_status: 'completed',
           readiness_label: 'Ready',
-          last_scan_at: '2026-06-25T10:00:00.000Z'
-        }
+          last_scan_at: '2026-06-25T10:00:00.000Z',
+        },
       ],
       departments: [{ id: 'dept-1', name: 'Operations' }],
       scanRequestRows: [],
-      relationWarning: null
+      relationWarning: null,
     });
 
     component.refresh();
@@ -160,7 +187,9 @@ describe('WorkforcePageComponent', () => {
 
     const host = fixture.nativeElement.querySelector('.workforce-page') as HTMLElement;
     const table = fixture.nativeElement.querySelector('.workforce-table') as HTMLElement | null;
-    const scroller = fixture.nativeElement.querySelector('.app-table-shell__scroller') as HTMLElement | null;
+    const scroller = fixture.nativeElement.querySelector(
+      '.app-table-shell__scroller',
+    ) as HTMLElement | null;
 
     expect(getComputedStyle(host).overflowX).not.toBe('clip');
     expect(table).toBeTruthy();
@@ -178,8 +207,8 @@ describe('WorkforcePageComponent', () => {
         member_role: 'hr',
         status: 'active',
         email: 'hr@example.com',
-        state: 'verified_member'
-      } as any)
+        state: 'verified_member',
+      } as any),
     ).toBe(true);
 
     expect(
@@ -190,8 +219,8 @@ describe('WorkforcePageComponent', () => {
         member_role: 'manager',
         status: 'active',
         email: 'manager@example.com',
-        state: 'verified_member'
-      } as any)
+        state: 'verified_member',
+      } as any),
     ).toBe(true);
 
     expect(
@@ -202,8 +231,8 @@ describe('WorkforcePageComponent', () => {
         member_role: 'employee',
         status: 'active',
         email: 'employee@example.com',
-        state: 'verified_member'
-      } as any)
+        state: 'verified_member',
+      } as any),
     ).toBe(true);
 
     expect(
@@ -214,8 +243,8 @@ describe('WorkforcePageComponent', () => {
         member_role: 'owner',
         status: 'active',
         email: 'owner@example.com',
-        state: 'verified_member'
-      } as any)
+        state: 'verified_member',
+      } as any),
     ).toBe(false);
   });
 
@@ -223,6 +252,14 @@ describe('WorkforcePageComponent', () => {
     rosterResponse$ = of({
       summary: {
         activeMembers: 3,
+        pendingInvitations: 1,
+        inactiveMembers: 0,
+        needsAttention: 1,
+        eligibleMembers: 2,
+        completedToday: 1,
+        participationRate: 50,
+        totalRecords: 5,
+        departments: 1,
         scanEligible: 2,
         scanRequested: 0,
         scannedToday: 1,
@@ -232,11 +269,12 @@ describe('WorkforcePageComponent', () => {
         hrCount: 0,
         managerCount: 0,
         employeeCount: 2,
-        needsReviewCount: 1
+        needsReviewCount: 1,
       },
       rows: [
         {
           type: 'member',
+          category: 'ACTIVE_MEMBER',
           key: 'member-1',
           member_id: 'member-1',
           user_id: 'user-1',
@@ -244,7 +282,7 @@ describe('WorkforcePageComponent', () => {
           status: 'active',
           identity: {
             displayName: 'Alex Parker',
-            email: 'alex@example.com'
+            email: 'alex@example.com',
           },
           identity_state: 'identified',
           name: 'Alex Parker',
@@ -252,10 +290,11 @@ describe('WorkforcePageComponent', () => {
           department_name: 'Operations',
           scan_status: 'completed',
           readiness_label: 'Ready',
-          last_scan_at: '2026-06-25T10:00:00.000Z'
+          last_scan_at: '2026-06-25T10:00:00.000Z',
         },
         {
           type: 'invite',
+          category: 'PENDING_INVITATION',
           key: 'invite-1',
           invite_id: 'invite-1',
           state: 'pending_invitation',
@@ -263,7 +302,7 @@ describe('WorkforcePageComponent', () => {
           status: 'pending',
           identity: {
             displayName: 'Invitation pending',
-            email: 'invitee@example.com'
+            email: 'invitee@example.com',
           },
           identity_state: 'pending_onboarding',
           name: 'Invitation pending',
@@ -272,10 +311,11 @@ describe('WorkforcePageComponent', () => {
           department_name: 'Operations',
           scan_status: 'not_applicable',
           readiness_label: 'No scan',
-          last_scan_at: null
+          last_scan_at: null,
         },
         {
           type: 'member',
+          category: 'NEEDS_ATTENTION',
           key: 'member-2',
           member_id: 'member-2',
           state: 'repair_required',
@@ -285,7 +325,7 @@ describe('WorkforcePageComponent', () => {
           status: 'active',
           identity: {
             displayName: 'Data repair required',
-            email: null
+            email: null,
           },
           identity_state: 'identity_unavailable',
           name: 'Data repair required',
@@ -294,12 +334,12 @@ describe('WorkforcePageComponent', () => {
           department_name: 'Operations',
           scan_status: 'missing',
           readiness_label: 'No scan',
-          last_scan_at: null
-        }
+          last_scan_at: null,
+        },
       ],
       departments: [{ id: 'dept-1', name: 'Operations' }],
       scanRequestRows: [],
-      relationWarning: null
+      relationWarning: null,
     });
 
     component.refresh();
@@ -310,10 +350,29 @@ describe('WorkforcePageComponent', () => {
     const text = fixture.nativeElement.textContent as string;
     expect(text).toContain('Alex Parker');
     expect(text).toContain('alex@example.com');
-    expect(text).toContain('Invitation pending');
-    expect(text).toContain('invitee@example.com');
-    expect(text).toContain('Data repair required');
-    expect(text).toContain('Missing linked user');
+    expect(text).toContain('Active Members');
+    expect(text).toContain("Today's Scan Activity");
+    expect(text).toContain('Alex Parker');
+
+    const pendingTab = Array.from(
+      fixture.nativeElement.querySelectorAll('.workforce-tab'),
+    ).find((button: any) => button.textContent?.includes('Pending Invitations')) as HTMLElement;
+    pendingTab?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Proposed Role');
+    expect(fixture.nativeElement.textContent).toContain('invitee@example.com');
+    expect(component.resultCountLabel).toBe('Showing 1 Pending Invitation');
+
+    const attentionTab = Array.from(
+      fixture.nativeElement.querySelectorAll('.workforce-tab'),
+    ).find((button: any) => button.textContent?.includes('Needs Attention')) as HTMLElement;
+    attentionTab?.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Operational Impact');
+    expect(fixture.nativeElement.textContent).toContain('Recommended Action');
+    expect(fixture.nativeElement.textContent).toContain('Missing linked user');
 
     const firstRow = component.filteredRows[0];
     component.selectedMember = firstRow;

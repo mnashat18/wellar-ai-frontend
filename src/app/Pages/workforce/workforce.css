@@ -46,6 +46,46 @@
   min-width: min(100%, 18rem);
 }
 
+.workforce-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  border-bottom: 1px solid var(--workforce-border);
+  padding-bottom: 0.7rem;
+}
+
+.workforce-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 0.75rem;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 0.58rem 0.78rem;
+  color: rgb(203 213 225);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.workforce-tab:hover,
+.workforce-tab:focus-visible,
+.workforce-tab--active {
+  border-color: rgba(56, 189, 248, 0.55);
+  background: rgba(56, 189, 248, 0.12);
+  color: #f8fafc;
+  outline: none;
+}
+
+.workforce-tab__count {
+  display: inline-flex;
+  min-width: 1.5rem;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.18);
+  padding: 0.12rem 0.38rem;
+  font-size: 0.72rem;
+}
+
 .workforce-state-card {
   display: grid;
   gap: 0.85rem;
@@ -401,5 +441,4 @@
   .workforce-table-actions {
     min-width: 5rem;
   }
-
 }
