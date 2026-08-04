@@ -77,7 +77,6 @@ type ScanRequestForm = { memberId: string; dueAt: string };
   styleUrls: ['./requests.css'],
 })
 export class RequestsPageComponent implements OnInit, OnDestroy {
-  readonly unsupportedWorkflowMessage = 'This action requires an approved server-side workflow.';
   readonly noEligibleRecipientMessage =
     'No verified active HR, Manager, or Employee with a linked account and email is available.';
   readonly openScanRequestConflictMessage =
@@ -123,6 +122,7 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
   };
   private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingRequestedMembershipId: string | null = null;
+  private requestDetailsTrigger: HTMLElement | null = null;
   constructor(
     private workflows: OperationsWorkflowsService,
     private companyContext: CompanyContextService,
@@ -224,6 +224,21 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
   get showQueueEmpty(): boolean {
     return this.pageState === 'ready' && this.rows.length === 0;
   }
+  get filteredEmptyTitle(): string {
+    if (this.filters.status === 'overdue') return 'No overdue requests';
+    if (this.filters.status === 'completed') return 'No completed requests';
+    if (this.filters.status === 'pending') return 'No pending requests';
+    return 'No requests match current filters';
+  }
+  get filteredEmptyMessage(): string {
+    if (this.filters.status === 'overdue')
+      return 'There are no overdue requests in the current scope. Review pending requests or clear the filters.';
+    if (this.filters.status === 'completed')
+      return 'No completed requests match the current filters. Adjust the date or scope filters to review completion history.';
+    if (this.filters.status === 'pending')
+      return 'There are no pending requests in the current scope. Create a request or review another lifecycle status.';
+    return 'Adjust or clear the filters to return to the available request queue.';
+  }
   refresh(): void {
     this.loadPage();
   }
@@ -266,9 +281,6 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
   }
   onFiltersChanged(): void {
     this.recomputeVisibleRows();
-  }
-  openUnsupportedWorkflow(): void {
-    this.pushFeedback('info', this.unsupportedWorkflowMessage);
   }
   closeCreateModal(): void {
     if (this.creatingRequest) {
@@ -355,11 +367,15 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
         },
       });
   }
-  openRequest(row: QueueRow): void {
+  openRequest(row: QueueRow, trigger?: EventTarget | null): void {
+    this.requestDetailsTrigger = trigger instanceof HTMLElement ? trigger : null;
     this.selectedRequest = row;
   }
   closeRequestDetails(): void {
     this.selectedRequest = null;
+    const trigger = this.requestDetailsTrigger;
+    this.requestDetailsTrigger = null;
+    setTimeout(() => trigger?.focus(), 0);
   }
   trackByRequest(index: number, row: QueueRow): string {
     return row.source.id || String(index);

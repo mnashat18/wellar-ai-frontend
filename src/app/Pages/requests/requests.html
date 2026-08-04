@@ -200,14 +200,12 @@
     </app-filter-bar-shell>
 
     <section *ngIf="showQueueEmpty" class="scan-requests-state-card">
-      <p class="scan-requests-state-card__title">
-        {{ isManager ? 'No department scan requests' : 'No scan requests' }}
-      </p>
+      <p class="scan-requests-state-card__title">No requests</p>
       <p>
         {{
           isManager
-            ? 'No scan requests were returned for the assigned department.'
-            : 'No scan requests were returned for this organization.'
+            ? 'No scan requests are available for this department. Create a request when an eligible employee needs follow-up.'
+            : 'No scan requests are available for this organization. Create a request for an eligible employee to begin follow-up.'
         }}
       </p>
       <button
@@ -221,8 +219,8 @@
     </section>
 
     <section *ngIf="showFilteredEmpty" class="scan-requests-state-card">
-      <p class="scan-requests-state-card__title">No requests match these filters</p>
-      <p>Change or clear filters to return to the available queue.</p>
+      <p class="scan-requests-state-card__title">{{ filteredEmptyTitle }}</p>
+      <p>{{ filteredEmptyMessage }}</p>
       <button
         type="button"
         class="dashboard-action-button dashboard-action-button--primary"
@@ -292,27 +290,9 @@
                   <button
                     type="button"
                     class="scan-requests-row-action scan-requests-row-action--view"
-                    (click)="openRequest(row)"
+                    (click)="openRequest(row, $event.currentTarget)"
                   >
                     View
-                  </button>
-                  <button
-                    *ngIf="isOwnerOrHr && (row.status === 'pending' || row.status === 'overdue')"
-                    type="button"
-                    class="scan-requests-row-action"
-                    disabled
-                    title="Coming Soon"
-                  >
-                    Remind — Coming Soon
-                  </button>
-                  <button
-                    *ngIf="isOwnerOrHr && (row.status === 'pending' || row.status === 'overdue')"
-                    type="button"
-                    class="scan-requests-row-action scan-requests-row-action--danger"
-                    disabled
-                    title="Coming Soon"
-                  >
-                    Cancel — Coming Soon
                   </button>
                 </div>
               </td>
@@ -497,6 +477,10 @@
           <span>Employee</span><strong>{{ row.source.target_member_name }}</strong>
         </div>
         <div class="scan-requests-detail-item">
+          <span>Employee Email</span
+          ><strong>{{ row.source.target_member_email || 'Email unavailable' }}</strong>
+        </div>
+        <div class="scan-requests-detail-item">
           <span>Status</span><strong>{{ row.statusLabel }}</strong>
         </div>
         <div class="scan-requests-detail-item">
@@ -521,28 +505,13 @@
           <span>Relation Warnings</span
           ><strong>{{ row.source.relation_warnings?.join(', ') }}</strong>
         </div>
+        <div class="scan-requests-detail-item">
+          <span>Request ID</span><strong>{{ row.source.id || 'Unavailable' }}</strong>
+        </div>
       </div>
       <div class="mt-6 flex flex-wrap justify-end gap-3">
         <button type="button" class="dashboard-action-button" (click)="closeRequestDetails()">
           Close
-        </button>
-        <button
-          *ngIf="isOwnerOrHr && (row.status === 'pending' || row.status === 'overdue')"
-          type="button"
-          class="dashboard-action-button"
-          disabled
-          title="Coming Soon"
-        >
-          Remind — Coming Soon
-        </button>
-        <button
-          *ngIf="isOwnerOrHr && (row.status === 'pending' || row.status === 'overdue')"
-          type="button"
-          class="dashboard-action-button dashboard-action-button--danger"
-          disabled
-          title="Coming Soon"
-        >
-          Cancel — Coming Soon
         </button>
       </div>
     </div>
