@@ -1378,9 +1378,30 @@ function publicScanRequest(row, targetMember, requestedByUser = null) {
     department_id: targetMember.department_id,
     department_name: targetMember.department_name,
   });
+  const rawStatus = pickString(row.status)?.toLowerCase() ?? 'pending';
+  const dueAt = row.due_at ?? null;
+  const closed = ['completed', 'expired', 'cancelled', 'canceled', 'failed'].includes(rawStatus);
+  const lifecycleStatus = rawStatus === 'completed'
+    ? 'COMPLETED'
+    : rawStatus === 'expired'
+      ? 'EXPIRED'
+      : ['cancelled', 'canceled'].includes(rawStatus) || row.cancelled
+        ? 'CANCELLED'
+        : rawStatus === 'failed'
+          ? 'FAILED'
+          : !closed && dueAt && new Date(dueAt).getTime() > 0 && new Date(dueAt).getTime() < Date.now()
+            ? 'OPEN_OVERDUE'
+            : 'OPEN_PENDING';
+  const relationWarnings = [];
+  if (!targetMember?.id) relationWarnings.push('missing_target_member');
+  if (!requestedByUser?.id) relationWarnings.push('missing_requester');
+  if (!row.department && !targetMember?.department_id) relationWarnings.push('missing_department');
+  if (!row.business_profile) relationWarnings.push('missing_workspace');
   return {
     id: String(row.id),
     status: row.status ?? 'pending',
+    lifecycle_status: lifecycleStatus,
+    relation_warnings: relationWarnings,
     request_type: row.request_type ?? null,
     requested_at: row.requested_at ?? null,
     due_at: row.due_at ?? null,
@@ -1515,45 +1536,29 @@ async function loadWorkspaceScanRequests(trx, workspaceId, options = {}) {
   });
 }
 function summarizeScanRequests(rows) {
-  const summary = { total: 0, pending: 0, completed: 0, overdue: 0 };
-  const isClosed = (status) => {
-    const normalized = pickString(status)?.toLowerCase() ?? '';
-    return (
-      normalized === 'completed' ||
-      normalized === 'expired' ||
-      normalized === 'cancelled' ||
-      normalized === 'canceled'
-    );
-  };
-  const requestTimestamp = (row) => {
-    const value = pickString(row.requested_at ?? row.timestamp ?? null);
-    if (!value) return 0;
-    const parsed = new Date(value).getTime();
-    return Number.isFinite(parsed) ? parsed : 0;
-  };
-  const isOverdue = (row) => {
-    if (!row.due_at || isClosed(row.status)) {
-      return false;
-    }
-    const dueAt = new Date(pickString(row.due_at) ?? '').getTime();
-    if (!Number.isFinite(dueAt)) {
-      return false;
-    }
-    return dueAt > 0 && dueAt < Date.now();
-  };
+  const summary = { totalRequests: 0, openRequests: 0, pending: 0, overdue: 0, completed: 0, expired: 0, cancelled: 0, failed: 0, dueToday: 0, completionRate: 0, total: 0 };
+  const start = new Date(); start.setHours(0, 0, 0, 0); const end = new Date(start); end.setDate(end.getDate() + 1);
   for (const row of rows ?? []) {
-    summary.total += 1;
-    const normalized = pickString(row.status)?.toLowerCase() ?? '';
-    if (normalized === 'completed') {
+    summary.totalRequests += 1;
+    const normalized = row.lifecycle_status ?? 'OPEN_PENDING';
+    if (normalized === 'COMPLETED') {
       summary.completed += 1;
-    } else if (normalized === 'pending' || normalized === 'sent' || normalized === 'opened') {
-      summary.pending += 1;
-    } else if (!isClosed(normalized) && isOverdue(row)) {
-      summary.overdue += 1;
-    } else if (!isClosed(normalized) && !isOverdue(row) && requestTimestamp(row) > 0) {
-      summary.pending += 1;
+    } else if (normalized === 'OPEN_OVERDUE') {
+      summary.openRequests += 1; summary.overdue += 1;
+    } else if (normalized === 'OPEN_PENDING') {
+      summary.openRequests += 1; summary.pending += 1;
+      const due = row.due_at ? new Date(row.due_at) : null;
+      if (due && due >= start && due < end) summary.dueToday += 1;
+    } else if (normalized === 'EXPIRED') {
+      summary.expired += 1;
+    } else if (normalized === 'CANCELLED') {
+      summary.cancelled += 1;
+    } else if (normalized === 'FAILED') {
+      summary.failed += 1;
     }
   }
+  summary.total = summary.totalRequests;
+  summary.completionRate = summary.totalRequests ? Math.round((summary.completed / summary.totalRequests) * 100) : 0;
   return summary;
 }
 function publicOrganizationPermissions(role) {
@@ -2794,30 +2799,7 @@ export default {
             queueFilter.memberId = active.id;
           }
           const rows = await loadWorkspaceScanRequests(trx, active.workspace_id, queueFilter);
-          const visibleRows = rows.filter((row) => {
-            if (role === 'owner' || role === 'hr') {
-              return true;
-            }
-            const targetMemberId = String(row.target_member?.id ?? '');
-            const targetUserId = String(row.target_member?.user?.id ?? '');
-            const requestedByUserId = String(row.requested_by_user?.id ?? '');
-            if (role === 'manager') {
-              return (
-                String(
-                  row.department?.id ??
-                    row.target_member?.department?.id ??
-                    row.department_id ??
-                    '',
-                ) === String(active.department_id)
-              );
-            }
-            return (
-              targetMemberId === String(active.id) ||
-              targetUserId === String(userId) ||
-              requestedByUserId === String(userId)
-            );
-          });
-          return { rows: visibleRows, summary: summarizeScanRequests(visibleRows) };
+          return { rows, summary: summarizeScanRequests(rows) };
         });
         return res.status(200).json({ data: result });
       } catch (error) {

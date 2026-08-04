@@ -128,6 +128,13 @@ export type ScanRequestQueueSummary = {
   pending: number;
   completed: number;
   overdue: number;
+  totalRequests?: number;
+  openRequests?: number;
+  expired?: number;
+  cancelled?: number;
+  failed?: number;
+  dueToday?: number;
+  completionRate?: number;
 };
 
 export type ScanRequestQueueResponse = {
@@ -174,6 +181,8 @@ export class AlertWorkflowApiError extends Error {
 export type RequestRow = {
   id: string;
   status: string | null;
+  lifecycle_status?: string | null;
+  relation_warnings?: string[];
   request_type: string | null;
   requested_at: string | null;
   due_at: string | null;
@@ -204,6 +213,13 @@ export type RequestsPageData = {
     pending: number;
     completed: number;
     overdue: number;
+    totalRequests?: number;
+    openRequests?: number;
+    expired?: number;
+    cancelled?: number;
+    failed?: number;
+    dueToday?: number;
+    completionRate?: number;
   };
 };
 
@@ -331,6 +347,8 @@ type ScanRequestRecord = {
   target_member?: MemberRecord | UserRecord | string | number | null;
   request_type?: string | null;
   status?: string | null;
+  lifecycle_status?: string | null;
+  relation_warnings?: string[];
   cancelled?: string | null;
   requested_at?: string | null;
   due_at?: string | null;
@@ -589,32 +607,9 @@ export class OperationsWorkflowsService {
               scans,
               notifications
             );
+            pageData.summary = { ...pageData.summary, ...queue.summary };
 
-            if (context.activeRole !== 'employee' || !context.userId) {
-              return pageData;
-            }
-
-            const userId = context.userId;
-            const employeeRows = pageData.rows.filter(
-              (row) => row.target_member_id === context.activeMembershipId || row.target_member_id === userId || row.requested_by_user_id === userId
-            );
-
-            const filteredDepartments = pageData.departments.filter((department) =>
-              employeeRows.some((row) => row.department_id === department.id)
-            );
-
-            return {
-              ...pageData,
-              rows: employeeRows,
-              departments: filteredDepartments,
-              members: [],
-              summary: {
-                total: employeeRows.length,
-                pending: employeeRows.filter((row) => this.isPendingRequestStatus(row.status)).length,
-                completed: employeeRows.filter((row) => this.normalizeText(row.status) === 'completed').length,
-                overdue: employeeRows.filter((row) => this.isOverdueRequestStatus(row.status, row.due_at)).length
-              }
-            } satisfies RequestsPageData;
+            return context.activeRole === 'employee' ? { ...pageData, members: [] } : pageData;
           })
         )
       )
@@ -1205,7 +1200,14 @@ export class OperationsWorkflowsService {
             total: this.toNumber(queue.summary?.total) ?? 0,
             pending: this.toNumber(queue.summary?.pending) ?? 0,
             completed: this.toNumber(queue.summary?.completed) ?? 0,
-            overdue: this.toNumber(queue.summary?.overdue) ?? 0
+            overdue: this.toNumber(queue.summary?.overdue) ?? 0,
+            totalRequests: this.toNumber(queue.summary?.totalRequests) ?? this.toNumber(queue.summary?.total) ?? 0,
+            openRequests: this.toNumber(queue.summary?.openRequests) ?? 0,
+            expired: this.toNumber(queue.summary?.expired) ?? 0,
+            cancelled: this.toNumber(queue.summary?.cancelled) ?? 0,
+            failed: this.toNumber(queue.summary?.failed) ?? 0,
+            dueToday: this.toNumber(queue.summary?.dueToday) ?? 0,
+            completionRate: this.toNumber(queue.summary?.completionRate) ?? 0
           }
         } satisfies ScanRequestQueueResponse;
       }),
@@ -1778,6 +1780,8 @@ export class OperationsWorkflowsService {
       return {
         id: requestId,
         status: requestStatus,
+        lifecycle_status: request.lifecycle_status ?? null,
+        relation_warnings: request.relation_warnings ?? [],
         request_type: requestType,
         requested_at: request.requested_at ?? request.timestamp ?? null,
         due_at: request.due_at ?? null,
