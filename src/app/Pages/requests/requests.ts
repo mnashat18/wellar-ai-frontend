@@ -29,7 +29,7 @@ type RequestFilters = {
   status: 'all' | QueueStatus;
   requestType: string;
   department: string;
-  dueWindow: 'all' | 'today' | 'overdue' | 'not_set';
+  dueWindow: 'all' | 'today' | 'week' | 'not_set';
   sort: 'newest' | 'dueSoon' | 'overdueFirst';
 };
 type QueueRow = {
@@ -41,14 +41,18 @@ type QueueRow = {
   departmentName: string;
   requestedAtLabel: string;
   dueAtLabel: string;
+  completedAtLabel: string;
   requestedAtTs: number;
   dueAtTs: number;
 };
 type QueueSummary = {
   pending: number;
   overdue: number;
+  completed: number;
+  unsuccessful: number;
+  openRequests: number;
   dueToday: number;
-  completedOrClosed: number;
+  completionRate: number;
 };
 type ScanRequestForm = { memberId: string; dueAt: string };
 @Component({
@@ -85,7 +89,7 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
   rows: QueueRow[] = [];
   visibleRows: QueueRow[] = [];
   selectedRequest: QueueRow | null = null;
-  resultCountLabel = '0 of 0 shown';
+  resultCountLabel = 'Showing 0 Requests';
   hasActiveFilters = false;
   showCreateModal = false;
   creatingRequest = false;
@@ -98,7 +102,15 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
   modalRequestedMemberId: string | null = null;
   private modalRequestLoadId = 0;
   requestForm: ScanRequestForm = { memberId: '', dueAt: '' };
-  summary: QueueSummary = { pending: 0, overdue: 0, dueToday: 0, completedOrClosed: 0 };
+  summary: QueueSummary = {
+    pending: 0,
+    overdue: 0,
+    completed: 0,
+    unsuccessful: 0,
+    openRequests: 0,
+    dueToday: 0,
+    completionRate: 0,
+  };
   filters: RequestFilters = {
     search: '',
     status: 'all',
@@ -151,6 +163,14 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
         : 'Department-scoped request queue.';
     }
     return 'Organization request queue for operational follow-up.';
+  }
+  get scopeTypeLabel(): string {
+    return this.isManager ? 'Department' : 'Organization';
+  }
+  get scopeNameLabel(): string {
+    return this.isManager
+      ? this.managerDepartmentName || 'Department scope'
+      : this.companyContext.snapshot().context.activeBusinessProfileName || 'Organization';
   }
   get managerDepartmentName(): string {
     return (
@@ -374,7 +394,7 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
       this.visibleRows = [];
       this.requestModalOptions = null;
       this.requestModalOptionsLoaded = false;
-      this.summary = { pending: 0, overdue: 0, dueToday: 0, completedOrClosed: 0 };
+      this.resetSummary();
       this.pageState = 'scopeUnavailable';
       this.loading = false;
       this.errorMessage = '';
@@ -418,12 +438,14 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
           this.summary = {
             pending: pageData.summary.pending,
             overdue: pageData.summary.overdue,
-            dueToday: pageData.summary.dueToday ?? 0,
-            completedOrClosed:
-              pageData.summary.completed +
+            completed: pageData.summary.completed,
+            unsuccessful:
               (pageData.summary.expired ?? 0) +
               (pageData.summary.cancelled ?? 0) +
               (pageData.summary.failed ?? 0),
+            openRequests: pageData.summary.openRequests ?? 0,
+            dueToday: pageData.summary.dueToday ?? 0,
+            completionRate: pageData.summary.completionRate ?? 0,
           };
           this.recomputeVisibleRows();
           this.syncSelectedRequestAfterLoad();
@@ -441,7 +463,7 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
           this.visibleRows = [];
           this.requestModalOptions = null;
           this.requestModalOptionsLoaded = false;
-          this.summary = { pending: 0, overdue: 0, dueToday: 0, completedOrClosed: 0 };
+          this.resetSummary();
           this.errorMessage = this.resolveLoadErrorMessage(error);
           this.pageState = 'error';
           this.cdr.detectChanges();
@@ -512,6 +534,9 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
         ),
         requestedAtLabel: this.formatDateTimeLabel(row.requested_at),
         dueAtLabel: row.due_at ? this.formatDateTimeLabel(row.due_at) : 'No due time',
+        completedAtLabel: row.completed_at
+          ? this.formatDateTimeLabel(row.completed_at)
+          : 'Not completed',
         requestedAtTs: this.toTimestamp(row.requested_at),
         dueAtTs: this.toTimestamp(row.due_at),
       } satisfies QueueRow;
@@ -523,9 +548,12 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
     let filtered = this.rows.filter((row) => {
       const matchesSearch =
         !search ||
+        row.source.target_member_name.toLowerCase().includes(search) ||
+        (row.source.target_member_email ?? '').toLowerCase().includes(search) ||
         row.requestTypeLabel.toLowerCase().includes(search) ||
         row.departmentName.toLowerCase().includes(search) ||
-        row.statusLabel.toLowerCase().includes(search);
+        row.source.requested_by_user_name.toLowerCase().includes(search) ||
+        row.source.id.toLowerCase().includes(search);
       const matchesStatus = this.filters.status === 'all' || row.status === this.filters.status;
       const matchesType =
         !this.filters.requestType || row.requestTypeLabel === this.filters.requestType;
@@ -555,7 +583,9 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
       filtered = [...filtered].sort((left, right) => right.requestedAtTs - left.requestedAtTs);
     }
     this.visibleRows = filtered;
-    this.resultCountLabel = `${this.visibleRows.length} of ${this.rows.length} shown`;
+    this.resultCountLabel = this.hasActiveFilters
+      ? `Showing ${this.visibleRows.length} of ${this.rows.length} Requests`
+      : `Showing ${this.rows.length} ${this.rows.length === 1 ? 'Request' : 'Requests'}`;
   }
   private matchesDueWindow(row: QueueRow): boolean {
     if (this.filters.dueWindow === 'all') {
@@ -564,11 +594,11 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
     if (this.filters.dueWindow === 'not_set') {
       return !row.dueAtTs;
     }
-    if (this.filters.dueWindow === 'overdue') {
-      return row.status === 'overdue';
-    }
     const today = this.todayRange();
-    return row.dueAtTs >= today.start && row.dueAtTs < today.end;
+    if (this.filters.dueWindow === 'today') {
+      return row.dueAtTs >= today.start && row.dueAtTs < today.end;
+    }
+    return row.dueAtTs >= today.start && row.dueAtTs < today.start + 7 * 24 * 60 * 60 * 1000;
   }
   private syncSelectedRequestAfterLoad(): void {
     const selectedRequestId = this.selectedRequest?.source.id;
@@ -602,8 +632,9 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
   private statusClassForStatus(status: QueueStatus): string {
     if (status === 'completed') return 'scan-request-status scan-request-status--completed';
     if (status === 'overdue') return 'scan-request-status scan-request-status--overdue';
-    if (status === 'expired' || status === 'cancelled')
-      return 'scan-request-status scan-request-status--neutral';
+    if (status === 'failed') return 'scan-request-status scan-request-status--failed';
+    if (status === 'expired') return 'scan-request-status scan-request-status--expired';
+    if (status === 'cancelled') return 'scan-request-status scan-request-status--neutral';
     return 'scan-request-status scan-request-status--pending';
   }
   private resolveLoadErrorMessage(error: unknown): string {
@@ -630,6 +661,17 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
       this.filters.dueWindow !== 'all' ||
       this.filters.sort !== 'newest',
     );
+  }
+  private resetSummary(): void {
+    this.summary = {
+      pending: 0,
+      overdue: 0,
+      completed: 0,
+      unsuccessful: 0,
+      openRequests: 0,
+      dueToday: 0,
+      completionRate: 0,
+    };
   }
   private todayRange(): { start: number; end: number } {
     const now = new Date();
