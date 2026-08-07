@@ -505,9 +505,6 @@
           <span>Relation Warnings</span
           ><strong>{{ row.source.relation_warnings?.join(', ') }}</strong>
         </div>
-        <div class="scan-requests-detail-item">
-          <span>Request ID</span><strong>{{ row.source.id || 'Unavailable' }}</strong>
-        </div>
       </div>
       <div class="mt-6 flex flex-wrap justify-end gap-3">
         <button type="button" class="dashboard-action-button" (click)="closeRequestDetails()">

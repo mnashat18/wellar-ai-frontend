@@ -161,7 +161,7 @@ export class InvitesPageComponent implements OnInit {
   }
 
   expireInvite(row: InviteRow): void {
-    if (typeof window !== 'undefined' && !window.confirm(`Expire invite for ${row.email || row.id}?`)) {
+    if (typeof window !== 'undefined' && !window.confirm(`Expire invite for ${row.email || row.phone || 'this invite'}?`)) {
       return;
     }
 
@@ -178,7 +178,7 @@ export class InvitesPageComponent implements OnInit {
   }
 
   revokeInvite(row: InviteRow): void {
-    if (typeof window !== 'undefined' && !window.confirm(`Revoke invite for ${row.email || row.id}?`)) {
+    if (typeof window !== 'undefined' && !window.confirm(`Revoke invite for ${row.email || row.phone || 'this invite'}?`)) {
       return;
     }
 
