@@ -3,11 +3,10 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth';
-import { AdminTokenService } from '../../services/admin-token';
 import { SubscriptionService } from '../../services/subscription.service';
 import { NotificationsComponent } from '../../components/notifications/notifications';
 
@@ -38,7 +37,6 @@ export class ProfileMobileComponent implements OnInit {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private auth: AuthService,
-    private adminTokens: AdminTokenService,
     private subscriptions: SubscriptionService,
     private router: Router
   ) {}
@@ -183,24 +181,6 @@ export class ProfileMobileComponent implements OnInit {
     ).pipe(
       map((res) => res?.data ?? null),
       switchMap((user) => {
-        const userId = this.userId;
-        if (!userId || !this.shouldHydrateFromAdmin(user)) {
-          return of(user);
-        }
-
-        return this.adminTokens.getToken().pipe(
-          switchMap((adminToken) => {
-            if (!adminToken) {
-              return of(user);
-            }
-            return this.fetchUserById(userId, adminToken).pipe(
-              map((adminUser) => adminUser ?? user),
-              catchError(() => of(user))
-            );
-          })
-        );
-      }),
-      switchMap((user) => {
         if (!user) {
           return of({ user: null, roleLabel: '' });
         }
@@ -245,28 +225,7 @@ export class ProfileMobileComponent implements OnInit {
       `${environment.API_URL}/users/me`,
       payload,
       { headers }
-    ).pipe(
-      map((res) => ({ res, avatarId })),
-      catchError((err) => {
-        return this.adminTokens.getToken().pipe(
-          switchMap((adminToken) => {
-            if (!adminToken || !this.profile?.id) {
-              return throwError(() => err);
-            }
-
-            const adminHeaders = new HttpHeaders({ Authorization: `Bearer ${adminToken}` });
-
-            return this.http.patch<{ data?: ProfileUser }>(
-              `${environment.API_URL}/users/${this.profile.id}`,
-              payload,
-              { headers: adminHeaders }
-            ).pipe(
-              map((res) => ({ res, avatarId }))
-            );
-          })
-        );
-      })
-    );
+    ).pipe(map((res) => ({ res, avatarId })));
   }
 
   private getProfileFields(): string {
@@ -280,26 +239,6 @@ export class ProfileMobileComponent implements OnInit {
       'avatar',
       'status'
     ].join(',');
-  }
-
-  private shouldHydrateFromAdmin(user: ProfileUser | null): boolean {
-    if (!user) return true;
-    if (!user.email) return true;
-    if (!user.first_name && !user.last_name) return true;
-    if (!user.avatar) return true;
-    return false;
-  }
-
-  private fetchUserById(userId: string, token: string) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-    const fields = this.getProfileFields();
-
-    return this.http.get<{ data?: ProfileUser }>(
-      `${environment.API_URL}/users/${userId}?fields=${fields}`,
-      { headers }
-    ).pipe(
-      map((res) => res?.data ?? null)
-    );
   }
 
   private mapProfile(user: ProfileUser, token: string, roleLabelOverride?: string): ProfileView {
@@ -375,12 +314,7 @@ export class ProfileMobileComponent implements OnInit {
       return of(this.normalizeRoleLabel('', token));
     }
 
-    return this.adminTokens.getToken().pipe(
-      switchMap((adminToken) => {
-        const bearer = adminToken ?? token;
-        if (!bearer) return of('');
-        return this.fetchRoleName(role, bearer);
-      }),
+    return this.fetchRoleName(role, token).pipe(
       map((roleName) => this.normalizeRoleLabel(roleName, token)),
       catchError(() => of(this.normalizeRoleLabel('', token)))
     );
@@ -487,32 +421,11 @@ export class ProfileMobileComponent implements OnInit {
 
   private uploadAvatar(token: string) {
     if (!this.avatarFile) {
-      return of({ id: null, usedAdmin: false } satisfies UploadResult);
+      return of({ id: null } satisfies UploadResult);
     }
 
     return this.uploadAvatarWithToken(token).pipe(
-      map((id) => ({ id, usedAdmin: false } satisfies UploadResult)),
-      catchError((err) => {
-        return this.adminTokens.getToken().pipe(
-          switchMap((adminToken) => {
-            if (!adminToken) {
-              return throwError(() => err);
-            }
-            return this.uploadAvatarWithToken(adminToken).pipe(
-              switchMap((id) => {
-                if (!id || !this.userId) {
-                  return of({ id, usedAdmin: true } satisfies UploadResult);
-                }
-                return this.assignFileOwner(id, this.userId, adminToken).pipe(
-                  map(() => ({ id, usedAdmin: true } satisfies UploadResult)),
-                  catchError(() => of({ id, usedAdmin: true } satisfies UploadResult))
-                );
-              })
-            );
-          }),
-          catchError(() => of({ id: null, usedAdmin: false } satisfies UploadResult))
-        );
-      })
+      map((id) => ({ id } satisfies UploadResult))
     );
   }
 
@@ -527,16 +440,6 @@ export class ProfileMobileComponent implements OnInit {
       { headers }
     ).pipe(
       map((res) => res?.data?.id ?? null)
-    );
-  }
-
-  private assignFileOwner(fileId: string, userId: string, token: string) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-
-    return this.http.patch(
-      `${environment.API_URL}/files/${fileId}`,
-      { uploaded_by: userId },
-      { headers }
     );
   }
 
@@ -609,6 +512,5 @@ type ProfileUpdatePayload = {
 
 type UploadResult = {
   id: string | null;
-  usedAdmin: boolean;
 };
 

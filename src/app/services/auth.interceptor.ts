@@ -21,16 +21,10 @@ export class AuthInterceptor implements HttpInterceptor {
     let token = this.getStoredAccessToken();
     const isAuthRequest = req.url.includes('/auth/login') || req.url.includes('/users/register');
     const hasAuthHeader = req.headers.has('Authorization');
-    const isAdminTokenRequest = req.headers.has('X-Admin-Token-Request') || req.url.includes('/admin-token');
     const shouldAttachAuth =
       !isAuthRequest &&
       !hasAuthHeader &&
-      !isAdminTokenRequest &&
       this.isApiRequest(req.url);
-
-    if (isAdminTokenRequest) {
-      return next.handle(req);
-    }
 
     if (token && this.isTokenExpired(token)) {
       this.clearStoredAuthState();

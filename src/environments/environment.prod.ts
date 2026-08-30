@@ -18,9 +18,6 @@ export const environment = {
   CLAIM_INVITE_FLOW_ENDPOINT: '',
   WORKSPACE_CREATE_ENDPOINT: 'https://dash.conntinuity.com/wellar/workspaces/create',
 
-  ADMIN_TOKEN_ENDPOINT: '',
-  ADMIN_TOKEN_SECRET: '',
-
   AUDIT_LOG_REVIEW_ROLE_IDS: [] as string[],
   BUSINESS_ROLE_ID: '',
   FREE_ROLE_ID: ''

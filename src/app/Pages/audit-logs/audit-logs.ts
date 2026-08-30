@@ -3,7 +3,6 @@ import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { catchError, map, timeout } from 'rxjs/operators';
-import { AdminTokenService } from '../../services/admin-token';
 import { environment } from '../../../environments/environment';
 
 @Component({
@@ -25,7 +24,6 @@ export class AuditLogs implements OnInit {
 
   constructor(
     private http: HttpClient,
-    private adminTokens: AdminTokenService,
     private cdr: ChangeDetectorRef
   ) {}
 
@@ -123,56 +121,6 @@ export class AuditLogs implements OnInit {
       return;
     }
 
-    if (this.isAdminUser) {
-      this.adminTokens.getToken().subscribe({
-        next: (adminToken) => {
-          const userToken = this.getUserToken();
-          // Prefer the admin token only when it is present and not expired; a
-          // stale admin token must not shadow a valid user token (which would
-          // force an unauthenticated request via buildAuthHeaders).
-          const usingAdmin = !!adminToken && !this.isTokenExpired(adminToken);
-          const token = usingAdmin ? adminToken : userToken;
-          const tokenSource = usingAdmin ? 'admin' : userToken ? 'user' : 'none';
-          console.info('[audit-logs] submit using token source:', tokenSource);
-
-          this.resolveUserId(effectiveEmail, token).subscribe({
-            next: (userId) => {
-              this.createLog({
-                user: userId ?? effectiveEmail,
-                type: trimmedType,
-                description: trimmedDescription,
-                metadata: parsedMetadata,
-                timestamp: new Date().toISOString()
-              }, token).subscribe({
-                next: () => {
-                  console.info('[audit-logs] log created');
-                  this.submitFeedback = { type: 'success', message: 'Log submitted successfully.' };
-                  this.cdr.detectChanges();
-                  this.loadLogs();
-                },
-                error: (err) => {
-                  console.error('[audit-logs] create log error:', err);
-                  this.submitFeedback = { type: 'error', message: 'Failed to submit log.' };
-                  this.cdr.detectChanges();
-                }
-              });
-            },
-            error: (err) => {
-              console.error('[audit-logs] resolve user error:', err);
-              this.submitFeedback = { type: 'error', message: 'Failed to resolve user email.' };
-              this.cdr.detectChanges();
-            }
-          });
-        },
-        error: (err) => {
-          console.error('[audit-logs] admin token error:', err);
-          this.submitFeedback = { type: 'error', message: 'Failed to get admin token.' };
-          this.cdr.detectChanges();
-        }
-      });
-      return;
-    }
-
     const reviewerToken = this.getUserToken();
     if (!reviewerToken) {
       this.submitFeedback = { type: 'error', message: 'Please sign in to submit logs.' };
@@ -237,55 +185,16 @@ export class AuditLogs implements OnInit {
       return;
     }
 
-    if (!this.isAdminUser) {
-      const tokenSource = userToken ? 'user' : 'none';
-      console.info('[audit-logs] using token source:', tokenSource);
+    const tokenSource = userToken ? 'user' : 'none';
+    console.info('[audit-logs] using token source:', tokenSource);
 
-      this.fetchLogs(userToken).subscribe({
-        next: (logs) => {
-          console.info('[audit-logs] audit_logs count:', logs.length);
-          this.applyLogs(logs);
-        },
-        error: (err) => {
-          console.error('[audit-logs] audit_logs error:', err);
-        }
-      });
-      return;
-    }
-
-    this.adminTokens.getToken().subscribe({
-      next: (adminToken) => {
-        // Prefer the admin token only when present and not expired; otherwise
-        // fall back to the user token rather than sending a stale/unusable one.
-        const usingAdmin = !!adminToken && !this.isTokenExpired(adminToken);
-        const token = usingAdmin ? adminToken : userToken;
-        const tokenSource = usingAdmin ? 'admin' : userToken ? 'user' : 'none';
-        console.info('[audit-logs] using token source:', tokenSource);
-
-        this.fetchLogs(token).subscribe({
-          next: (logs) => {
-            console.info('[audit-logs] audit_logs count:', logs.length);
-            this.applyLogs(logs);
-          },
-          error: (err) => {
-            console.error('[audit-logs] audit_logs error:', err);
-          }
-        });
+    this.fetchLogs(userToken).subscribe({
+      next: (logs) => {
+        console.info('[audit-logs] audit_logs count:', logs.length);
+        this.applyLogs(logs);
       },
       error: (err) => {
-        console.error('[audit-logs] admin token error:', err);
-        const tokenSource = userToken ? 'user' : 'none';
-        console.info('[audit-logs] using token source:', tokenSource);
-
-        this.fetchLogs(userToken).subscribe({
-          next: (logs) => {
-            console.info('[audit-logs] audit_logs count:', logs.length);
-            this.applyLogs(logs);
-          },
-          error: (fetchErr) => {
-            console.error('[audit-logs] audit_logs error:', fetchErr);
-          }
-        });
+        console.error('[audit-logs] audit_logs error:', err);
       }
     });
   }
