@@ -424,22 +424,11 @@ export class AuditLogs implements OnInit {
   }
 
   private buildAuthHeaders(token: string | null): HttpHeaders | null {
-    if (!token || this.isTokenExpired(token)) {
-      return null;
-    }
-
-    return new HttpHeaders({
-      Authorization: `Bearer ${token}`
-    });
+    return new HttpHeaders();
   }
 
   private getUserToken(): string | null {
-    const userToken = this.getStoredToken();
-    if (!userToken || this.isTokenExpired(userToken)) {
-      return null;
-    }
-
-    return userToken;
+    return null;
   }
 
   private isTokenExpired(token: string): boolean {
@@ -495,11 +484,7 @@ export class AuditLogs implements OnInit {
   }
 
   private getStoredToken(): string | null {
-    return (
-      localStorage.getItem('token') ??
-      localStorage.getItem('access_token') ??
-      localStorage.getItem('directus_token')
-    );
+    return null;
   }
 
   private extractUserEmail(payload?: Record<string, unknown> | null): string {

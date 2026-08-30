@@ -17,6 +17,8 @@ import { InviteService } from './services/invites';
 import { PostAuthWelcomeService } from './services/post-auth-welcome.service';
 import { PostLoginRoutingService } from './services/post-login-routing.service';
 import { AppShellComponent } from './dashboard-shell/app-shell.component';
+import { AuthService } from './services/auth';
+import { map } from 'rxjs/operators';
 
 const isLikelyJwt = (token: string): boolean => {
   const parts = token.split('.');
@@ -30,9 +32,6 @@ const clearStoredAuthAliases = (): void => {
   if (typeof localStorage === 'undefined') {
     return;
   }
-  localStorage.removeItem('token');
-  localStorage.removeItem('access_token');
-  localStorage.removeItem('directus_token');
 };
 
 const INVITE_CLAIM_SUCCESS_PREFIX = 'invite_claim_success_';
@@ -172,29 +171,7 @@ const debugRouteGuard = (message: string, details?: Record<string, unknown>): vo
   console.debug(`[RouteGuard] ${message}`);
 };
 
-const getStoredToken = (): string | null => {
-  if (typeof localStorage === 'undefined') {
-    return null;
-  }
-
-  const token = (
-    localStorage.getItem('token') ??
-    localStorage.getItem('access_token') ??
-    localStorage.getItem('directus_token')
-  );
-  const normalized = token?.trim() ?? '';
-
-  if (!normalized) {
-    return null;
-  }
-
-  if (!isLikelyJwt(normalized) || isInviteLikeToken(normalized)) {
-    clearStoredAuthAliases();
-    return null;
-  }
-
-  return normalized;
-};
+const getStoredToken = (): string | null => null;
 
 const isMobileViewport = () => {
   if (typeof window === 'undefined') {
@@ -224,13 +201,10 @@ const mobileAuditLogsMatch: CanMatchFn = () => isMobileViewport();
 
 const appAuthGuard: CanActivateFn = () => {
   const router = inject(Router);
-  const token = getStoredToken();
-
-  if (!token) {
-    return router.createUrlTree(['/']);
-  }
-
-  return true;
+  const auth = inject(AuthService);
+  return auth.ensureSession().pipe(
+    map((valid) => valid ? true : router.createUrlTree(['/']))
+  );
 };
 
 const paymentAccessGuard: CanActivateFn = async () => {

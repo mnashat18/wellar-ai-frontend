@@ -84,7 +84,7 @@ export class WorkspaceActivatingPageComponent implements OnInit {
           'active_business_profile',
           'active_department',
           'active_member_role'
-        ], refreshedToken).pipe(timeout(this.verifyTimeoutMs))
+        ]).pipe(timeout(this.verifyTimeoutMs))
       );
 
       if (!this.isOwnerRole(refreshedUser?.role)) {
@@ -98,7 +98,7 @@ export class WorkspaceActivatingPageComponent implements OnInit {
         context.isAuthenticated &&
         context.authInitialized &&
         context.workspaceInitialized &&
-        Boolean(this.auth.getStoredAccessToken());
+        this.auth.isSessionEstablished();
       const workspaceMatches = context.activeBusinessProfileId === activation.businessProfileId;
       const memberRoleMatches = String(context.activeMemberRole ?? '').toLowerCase() === 'owner';
 

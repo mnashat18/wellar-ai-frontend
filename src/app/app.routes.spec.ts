@@ -17,7 +17,7 @@ describe('route guard recovery', () => {
   beforeEach(() => {
     localStorage.clear();
     sessionStorage.clear();
-    localStorage.setItem('token', 'header.payload.signature');
+    sessionStorage.setItem('is_logged_in', '1');
   });
 
   it('fails closed to workspace access when workspace bootstrap errors', async () => {

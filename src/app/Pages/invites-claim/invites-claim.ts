@@ -320,10 +320,7 @@ export class InviteClaimPageComponent implements OnInit {
     };
 
     const fromStorage =
-      localStorage.getItem('access_token') ??
-      localStorage.getItem('directus_access_token') ??
-      localStorage.getItem('directus_token') ??
-      localStorage.getItem('token');
+      this.auth.getStoredAccessToken();
     const fromService =
       (typeof authAny.getAccessToken === 'function' ? authAny.getAccessToken() : null) ??
       (typeof authAny.getStoredAccessToken === 'function' ? authAny.getStoredAccessToken() : null);

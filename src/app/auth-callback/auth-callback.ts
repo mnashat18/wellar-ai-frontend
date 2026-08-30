@@ -67,23 +67,15 @@ export class AuthCallbackComponent implements OnInit {
       return;
     }
 
-    const storedToken = capture.accessToken ?? this.auth.getStoredAccessToken?.() ?? null;
-    const start$ = storedToken
-      ? of(storedToken)
-      : this.refreshAccessTokenFromCookie();
+    const start$ = this.refreshAccessTokenFromCookie();
 
     start$
       .pipe(
         timeout(this.callbackTimeoutMs),
-        switchMap((token) => {
-          if (!token) return of(null);
+        switchMap((authenticated) => {
+          if (!authenticated) return of(null);
 
-          if (this.auth.storeAccessToken) {
-            this.auth.storeAccessToken(token);
-          }
-
-          // Important: hydrate user/org/role/email caches from current token owner.
-          return this.auth.getCurrentUser(token).pipe(
+          return this.auth.getCurrentUser().pipe(
             catchError(() => of(null))
           );
         }),
@@ -125,7 +117,7 @@ export class AuthCallbackComponent implements OnInit {
 
   private refreshAccessTokenFromCookie() {
     return this.auth.refreshFromCookie().pipe(
-      map((token) => token ?? null),
+      map((authenticated) => authenticated),
       catchError(() => of(null))
     );
   }

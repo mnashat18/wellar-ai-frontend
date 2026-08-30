@@ -573,8 +573,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
   }
 
   private buildAuthHeaders(token: string | null): HttpHeaders | null {
-    if (!token || this.isTokenExpired(token)) return null;
-    return new HttpHeaders({ Authorization: `Bearer ${token}` });
+    return new HttpHeaders();
   }
 
   private decodeJwtPayload(token: string): Record<string, unknown> | null {
@@ -613,9 +612,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
   }
 
   private getUserToken(): string | null {
-    const userToken = localStorage.getItem('token') ?? localStorage.getItem('access_token') ?? localStorage.getItem('directus_token');
-    if (!userToken || this.isTokenExpired(userToken)) return null;
-    return userToken;
+    return null;
   }
 
   private isTokenExpired(token: string): boolean {

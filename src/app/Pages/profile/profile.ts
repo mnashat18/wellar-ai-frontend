@@ -234,19 +234,14 @@ export class Profile implements OnInit {
     ].join(',');
   }
 
-  private resolveAccessToken(): Observable<string | null> {
+  private resolveAccessToken(): Observable<any> {
     const storedToken = this.auth.getStoredAccessToken();
     if (storedToken && !this.isTokenExpired(storedToken)) {
       return of(storedToken);
     }
 
     return this.auth.refreshFromCookie().pipe(
-      map((refreshedToken) => {
-        if (!refreshedToken || this.isTokenExpired(refreshedToken)) {
-          return null;
-        }
-        return refreshedToken;
-      }),
+      map((refreshedToken) => refreshedToken ? true : null),
       catchError(() => of(null))
     );
   }
@@ -295,11 +290,7 @@ export class Profile implements OnInit {
 
   private buildAvatarUrl(avatarId: string, token: string): string {
     const base = `${environment.API_URL}/assets/${avatarId}`;
-    if (!token || this.isTokenExpired(token)) {
-      return base;
-    }
-    const separator = base.includes('?') ? '&' : '?';
-    return `${base}${separator}access_token=${encodeURIComponent(token)}`;
+    return base;
   }
 
 

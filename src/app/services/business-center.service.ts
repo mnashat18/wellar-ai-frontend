@@ -2355,36 +2355,11 @@ export class BusinessCenterService {
   }
 
   private getToken(): string | null {
-    if (typeof localStorage === 'undefined') {
-      return null;
-    }
-
-    try {
-      const candidates = [
-        localStorage.getItem('token'),
-        localStorage.getItem('access_token'),
-        localStorage.getItem('directus_token')
-      ].filter((value): value is string => Boolean(value && value.trim()));
-
-      for (const token of candidates) {
-        if (!this.isTokenExpired(token)) {
-          return token;
-        }
-      }
-
-      return null;
-    } catch {
-      return null;
-    }
+    return null;
   }
 
   private buildAuthHeaders(token: string | null): HttpHeaders | null {
-    if (!token) {
-      return null;
-    }
-    return new HttpHeaders({
-      Authorization: `Bearer ${token}`
-    });
+    return new HttpHeaders();
   }
 
   private decodeJwtPayload(token: string): Record<string, unknown> | null {

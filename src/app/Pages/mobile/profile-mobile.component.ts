@@ -47,18 +47,7 @@ export class ProfileMobileComponent implements OnInit {
   }
 
   logout() {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) {
-      this.finishLogout();
-      return;
-    }
-
-    this.http.post(`${environment.API_URL}/auth/logout`, {
-      refresh_token: refreshToken
-    }).subscribe({
-      next: () => this.finishLogout(),
-      error: () => this.finishLogout()
-    });
+    this.finishLogout();
   }
 
   startEdit() {
@@ -99,7 +88,7 @@ export class ProfileMobileComponent implements OnInit {
       return;
     }
 
-    const token = localStorage.getItem('token') ?? localStorage.getItem('access_token') ?? localStorage.getItem('directus_token');
+    const token = this.auth.getStoredAccessToken();
     if (!token || this.isTokenExpired(token)) {
       this.saveFeedback = { type: 'error', message: 'Session expired. Please login again.' };
       this.cdr.detectChanges();
@@ -162,7 +151,7 @@ export class ProfileMobileComponent implements OnInit {
   }
 
   private loadProfile() {
-    const token = localStorage.getItem('token') ?? localStorage.getItem('access_token') ?? localStorage.getItem('directus_token');
+    const token = this.auth.getStoredAccessToken();
     if (!token || this.isTokenExpired(token)) {
       this.loading = false;
       this.errorMessage = 'You are not signed in.';
@@ -172,7 +161,7 @@ export class ProfileMobileComponent implements OnInit {
 
     const payload = this.decodeJwtPayload(token);
     this.userId = this.extractUserId(payload);
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    const headers = new HttpHeaders();
     const fields = this.getProfileFields();
 
     this.http.get<{ data?: ProfileUser }>(
@@ -191,8 +180,6 @@ export class ProfileMobileComponent implements OnInit {
     ).pipe(
       finalize(() => {
         this.loading = false;
-        console.log('profile-mobile loading', this.loading);
-        console.log('profile-mobile data', this.profile);
         this.cdr.detectChanges();
       })
     ).subscribe({
@@ -219,7 +206,7 @@ export class ProfileMobileComponent implements OnInit {
   }
 
   private updateProfile(token: string, payload: ProfileUpdatePayload, avatarId: string | null) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    const headers = new HttpHeaders();
 
     return this.http.patch<{ data?: ProfileUser }>(
       `${environment.API_URL}/users/me`,
@@ -284,11 +271,7 @@ export class ProfileMobileComponent implements OnInit {
 
   private buildAvatarUrl(avatarId: string, token: string): string {
     const base = `${environment.API_URL}/assets/${avatarId}`;
-    if (!token || this.isTokenExpired(token)) {
-      return base;
-    }
-    const separator = base.includes('?') ? '&' : '?';
-    return `${base}${separator}access_token=${encodeURIComponent(token)}`;
+    return base;
   }
 
   private buildInitials(label: string): string {
@@ -321,7 +304,7 @@ export class ProfileMobileComponent implements OnInit {
   }
 
   private fetchRoleName(roleId: string, token: string) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    const headers = new HttpHeaders();
 
     return this.http.get<{ data?: { name?: string } }>(
       `${environment.API_URL}/roles/${roleId}?fields=name`,
@@ -430,7 +413,7 @@ export class ProfileMobileComponent implements OnInit {
   }
 
   private uploadAvatarWithToken(token: string) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    const headers = new HttpHeaders();
     const formData = new FormData();
     formData.append('file', this.avatarFile as Blob);
 

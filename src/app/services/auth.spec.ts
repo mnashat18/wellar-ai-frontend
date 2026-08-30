@@ -34,10 +34,6 @@ describe('AuthService', () => {
   });
 
   it('clears stale auth recovery state without removing pending invite recovery context', () => {
-    localStorage.setItem('token', 'header.payload.signature');
-    localStorage.setItem('access_token', 'header.payload.signature');
-    localStorage.setItem('directus_token', 'header.payload.signature');
-    localStorage.setItem('refresh_token', 'refresh-token');
     localStorage.setItem('auth_error', 'INVALID_PROVIDER');
     localStorage.setItem('user_email', 'owner@example.com');
     sessionStorage.setItem('is_logged_in', '1');
@@ -50,10 +46,6 @@ describe('AuthService', () => {
 
     service.clearAuthRecoveryState();
 
-    expect(localStorage.getItem('token')).toBeNull();
-    expect(localStorage.getItem('access_token')).toBeNull();
-    expect(localStorage.getItem('directus_token')).toBeNull();
-    expect(localStorage.getItem('refresh_token')).toBeNull();
     expect(localStorage.getItem('auth_error')).toBeNull();
     expect(localStorage.getItem('user_email')).toBeNull();
     expect(sessionStorage.getItem('is_logged_in')).toBeNull();

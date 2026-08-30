@@ -28,7 +28,6 @@ describe('AuthCallbackComponent', () => {
       captureAuthFromUrl: vi.fn(() => ({ stored: false, hasCode: false })),
       getStoredAccessToken: vi.fn(() => null),
       refreshFromCookie: vi.fn(() => of(null)),
-      storeAccessToken: vi.fn(),
       getCurrentUser: vi.fn(() => of(null)),
       clearAuthRecoveryState: vi.fn(),
       setAuthNotice: vi.fn(),
@@ -132,16 +131,15 @@ describe('AuthCallbackComponent', () => {
 
   it('keeps the successful callback path unchanged for a restored Google session', async () => {
     authSpy.captureAuthFromUrl.mockReturnValue({
-      stored: true,
-      accessToken: 'header.payload.signature',
+      stored: false,
       hasCode: false
     });
+    authSpy.refreshFromCookie.mockReturnValue(of(true));
     authSpy.getCurrentUser.mockReturnValue(of({ id: 'user-1' }));
 
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(authSpy.storeAccessToken).toHaveBeenCalledWith('header.payload.signature');
     expect(postLoginRoutingSpy.resolveDestination).toHaveBeenCalledTimes(1);
     expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/app/welcome', { replaceUrl: true });
     expect(authSpy.clearAuthRecoveryState).not.toHaveBeenCalled();
@@ -149,10 +147,10 @@ describe('AuthCallbackComponent', () => {
 
   it('queues a returning-user welcome after a restored callback session resolves to the dashboard', async () => {
     authSpy.captureAuthFromUrl.mockReturnValue({
-      stored: true,
-      accessToken: 'header.payload.signature',
+      stored: false,
       hasCode: false
     });
+    authSpy.refreshFromCookie.mockReturnValue(of(true));
     authSpy.getCurrentUser.mockReturnValue(of({ id: 'user-1' }));
     postLoginRoutingSpy.resolveDestination.mockResolvedValue('/app/dashboard');
 

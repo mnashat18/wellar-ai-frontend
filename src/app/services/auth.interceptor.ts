@@ -1,10 +1,5 @@
 import { Injectable } from '@angular/core';
-import {
-  HttpEvent,
-  HttpHandler,
-  HttpInterceptor,
-  HttpRequest
-} from '@angular/common/http';
+import { HttpEvent, HttpHandler, HttpInterceptor, HttpRequest } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 import { environment } from 'src/environments/environment';
@@ -12,162 +7,16 @@ import { environment } from 'src/environments/environment';
 @Injectable()
 export class AuthInterceptor implements HttpInterceptor {
   private readonly apiOrigin = this.resolveOrigin(environment.API_URL);
-
-  intercept(
-    req: HttpRequest<any>,
-    next: HttpHandler
-  ): Observable<HttpEvent<any>> {
-
-    let token = this.getStoredAccessToken();
-    const isAuthRequest = req.url.includes('/auth/login') || req.url.includes('/users/register');
-    const hasAuthHeader = req.headers.has('Authorization');
-    const shouldAttachAuth =
-      !isAuthRequest &&
-      !hasAuthHeader &&
-      this.isApiRequest(req.url);
-
-    if (token && this.isTokenExpired(token)) {
-      this.clearStoredAuthState();
-      token = null;
-    }
-
-    if (token) {
-      this.syncAccessTokenAliases(token);
-    }
-
-    let authReq = req;
-    let attachedAuth = false;
-
-    if (token && shouldAttachAuth) {
-      authReq = req.clone({
-        setHeaders: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      attachedAuth = true;
-    }
-
-    return next.handle(authReq).pipe(
-      catchError((err) => {
-        const code = err?.error?.errors?.[0]?.extensions?.code;
-        if (attachedAuth && code === 'TOKEN_EXPIRED') {
-          this.clearStoredAuthState();
-          return next.handle(req);
-        }
-
-        return throwError(() => err);
-      })
-    );
+  intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
+    if (!this.isApiRequest(req.url)) return next.handle(req);
+    // Directus session mode authenticates exclusively with the HttpOnly cookie.
+    // Strip legacy caller-supplied Bearer headers so no stale credential is sent.
+    const authReq = req.clone({ withCredentials: true, headers: req.headers.delete('Authorization') });
+    return next.handle(authReq).pipe(catchError((err) => {
+      // Never retry an authenticated write anonymously.
+      return throwError(() => err);
+    }));
   }
-
-  private isTokenExpired(token: string): boolean {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return false;
-    }
-
-    try {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const exp = payload?.exp;
-      if (typeof exp !== 'number') {
-        return false;
-      }
-      return Math.floor(Date.now() / 1000) >= exp;
-    } catch {
-      return false;
-    }
-  }
-
-  private getStoredAccessToken(): string | null {
-    if (typeof localStorage === 'undefined') {
-      return null;
-    }
-
-    const token =
-      localStorage.getItem('token') ??
-      localStorage.getItem('access_token') ??
-      localStorage.getItem('directus_token');
-    const normalized = token?.trim() ?? '';
-
-    if (!normalized) {
-      return null;
-    }
-
-    if (!this.isLikelyJwt(normalized) || this.isInviteLikeToken(normalized)) {
-      this.clearStoredAuthState();
-      if (!environment.production) {
-        if (this.isInviteLikeToken(normalized)) {
-          console.error('[Auth] invalid auth credential storage contained an invite credential', { source: 'interceptor' });
-        } else {
-          console.error('[Auth] invalid auth credential storage', { source: 'interceptor' });
-        }
-      }
-      return null;
-    }
-
-    return normalized;
-  }
-
-  private syncAccessTokenAliases(token: string): void {
-    if (typeof localStorage === 'undefined') {
-      return;
-    }
-
-    try {
-      if (localStorage.getItem('token') !== token) {
-        localStorage.setItem('token', token);
-      }
-      if (localStorage.getItem('access_token') !== token) {
-        localStorage.setItem('access_token', token);
-      }
-      if (localStorage.getItem('directus_token') !== token) {
-        localStorage.setItem('directus_token', token);
-      }
-    } catch {
-      // ignore storage errors
-    }
-  }
-
-  private clearStoredAuthState(): void {
-    if (typeof localStorage === 'undefined') {
-      return;
-    }
-
-    localStorage.removeItem('token');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('directus_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('directus_refresh_token');
-  }
-
-  private isLikelyJwt(token: string): boolean {
-    const parts = token.split('.');
-    return parts.length === 3 && parts.every((part) => part.trim().length > 0);
-  }
-
-  private isInviteLikeToken(token: string): boolean {
-    return /^wlr-[a-z0-9_-]+$/i.test(token.trim());
-  }
-
-  private isApiRequest(url: string): boolean {
-    if (!this.apiOrigin) {
-      return false;
-    }
-
-    try {
-      const base = typeof window !== 'undefined' ? window.location.origin : this.apiOrigin;
-      const requestUrl = new URL(url, base);
-      return requestUrl.origin === this.apiOrigin;
-    } catch {
-      return false;
-    }
-  }
-
-  private resolveOrigin(url: string): string | null {
-    try {
-      return new URL(url).origin;
-    } catch {
-      return null;
-    }
-  }
+  private isApiRequest(url: string) { if (!this.apiOrigin) return false; try { return new URL(url, typeof window !== 'undefined' ? window.location.origin : this.apiOrigin).origin === this.apiOrigin; } catch { return false; } }
+  private resolveOrigin(url: string): string | null { try { return new URL(url).origin; } catch { return null; } }
 }

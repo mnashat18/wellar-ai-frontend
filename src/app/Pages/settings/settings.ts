@@ -248,12 +248,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     }
 
     const base = `${this.apiUrl()}/assets/${avatar}`;
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      return base;
-    }
-
-    return `${base}?access_token=${encodeURIComponent(token)}`;
+    return base;
   }
 
   currentWorkspaceName(): string {

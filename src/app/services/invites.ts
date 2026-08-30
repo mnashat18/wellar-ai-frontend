@@ -112,8 +112,7 @@ export class InviteService {
       const endpoint = this.resolveClaimInviteEndpoint();
       this.debugFlow('claim started', { endpoint: this.maskSensitiveUrl(endpoint) });
       const headers = new HttpHeaders({
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${accessToken}`
+        'Content-Type': 'application/json'
       });
 
       return this.http.post<unknown>(
@@ -150,9 +149,7 @@ export class InviteService {
       return this.http.get<unknown>(
         `${environment.API_URL}/wellar/workspaces/invites/${encodeURIComponent(normalizedInviteId)}?_ts=${Date.now()}`,
         {
-          headers: new HttpHeaders({
-            Authorization: `Bearer ${accessToken}`
-          }),
+          headers: new HttpHeaders(),
           withCredentials: true
         }
       ).pipe(
@@ -696,10 +693,7 @@ export class InviteService {
         `${environment.API_URL}/wellar/workspaces/invites/${encodeURIComponent(normalizedInviteId)}/${action}`,
         {},
         {
-          headers: new HttpHeaders({
-            Authorization: `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          }),
+          headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
           withCredentials: true
         }
       ).pipe(
