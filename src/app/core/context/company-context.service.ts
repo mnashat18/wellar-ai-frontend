@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { DestroyRef, Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { BehaviorSubject, Observable, firstValueFrom, forkJoin, from, of } from 'rxjs';
 import { catchError, finalize, map, shareReplay, switchMap, tap, timeout } from 'rxjs/operators';
@@ -169,6 +169,7 @@ type VerifiedWorkspaceContext = {
 
 @Injectable({ providedIn: 'root' })
 export class CompanyContextService {
+  private readonly destroyRef = inject(DestroyRef);
   private readonly api = environment.API_URL;
   private readonly stateSubject = new BehaviorSubject<CompanyContextState>(INITIAL_STATE);
   private readonly activeMembershipSubject = new BehaviorSubject<ActiveMembershipContext | null>(this.readStoredMembership());
@@ -193,6 +194,9 @@ export class CompanyContextService {
   ) {
     if (typeof window !== 'undefined') {
       window.addEventListener('wellar-auth-state-reset', this.onAuthStateReset);
+      this.destroyRef.onDestroy(() => {
+        window.removeEventListener('wellar-auth-state-reset', this.onAuthStateReset);
+      });
     }
   }
 
