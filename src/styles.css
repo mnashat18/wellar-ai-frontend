@@ -3240,6 +3240,7 @@ body::selection {
     z-index: 1;
     display: grid;
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+    grid-template-areas: 'sidebar main';
     min-height: 100dvh;
   }
 
@@ -3270,7 +3271,7 @@ body::selection {
   }
 
   .app-shell .app-main {
-    grid-column: 2;
+    grid-area: main;
     margin-left: 0;
     width: auto;
     min-width: 0;
@@ -3280,8 +3281,7 @@ body::selection {
   .app-shell .app-sidebar {
     position: relative;
     inset: auto;
-    grid-column: 1;
-    grid-row: 1;
+    grid-area: sidebar;
     width: var(--sidebar-width);
     min-width: var(--sidebar-width);
     max-width: var(--sidebar-width);
