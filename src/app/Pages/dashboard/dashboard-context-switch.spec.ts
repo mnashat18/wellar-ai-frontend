@@ -9,9 +9,9 @@ import { OperationalDashboardService } from '../../services/operational-dashboar
 import { PostLoginRoutingService } from '../../services/post-login-routing.service';
 import { Dashboard } from './dashboard';
 
-const makeDashboardView = (companyName: string): any => ({
+const makeDashboardView = (companyName: string, activeRole = 'owner'): any => ({
   generatedAt: new Date().toISOString(),
-  company: { activeRole: 'owner', companyName },
+  company: { activeRole, companyName },
   currentMember: { departmentName: null },
   scope: { departmentId: null, departmentName: null },
   kpis: [],
@@ -105,7 +105,7 @@ describe('Dashboard organization switching', () => {
                 });
               }
 
-              return of(makeDashboardView(businessProfileId === 'profile-b' ? 'Company B' : 'Company A'));
+              return of(makeDashboardView(businessProfileId === 'profile-b' ? 'Company B' : 'Company A', businessProfileId === 'profile-b' ? 'hr' : 'owner'));
             })
           }
         },
@@ -134,7 +134,6 @@ describe('Dashboard organization switching', () => {
   it('ignores stale Company A dashboard data after switching to Company B', async () => {
     for (let attempt = 0; attempt < 5 && !fixture.componentInstance.activeBusinessProfile; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
-      fixture.detectChanges();
     }
 
     expect(fixture.componentInstance.activeBusinessProfile?.company_name).toBe('Company A');
@@ -147,16 +146,13 @@ describe('Dashboard organization switching', () => {
       activeMemberRole: 'hr',
       userId: 'user-1'
     });
-    fixture.detectChanges();
     for (let attempt = 0; attempt < 5 && fixture.componentInstance.view?.company.companyName !== 'Company B'; attempt += 1) {
       await new Promise((resolve) => setTimeout(resolve, 0));
-      fixture.detectChanges();
     }
     expect(fixture.componentInstance.view?.company.companyName).toBe('Company B');
 
     resolveStaleRequest?.();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    fixture.detectChanges();
 
     expect(fixture.componentInstance.view?.company.companyName).toBe('Company B');
     expect(fixture.componentInstance.activeBusinessProfile?.company_name).toBe('Company B');

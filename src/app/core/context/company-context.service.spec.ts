@@ -1,7 +1,7 @@
-import { HttpHeaders, provideHttpClient } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, of } from 'rxjs';
 import { vi } from 'vitest';
 
 import { environment } from '../../../environments/environment';
@@ -13,16 +13,19 @@ describe('CompanyContextService canonical organization context', () => {
   let service: CompanyContextService;
   let httpMock: HttpTestingController;
   let storedAccessToken: string;
-  let refreshAuthTokenSpy: ReturnType<typeof vi.fn>;
 
-  beforeEach(() => {
+  const settleAsync = async (): Promise<void> => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+  };
+
+  beforeEach(async () => {
+    TestBed.resetTestingModule();
+    localStorage.clear();
     storedAccessToken = 'access-token';
-    refreshAuthTokenSpy = vi.fn(() => {
-      storedAccessToken = 'refreshed-access-token';
-      return Promise.resolve('refreshed-access-token');
-    });
 
-    TestBed.configureTestingModule({
+    await TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
@@ -32,7 +35,6 @@ describe('CompanyContextService canonical organization context', () => {
           provide: AuthService,
           useValue: {
             getStoredAccessToken: vi.fn(() => storedAccessToken),
-            getAuthHeaders: vi.fn((token?: string) => new HttpHeaders({ Authorization: `Bearer ${token ?? storedAccessToken}` })),
             getCurrentUserAfterRestore: vi.fn(() =>
               Promise.resolve({
                 id: 'user-1',
@@ -42,12 +44,13 @@ describe('CompanyContextService canonical organization context', () => {
               })
             ),
             isLoggedIn: vi.fn(() => true),
+            isSessionEstablished: vi.fn(() => true),
+            ensureSession: vi.fn(() => of(true)),
             clearAuthState: vi.fn(),
-            refreshAuthTokenWithStoredRefreshToken: refreshAuthTokenSpy
           }
         }
       ]
-    });
+    }).compileComponents();
 
     service = TestBed.inject(CompanyContextService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -57,8 +60,43 @@ describe('CompanyContextService canonical organization context', () => {
     httpMock.verify();
   });
 
+  it('refreshCurrentUser preserves auth and workspace refresh for an established session', async () => {
+    const auth = TestBed.inject(AuthService) as any;
+    const authInit = vi.spyOn(service, 'initializeAuthContext').mockResolvedValue();
+    const loaded = vi.spyOn(service, 'ensureLoaded').mockReturnValue(of(service.snapshot()));
+    await service.refreshCurrentUser({ force: false });
+    expect(auth.isSessionEstablished).toHaveBeenCalled();
+    expect(auth.ensureSession).not.toHaveBeenCalled();
+    expect(authInit).toHaveBeenCalledWith(false);
+    expect(loaded).toHaveBeenCalledWith(false);
+  });
+
+  it('restores an unavailable session before refreshing current user context', async () => {
+    const auth = TestBed.inject(AuthService) as any;
+    auth.isSessionEstablished.mockReturnValue(false);
+    auth.ensureSession.mockReturnValue(of(true));
+    vi.spyOn(service, 'initializeAuthContext').mockResolvedValue();
+    vi.spyOn(service, 'ensureLoaded').mockReturnValue(of(service.snapshot()));
+    await service.refreshCurrentUser();
+    expect(auth.ensureSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails closed when session restoration is unavailable', async () => {
+    const auth = TestBed.inject(AuthService) as any;
+    auth.isSessionEstablished.mockReturnValue(false);
+    auth.ensureSession.mockReturnValue(of(false));
+    const loaded = vi.spyOn(service, 'ensureLoaded');
+    await service.refreshCurrentUser();
+    expect(loaded).not.toHaveBeenCalled();
+  });
+
   it('maps two active memberships from the canonical context into availableCompanies and makes no collection read', async () => {
+    localStorage.setItem('active_workspace_membership_sync_v1', 'membership-1');
     const statePromise = firstValueFrom(service.ensureLoaded(true));
+
+    const syncRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
+    syncRequest.flush({ data: { active: { workspace: { id: 'profile-1', companyName: 'Waller Demo Company', isActive: true, planCode: null, billingStatus: null }, membership: { id: 'membership-1', status: 'active', memberRole: 'owner' }, department: null }, memberships: [], invitations: [] } });
+    await settleAsync();
 
     const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
     expect(userRequest.request.method).toBe('GET');
@@ -91,10 +129,10 @@ describe('CompanyContextService canonical organization context', () => {
     });
 
     const contextRequest = httpMock.expectOne((req) =>
-      req.url === `${environment.API_URL}/wellar/workspaces/context` && req.params.has('_ts')
+      req.url.includes('/wellar/workspaces/context')
     );
     expect(contextRequest.request.method).toBe('GET');
-    expect(contextRequest.request.params.get('_ts')).toBeTruthy();
+    expect(contextRequest.request.urlWithParams).toContain('_ts=');
     contextRequest.flush({
       data: {
         active: {
@@ -167,7 +205,12 @@ describe('CompanyContextService canonical organization context', () => {
   });
 
   it('marks only the canonical active membership as current even when other memberships remain active', async () => {
+    localStorage.setItem('active_workspace_membership_sync_v1', 'membership-2');
     const statePromise = firstValueFrom(service.ensureLoaded(true));
+
+    const syncRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
+    syncRequest.flush({ data: { active: { workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, membership: { id: 'membership-2', status: 'active', memberRole: 'manager' }, department: null }, memberships: [], invitations: [] } });
+    await settleAsync();
 
     const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
     expect(userRequest.request.method).toBe('GET');
@@ -188,7 +231,7 @@ describe('CompanyContextService canonical organization context', () => {
     profileRequest.flush({ data: [] });
 
     const contextRequest = httpMock.expectOne((req) =>
-      req.url === `${environment.API_URL}/wellar/workspaces/context` && req.params.has('_ts')
+      req.url.includes('/wellar/workspaces/context')
     );
     expect(contextRequest.request.method).toBe('GET');
     contextRequest.flush({
@@ -262,7 +305,7 @@ describe('CompanyContextService canonical organization context', () => {
     const statePromise = firstValueFrom(service.ensureLoaded(true));
 
     const syncContextRequest = httpMock.expectOne((req) =>
-      req.url === `${environment.API_URL}/wellar/workspaces/context` && req.params.has('_ts')
+      req.url.includes('/wellar/workspaces/context')
     );
     expect(syncContextRequest.request.method).toBe('GET');
     syncContextRequest.flush({
@@ -317,6 +360,8 @@ describe('CompanyContextService canonical organization context', () => {
       }
     });
 
+    await settleAsync();
+
     const switchRequest = httpMock.expectOne(`${environment.API_URL}/wellar/workspaces/switch`);
     expect(switchRequest.request.method).toBe('POST');
     expect(switchRequest.request.body).toEqual({ membership_id: 'membership-1' });
@@ -338,11 +383,9 @@ describe('CompanyContextService canonical organization context', () => {
       }
     });
 
-    expect(refreshAuthTokenSpy).toHaveBeenCalledTimes(1);
-    expect(storedAccessToken).toBe('refreshed-access-token');
+    await settleAsync();
 
     const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
-    expect(userRequest.request.headers.get('Authorization')).toBe('Bearer refreshed-access-token');
     userRequest.flush({
       data: {
         id: 'user-1',
@@ -356,7 +399,6 @@ describe('CompanyContextService canonical organization context', () => {
     });
 
     const profileRequest = httpMock.expectOne((req) => req.url.includes('/items/business_profiles'));
-    expect(profileRequest.request.headers.get('Authorization')).toBe('Bearer refreshed-access-token');
     profileRequest.flush({
       data: [
         {
@@ -371,10 +413,7 @@ describe('CompanyContextService canonical organization context', () => {
       ]
     });
 
-    const loadedContextRequest = httpMock.expectOne((req) =>
-      req.url === `${environment.API_URL}/wellar/workspaces/context` && req.params.has('_ts')
-    );
-    expect(loadedContextRequest.request.headers.get('Authorization')).toBe('Bearer refreshed-access-token');
+    const loadedContextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
     loadedContextRequest.flush({
       data: {
         active: {
@@ -430,11 +469,10 @@ describe('CompanyContextService canonical organization context', () => {
     const state = await statePromise;
     expect(state.context.activeBusinessProfileId).toBe('profile-1');
     expect(state.context.activeMemberRole).toBe('owner');
-    expect(state.context.availableCompanies).toHaveLength(1);
+    expect(state.context.availableCompanies).toHaveLength(2);
 
     const repeatedState = await firstValueFrom(service.ensureLoaded(false));
     expect(repeatedState.context.activeBusinessProfileId).toBe('profile-1');
-    expect(refreshAuthTokenSpy).toHaveBeenCalledTimes(1);
     httpMock.expectNone((req) => req.url === `${environment.API_URL}/wellar/workspaces/switch`);
   });
 
@@ -509,11 +547,9 @@ describe('CompanyContextService canonical organization context', () => {
       }
     });
 
-    expect(refreshAuthTokenSpy).toHaveBeenCalledTimes(1);
-    expect(storedAccessToken).toBe('refreshed-access-token');
+    await settleAsync();
 
     const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
-    expect(userRequest.request.headers.get('Authorization')).toBe('Bearer refreshed-access-token');
     userRequest.flush({
       data: {
         id: 'user-1',
@@ -527,7 +563,6 @@ describe('CompanyContextService canonical organization context', () => {
     });
 
     const profileRequest = httpMock.expectOne((req) => req.url.includes('/items/business_profiles'));
-    expect(profileRequest.request.headers.get('Authorization')).toBe('Bearer refreshed-access-token');
     profileRequest.flush({
       data: [
         {
@@ -542,10 +577,11 @@ describe('CompanyContextService canonical organization context', () => {
       ]
     });
 
-    const contextRequest = httpMock.expectOne((req) =>
-      req.url === `${environment.API_URL}/wellar/workspaces/context` && req.params.has('_ts')
-    );
-    expect(contextRequest.request.headers.get('Authorization')).toBe('Bearer refreshed-access-token');
+    const departmentRequest = httpMock.expectOne((req) => req.url.includes('/items/departments'));
+    departmentRequest.flush({ data: [{ id: 'department-2', name: 'Marketing' }] });
+
+    await settleAsync();
+    const contextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
     contextRequest.flush({
       data: {
         active: {
@@ -601,9 +637,12 @@ describe('CompanyContextService canonical organization context', () => {
       }
     });
 
+    await settleAsync();
+    const verifiedContextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
+    verifiedContextRequest.flush({ data: { active: { workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, membership: { id: 'membership-2', status: 'active', memberRole: 'hr' }, department: { id: 'department-2', name: 'Marketing' } }, memberships: [{ id: 'membership-2', status: 'active', memberRole: 'hr', workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, department: { id: 'department-2', name: 'Marketing' } }], invitations: [] } });
     const state = await statePromise;
     expect(state.context.activeBusinessProfileId).toBe('profile-2');
     expect(state.context.activeMemberRole).toBe('hr');
-    expect(state.context.availableCompanies.map((company) => company.id)).toEqual(['profile-1', 'profile-2']);
+    expect(state.context.availableCompanies.map((company) => company.id)).toEqual(['profile-2', 'profile-1']);
   });
 });

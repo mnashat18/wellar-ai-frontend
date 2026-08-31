@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { forkJoin, of } from 'rxjs';
 import { catchError, map, take, timeout } from 'rxjs/operators';
@@ -68,6 +68,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
   private readonly postAuthRetryDelaysMs = [900, 1800, 3000];
   private recoveringSession = false;
   private currentAccessUserId: string | null = null;
+  private currentUserEmail: string | null = null;
   private currentMemberRole: BusinessMemberRole | null = null;
   private currentBusinessProfileId: string | null = null;
   private optimisticRequests = new Map<string, RequestRow>();
@@ -85,7 +86,12 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit() {
-    this.loadPlanAccess();
+    this.auth.getVerifiedCurrentUser().subscribe((user) => {
+      if (!user) { this.currentAccessUserId = null; return; }
+      this.currentAccessUserId = this.normalizeId(user.id);
+      this.currentUserEmail = this.normalizeEmail(user.email);
+      this.loadPlanAccess();
+    });
   }
 
   ngOnDestroy() {
@@ -180,9 +186,8 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const userToken = this.getUserToken();
-    const currentUserEmail = this.getUserEmailFromToken(userToken);
-    if (!userToken) {
+    const currentUserEmail = this.currentUserEmail;
+    if (!this.auth.isSessionEstablished() || !this.currentAccessUserId) {
       this.submitFeedback = { type: 'error', message: 'Your session expired. Log in again.' };
       this.cdr.detectChanges();
       return;
@@ -351,8 +356,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
   }
 
   private loadBusinessRequests(retryAttempt = 0) {
-    const token = this.getUserToken();
-    if (!token) {
+    if (!this.auth.isSessionEstablished()) {
       this.tryRecoverSessionAndReload();
       this.applyRequests([]);
       return;
@@ -363,7 +367,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
       return;
     }
 
-    this.fetchRequests(token, {
+    this.fetchRequests({
       businessProfileId: this.currentBusinessProfileId,
       bustCache: true
     }).subscribe({
@@ -379,16 +383,15 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
   }
 
   private loadOwnRequests(retryAttempt = 0) {
-    const token = this.getUserToken();
-    const userId = this.resolveCurrentUserId(token);
+    const userId = this.currentAccessUserId;
 
-    if (!token || !userId) {
+    if (!this.auth.isSessionEstablished() || !userId) {
       this.tryRecoverSessionAndReload();
       this.applyRequests([]);
       return;
     }
 
-    this.fetchRequests(token, {
+    this.fetchRequests({
       requestedForUserId: userId ?? undefined,
       bustCache: true
     }).subscribe({
@@ -409,17 +412,12 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
   }
 
   private fetchRequests(
-    token: string | null,
     filters: {
       requestedForUserId?: string;
       businessProfileId?: string;
       bustCache?: boolean;
     } | null
   ) {
-    const headers = this.buildAuthHeaders(token);
-    if (!headers) {
-      return of([] as RequestRecord[]);
-    }
 
     const fields = [
       'id',
@@ -466,7 +464,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
 
     return this.http.get<{ data?: RequestRecord[] }>(
       `${environment.API_URL}/items/requests?${params.toString()}`,
-      { headers, withCredentials: true }
+      { withCredentials: true }
     ).pipe(
       map(res => res.data ?? [])
     );
@@ -570,62 +568,6 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
     const datePart = date.toLocaleDateString('en-CA');
     const timePart = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     return `${datePart} ${timePart}`;
-  }
-
-  private buildAuthHeaders(token: string | null): HttpHeaders | null {
-    return new HttpHeaders();
-  }
-
-  private decodeJwtPayload(token: string): Record<string, unknown> | null {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    try {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return typeof payload === 'object' && payload ? (payload as Record<string, unknown>) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private getUserIdFromToken(token: string | null): string | null {
-    if (!token) return null;
-    const payload = this.decodeJwtPayload(token);
-    const id = payload?.['id'] ?? payload?.['user_id'] ?? payload?.['sub'];
-    return this.normalizeId(id);
-  }
-
-  private resolveCurrentUserId(token: string | null): string | null {
-    if (this.currentAccessUserId) {
-      return this.currentAccessUserId;
-    }
-
-    const tokenUserId = this.getUserIdFromToken(token);
-    if (tokenUserId) {
-      return tokenUserId;
-    }
-
-    if (typeof localStorage === 'undefined') {
-      return null;
-    }
-
-    return this.normalizeId(localStorage.getItem('current_user_id'));
-  }
-
-  private getUserToken(): string | null {
-    return null;
-  }
-
-  private isTokenExpired(token: string): boolean {
-    const parts = token.split('.');
-    if (parts.length !== 3) return false;
-    try {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const exp = payload?.exp;
-      if (typeof exp !== 'number') return false;
-      return Math.floor(Date.now() / 1000) >= exp;
-    } catch {
-      return false;
-    }
   }
 
   private submitRequestBatch(
@@ -1124,15 +1066,6 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
     }
 
     return this.defaultInviteMemberRole;
-  }
-
-  private getUserEmailFromToken(token: string | null): string | null {
-    const payload = token ? this.decodeJwtPayload(token) : null;
-    const payloadEmail = payload?.['email'];
-    const storedEmail = typeof localStorage !== 'undefined'
-      ? localStorage.getItem('user_email')
-      : null;
-    return this.normalizeEmail(payloadEmail) ?? this.normalizeEmail(storedEmail);
   }
 
   private daysUntil(value: string | null): number | null {

@@ -1,11 +1,12 @@
 import { TestBed } from '@angular/core/testing';
 import { Router, UrlTree, provideRouter } from '@angular/router';
-import { throwError } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { CompanyContextService } from './core/context/company-context.service';
 import { InviteService } from './services/invites';
 import { SubscriptionService } from './services/subscription.service';
 import { businessOnboardingGuard, dashboardWorkspaceGuard } from './app.routes';
+import { AuthService } from './services/auth';
 
 describe('route guard recovery', () => {
   const inviteServiceMock = {
@@ -24,6 +25,7 @@ describe('route guard recovery', () => {
     await TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        { provide: AuthService, useValue: { ensureSession: () => of(true) } },
         {
           provide: CompanyContextService,
           useValue: {
@@ -59,6 +61,7 @@ describe('route guard recovery', () => {
     await TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        { provide: AuthService, useValue: { ensureSession: () => of(true) } },
         {
           provide: CompanyContextService,
           useValue: {
@@ -99,6 +102,7 @@ describe('route guard recovery', () => {
     await TestBed.configureTestingModule({
       providers: [
         provideRouter([]),
+        { provide: AuthService, useValue: { ensureSession: () => of(true) } },
         {
           provide: CompanyContextService,
           useValue: {

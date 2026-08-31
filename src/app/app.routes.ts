@@ -18,6 +18,7 @@ import { PostAuthWelcomeService } from './services/post-auth-welcome.service';
 import { PostLoginRoutingService } from './services/post-login-routing.service';
 import { AppShellComponent } from './dashboard-shell/app-shell.component';
 import { AuthService } from './services/auth';
+import { firstValueFrom } from 'rxjs';
 import { map } from 'rxjs/operators';
 
 const isLikelyJwt = (token: string): boolean => {
@@ -171,7 +172,8 @@ const debugRouteGuard = (message: string, details?: Record<string, unknown>): vo
   console.debug(`[RouteGuard] ${message}`);
 };
 
-const getStoredToken = (): string | null => null;
+const hasVerifiedSession = (auth: AuthService): Promise<boolean> =>
+  firstValueFrom(auth.ensureSession());
 
 const isMobileViewport = () => {
   if (typeof window === 'undefined') {
@@ -209,7 +211,7 @@ const appAuthGuard: CanActivateFn = () => {
 
 const paymentAccessGuard: CanActivateFn = async () => {
   const router = inject(Router);
-  const token = getStoredToken();
+  const auth = inject(AuthService);
   const pendingInviteToken = getPendingInviteToken();
 
   if (pendingInviteToken) {
@@ -218,7 +220,7 @@ const paymentAccessGuard: CanActivateFn = async () => {
     });
   }
 
-  if (!token) {
+  if (!(await hasVerifiedSession(auth))) {
     return true;
   }
 
@@ -234,10 +236,11 @@ const paymentAccessGuard: CanActivateFn = async () => {
   return createWorkspaceRecoveryTree(router, '/payment');
 };
 
-export const businessOnboardingGuard: CanActivateFn = (_, state) => {
-  const token = getStoredToken();
-
-  if (!token) {
+export const businessOnboardingGuard: CanActivateFn = async (_, state) => {
+  const auth = inject(AuthService);
+  const router = inject(Router);
+  const companyContext = inject(CompanyContextService);
+  if (!(await hasVerifiedSession(auth))) {
     return true;
   }
 
@@ -271,14 +274,10 @@ export const businessOnboardingGuard: CanActivateFn = (_, state) => {
 
   const pendingInviteToken = getPendingInviteToken();
   if (pendingInviteToken) {
-    const router = inject(Router);
     return router.createUrlTree(['/invites/claim'], {
       queryParams: { token: pendingInviteToken }
     });
   }
-
-  const router = inject(Router);
-  const companyContext = inject(CompanyContextService);
 
   return resolveVerifiedWorkspaceContext(companyContext, false).then((context) => {
     if (context?.activeBusinessProfile?.id) {
@@ -294,8 +293,10 @@ export const businessOnboardingGuard: CanActivateFn = (_, state) => {
 
 export const dashboardWorkspaceGuard: CanActivateFn = async (_, state) => {
   const router = inject(Router);
-  const token = getStoredToken();
-  if (!token) {
+  const auth = inject(AuthService);
+  const invites = inject(InviteService);
+  const companyContext = inject(CompanyContextService);
+  if (!(await hasVerifiedSession(auth))) {
     return router.createUrlTree(['/']);
   }
 
@@ -306,8 +307,6 @@ export const dashboardWorkspaceGuard: CanActivateFn = async (_, state) => {
     });
   }
 
-  const invites = inject(InviteService);
-  const companyContext = inject(CompanyContextService);
   const claimFlowActive =
     hasInviteClaimSuccessMarker() ||
     hasInviteClaimCompletedMarker() ||
@@ -425,15 +424,14 @@ const appWelcomeMatcher: UrlMatcher = (segments) => {
   return { consumed: segments.slice(0, 2) };
 };
 
-export const ownerWorkspaceGuard: CanActivateFn = (_, state) => {
-  const token = getStoredToken();
-
-  if (!token) {
+export const ownerWorkspaceGuard: CanActivateFn = async (_, state) => {
+  const auth = inject(AuthService);
+  const companyContext = inject(CompanyContextService);
+  const router = inject(Router);
+  if (!(await hasVerifiedSession(auth))) {
     return true;
   }
 
-  const companyContext = inject(CompanyContextService);
-  const router = inject(Router);
   const targetPath = state.url.split('?')[0];
 
   return resolveVerifiedWorkspaceContext(companyContext, false).then((verifiedContext) => {

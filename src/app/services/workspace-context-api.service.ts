@@ -4,7 +4,6 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, map, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
-import { AuthService } from './auth';
 
 export interface WorkspaceContextWorkspace {
   id: string;
@@ -88,18 +87,15 @@ export class WorkspaceContextApiService {
   private readonly api = environment.API_URL;
 
   constructor(
-    private readonly http: HttpClient,
-    private readonly auth: AuthService
+    private readonly http: HttpClient
   ) {}
 
   getContext(forceRefresh = true): Observable<WorkspaceContextPayload> {
-    const token = this.requireToken();
     const contextUrl = forceRefresh
       ? `${this.api}/wellar/workspaces/context?_ts=${Date.now()}`
       : `${this.api}/wellar/workspaces/context`;
 
     return this.http.get<unknown>(contextUrl, {
-      headers: this.auth.getAuthHeaders(token),
       withCredentials: true
     }).pipe(
       timeout(10000),
@@ -116,13 +112,10 @@ export class WorkspaceContextApiService {
       );
     }
 
-    const token = this.requireToken();
-
     return this.http.post<unknown>(
       `${this.api}/wellar/workspaces/switch`,
       { membership_id: normalizedMembershipId },
       {
-        headers: this.auth.getAuthHeaders(token),
         withCredentials: true
       }
     ).pipe(
@@ -130,14 +123,6 @@ export class WorkspaceContextApiService {
       map((response) => this.parseSwitchResponse(response)),
       catchError((error) => this.handleError(error, 'Could not switch organization context.'))
     );
-  }
-
-  private requireToken(): string {
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      throw new WorkspaceContextApiError('unauthorized', 401, 'Session expired. Please sign in again.');
-    }
-    return token;
   }
 
   private parseContextResponse(response: unknown): WorkspaceContextPayload {

@@ -33,7 +33,8 @@ describe('WorkspaceActivatingPageComponent', () => {
       navigateByUrl: vi.fn(() => Promise.resolve(true))
     };
     authSpy = {
-      refreshAuthTokenWithStoredRefreshToken: vi.fn(() => Promise.resolve('jwt-token')),
+      ensureSession: vi.fn(() => of(true)),
+      isSessionEstablished: vi.fn(() => true),
       getCurrentUserWithFields: vi.fn(() =>
         of({
           id: 'user-1',
@@ -43,7 +44,6 @@ describe('WorkspaceActivatingPageComponent', () => {
           active_member_role: 'owner'
         })
       ),
-      getStoredAccessToken: vi.fn(() => 'jwt-token'),
       clearAuthState: vi.fn(),
       setAuthNotice: vi.fn()
     };
@@ -106,7 +106,6 @@ describe('WorkspaceActivatingPageComponent', () => {
     await fixture.whenStable();
     await waitForCondition(() => routerSpy.navigateByUrl.mock.calls.length > 0);
 
-    expect(authSpy.refreshAuthTokenWithStoredRefreshToken).toHaveBeenCalledTimes(1);
     expect(authSpy.getCurrentUserWithFields).toHaveBeenCalled();
     expect(postLoginRoutingSpy.refreshAuthAndWorkspaceContext).toHaveBeenCalledWith({ force: true, failOnError: true });
     expect(postAuthWelcomeSpy.queueWorkspaceWelcome).toHaveBeenCalledTimes(1);
@@ -116,13 +115,13 @@ describe('WorkspaceActivatingPageComponent', () => {
   });
 
   it('logs out and redirects to login with a one-time notice after bounded refresh failure', async () => {
-    authSpy.refreshAuthTokenWithStoredRefreshToken = vi.fn(() => Promise.resolve(null));
+    authSpy.isSessionEstablished = vi.fn(() => false);
+    authSpy.ensureSession = vi.fn(() => of(false));
 
     fixture.detectChanges();
     await fixture.whenStable();
     await waitForCondition(() => authSpy.clearAuthState.mock.calls.length > 0);
 
-    expect(authSpy.refreshAuthTokenWithStoredRefreshToken).toHaveBeenCalledTimes(3);
     expect(authSpy.clearAuthState).toHaveBeenCalled();
     expect(authSpy.setAuthNotice).toHaveBeenCalledWith(
       'Your workspace was created successfully. Please sign in once to activate your Owner access.'
@@ -140,7 +139,6 @@ describe('WorkspaceActivatingPageComponent', () => {
 
     expect(postLoginRoutingSpy.resolveDestinationStrict).toHaveBeenCalled();
     expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/app/dashboard', { replaceUrl: true });
-    expect(authSpy.refreshAuthTokenWithStoredRefreshToken).not.toHaveBeenCalled();
   });
 
   it('renders the quiet activation progress state without changing the copy', async () => {

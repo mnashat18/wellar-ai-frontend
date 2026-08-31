@@ -204,13 +204,18 @@ export class CompanyContextService {
 
   async refreshCurrentUser(options: RefreshOptions = {}): Promise<void> {
     const forceRefresh = options.force ?? true;
-    await this.initializeAuthContext(forceRefresh);
-    const token = this.auth.getStoredAccessToken() ?? '';
-    if (!token) {
+    if (!(await this.ensureSessionEstablished())) {
       return;
     }
-
+    await this.initializeAuthContext(forceRefresh);
     await firstValueFrom(this.ensureLoaded(forceRefresh));
+  }
+
+  private async ensureSessionEstablished(): Promise<boolean> {
+    if (this.auth.isSessionEstablished()) {
+      return true;
+    }
+    return await firstValueFrom(this.auth.ensureSession());
   }
 
   async refreshWorkspaceContext(options: RefreshOptions = {}): Promise<void> {
@@ -229,8 +234,7 @@ export class CompanyContextService {
     }
 
     const run = async (): Promise<VerifiedWorkspaceContext | null> => {
-      const token = this.auth.getStoredAccessToken() ?? '';
-      if (!token) {
+      if (!(await this.ensureSessionEstablished())) {
         this.verifiedWorkspaceContext = null;
         this.clearActiveWorkspaceContext();
         return null;
@@ -291,16 +295,14 @@ export class CompanyContextService {
 
     const user = await this.auth.getCurrentUserAfterRestore();
     const userId = this.normalizeId(user?.id);
-    const token = this.auth.getStoredAccessToken() ?? '';
-
-    if (!userId || !token) {
+    if (!userId || !(await this.ensureSessionEstablished())) {
       this.clearActiveWorkspaceContext();
       return [];
     }
 
     let memberships: ActiveMembershipContext[] = [];
     try {
-      memberships = await this.fetchActiveMembershipsForUser(userId, token);
+      memberships = await this.fetchActiveMembershipsForUser(userId);
     } catch (error) {
       if (options.failOnError) {
         throw error;
@@ -325,13 +327,11 @@ export class CompanyContextService {
     const profileId = this.normalizeId(businessProfileId);
     const user = await this.auth.getCurrentUserAfterRestore();
     const userId = this.normalizeId(user?.id);
-    const token = this.auth.getStoredAccessToken() ?? '';
-
-    if (!profileId || !userId || !token) {
+    if (!profileId || !userId || !(await this.ensureSessionEstablished())) {
       return null;
     }
 
-    const memberships = await this.fetchActiveMembershipsForUser(userId, token);
+    const memberships = await this.fetchActiveMembershipsForUser(userId);
     const claimedMembership =
       memberships.find((membership) =>
         this.normalizeId(membership.business_profile) === profileId &&
@@ -621,8 +621,6 @@ export class CompanyContextService {
     const status = this.pickString(membership.status) ?? '';
     const rawRole = this.pickString(membership.member_role)?.toLowerCase() ?? '';
     const normalizedRole = this.normalizeUiRole(rawRole) ?? this.normalizeUiRole(membership.member_role) ?? null;
-    const token = this.auth.getStoredAccessToken() ?? '';
-
     if (!membershipId) {
       throw new Error('Missing membership id');
     }
@@ -635,7 +633,7 @@ export class CompanyContextService {
 
     let profile = this.normalizeBusinessProfile(membership.business_profile);
     if (profile?.id && (!profile.company_name || profile.company_name.trim() === '')) {
-      const reloaded = await this.loadBusinessProfileById(profile.id, token);
+      const reloaded = await this.loadBusinessProfileById(profile.id);
       if (reloaded) {
         profile = reloaded;
       }
@@ -747,14 +745,13 @@ export class CompanyContextService {
       }
     }
 
-    const token = this.auth.getStoredAccessToken() ?? '';
-    if (!token) {
+    if (!(await this.ensureSessionEstablished())) {
       this.clearActiveWorkspaceContext();
       return null;
     }
 
-    const activeContext = await this.loadAuthoritativeUserContext(token);
-    const memberships = await this.fetchActiveMembershipsForUser(String(currentUser.id), token, activeContext);
+    const activeContext = await this.loadAuthoritativeUserContext();
+    const memberships = await this.fetchActiveMembershipsForUser(String(currentUser.id), activeContext);
     const activeMembership = memberships[0] ?? null;
     if (!activeMembership) {
       this.clearActiveWorkspaceContext();
@@ -780,14 +777,12 @@ export class CompanyContextService {
   async getActiveMembershipsForCurrentUser(): Promise<ActiveMembershipContext[]> {
     const user = await this.auth.getCurrentUserAfterRestore();
     const userId = this.normalizeId(user?.id);
-    const token = this.auth.getStoredAccessToken() ?? '';
-
-    if (!userId || !token) {
+    if (!userId || !(await this.ensureSessionEstablished())) {
       return [];
     }
 
     try {
-      return await this.fetchActiveMembershipsForUser(userId, token);
+      return await this.fetchActiveMembershipsForUser(userId);
     } catch {
       return [];
     }
@@ -799,13 +794,12 @@ export class CompanyContextService {
 
   private ensureLoadedInternal(forceRefresh = false, options: EnsureLoadedOptions = {}): Observable<CompanyContextState> {
     const current = this.snapshot();
-    const initialToken = this.auth.getStoredAccessToken() ?? '';
-    if (!initialToken) {
-      const signedOutState = this.buildSignedOutState(true, true);
-      this.stateSubject.next(signedOutState);
-      return of(signedOutState);
+    if (!this.auth.isSessionEstablished()) {
+      const session = this.auth.ensureSession();
+      return session.pipe(switchMap((established) => established
+        ? this.ensureLoadedInternal(forceRefresh, options)
+        : of(this.buildSignedOutState(true, true))));
     }
-
     const hasCurrentUserIdentity = Boolean(current.context.currentUser?.id || current.context.userId);
     const hasCurrentUserEmail = Boolean(
       this.pickString(current.context.currentUser?.email) ||
@@ -830,12 +824,12 @@ export class CompanyContextService {
       return this.inFlight$;
     }
 
-    const request$ = from(this.resolveLoadedContextToken(initialToken, options, forceRefresh)).pipe(
-      switchMap((token) =>
-        this.fetchCurrentUserContext(token).pipe(
+    const request$ = from(this.synchronizeLoadedContext(options, forceRefresh)).pipe(
+      switchMap(() =>
+        this.fetchCurrentUserContext().pipe(
           timeout(15000),
           switchMap((user) =>
-            from(this.loadWorkspaceContext(token)).pipe(
+            from(this.loadWorkspaceContext()).pipe(
               catchError(() => of(null)),
               map((workspaceContext) => this.buildState(user, workspaceContext))
             )
@@ -880,24 +874,18 @@ export class CompanyContextService {
     return request$;
   }
 
-  private async resolveLoadedContextToken(
-    initialToken: string,
+  private async synchronizeLoadedContext(
     options: EnsureLoadedOptions,
     forceRefresh: boolean
-  ): Promise<string> {
+  ): Promise<boolean> {
     if (!options.skipMembershipSync) {
       await this.syncServerConfirmedMembershipAccessOnce(forceRefresh);
     }
 
-    return this.auth.getStoredAccessToken() ?? initialToken;
+    return true;
   }
 
   private async syncServerConfirmedMembershipAccessOnce(forceRefresh = false): Promise<void> {
-    const token = this.auth.getStoredAccessToken() ?? '';
-    if (!token) {
-      return;
-    }
-
     const workspaceContext = await firstValueFrom(this.workspaceContextApi.getContext().pipe(timeout(10000)));
     const activeMembershipId = this.normalizeId(workspaceContext?.active?.membership?.id);
     if (!activeMembershipId) {
@@ -910,12 +898,6 @@ export class CompanyContextService {
     }
 
     await firstValueFrom(this.workspaceContextApi.switchMembership(activeMembershipId));
-
-    const refreshedToken = await this.auth.refreshAuthTokenWithStoredRefreshToken();
-    if (!refreshedToken) {
-      this.auth.clearAuthState();
-      throw new Error('Workspace access could not be synchronized. Please sign in again.');
-    }
 
     this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, activeMembershipId);
   }
@@ -980,14 +962,14 @@ export class CompanyContextService {
   }
 
   private async refreshAccessTokenAfterMembershipChange(): Promise<void> {
-    const refreshedToken = await this.auth.refreshAuthTokenWithStoredRefreshToken();
-    if (!refreshedToken) {
+    const established = await this.ensureSessionEstablished();
+    if (!established) {
       this.auth.clearAuthState();
       throw new Error('Workspace access could not be synchronized. Please sign in again.');
     }
   }
 
-  private fetchCurrentUserContext(token: string): Observable<UserContextResponse> {
+  private fetchCurrentUserContext(): Observable<UserContextResponse> {
     const stored = this.readStoredContext();
     const fields = [
       'id',
@@ -1002,7 +984,6 @@ export class CompanyContextService {
     return this.http.get<any>(
       `${this.api}/users/me?fields=${encodeURIComponent(fields)}&_ts=${Date.now()}`,
       {
-        headers: this.auth.getAuthHeaders(token),
         withCredentials: true
       }
     ).pipe(
@@ -1023,11 +1004,11 @@ export class CompanyContextService {
 
         const companyName$ =
           activeBusinessProfileId && !this.pickProfileName(user?.active_business_profile)
-            ? this.resolveBusinessProfileName(activeBusinessProfileId, token)
+            ? this.resolveBusinessProfileName(activeBusinessProfileId)
             : of(this.pickProfileName(user?.active_business_profile) ?? stored.activeBusinessProfileName ?? null);
         const departmentName$ =
           activeDepartmentId && !this.pickDepartmentName(user?.active_department)
-            ? this.resolveDepartmentName(activeDepartmentId, token)
+            ? this.resolveDepartmentName(activeDepartmentId)
             : of(this.pickDepartmentName(user?.active_department) ?? stored.activeDepartmentName ?? null);
 
         return forkJoin({
@@ -1085,10 +1066,9 @@ export class CompanyContextService {
 
   private fetchAccessibleCompanies(
     userId: string | null,
-    token: string,
     activeBusinessProfileId: string | null
   ): Observable<CompanyOption[]> {
-    return from(this.loadWorkspaceContext(token)).pipe(
+    return from(this.loadWorkspaceContext()).pipe(
       map((workspaceContext) => this.mapWorkspaceContextToCompanies(workspaceContext))
     );
   }
@@ -1224,7 +1204,7 @@ export class CompanyContextService {
     return null;
   }
 
-  private async loadWorkspaceContext(token: string): Promise<WorkspaceContextPayload | null> {
+  private async loadWorkspaceContext(): Promise<WorkspaceContextPayload | null> {
     try {
       return await firstValueFrom(this.workspaceContextApi.getContext().pipe(timeout(10000)));
     } catch {
@@ -1596,7 +1576,7 @@ export class CompanyContextService {
     });
   }
 
-  private async loadBusinessProfileById(profileId: string | null, token: string): Promise<BusinessProfileRecord | null> {
+  private async loadBusinessProfileById(profileId: string | null): Promise<BusinessProfileRecord | null> {
     const normalizedId = this.normalizeId(profileId);
     if (!normalizedId) {
       return null;
@@ -1621,7 +1601,6 @@ export class CompanyContextService {
         this.http.get<{ data?: BusinessProfileRecord[] }>(
           `${this.api}/items/business_profiles?${params.toString()}&_ts=${Date.now()}`,
           {
-            headers: this.auth.getAuthHeaders(token),
             withCredentials: true
           }
         ).pipe(timeout(7000))
@@ -1646,13 +1625,13 @@ export class CompanyContextService {
     }
   }
 
-  private async loadMembershipById(memberId: string | null, token: string): Promise<ActiveMembershipContext | null> {
+  private async loadMembershipById(memberId: string | null): Promise<ActiveMembershipContext | null> {
     const normalizedId = this.normalizeId(memberId);
     if (!normalizedId) {
       return null;
     }
 
-    const workspaceContext = await this.loadWorkspaceContext(token);
+    const workspaceContext = await this.loadWorkspaceContext();
     if (!workspaceContext?.memberships?.length) {
       return null;
     }
@@ -1678,10 +1657,9 @@ export class CompanyContextService {
 
   private async fetchActiveMembershipsForUser(
     userId: string,
-    token: string,
     activeContext?: Pick<UserContextResponse, 'activeBusinessProfileId' | 'activeDepartmentId' | 'activeMemberRole'> | null
   ): Promise<ActiveMembershipContext[]> {
-    const workspaceContext = await this.loadWorkspaceContext(token);
+    const workspaceContext = await this.loadWorkspaceContext();
     if (!workspaceContext?.memberships?.length) {
       return [];
     }
@@ -1706,9 +1684,9 @@ export class CompanyContextService {
       .filter((row): row is ActiveMembershipContext => Boolean(row?.id) && Boolean(this.normalizeId(row?.business_profile)));
   }
 
-  private async loadAuthoritativeUserContext(token: string): Promise<Pick<UserContextResponse, 'activeBusinessProfileId' | 'activeDepartmentId' | 'activeMemberRole'> | null> {
+  private async loadAuthoritativeUserContext(): Promise<Pick<UserContextResponse, 'activeBusinessProfileId' | 'activeDepartmentId' | 'activeMemberRole'> | null> {
     try {
-      const userContext = await firstValueFrom(this.fetchCurrentUserContext(token).pipe(timeout(7000)));
+      const userContext = await firstValueFrom(this.fetchCurrentUserContext().pipe(timeout(7000)));
       return {
         activeBusinessProfileId: userContext.activeBusinessProfileId,
         activeDepartmentId: userContext.activeDepartmentId,
@@ -1876,7 +1854,7 @@ export class CompanyContextService {
     return this.pickString(record['name']) ?? this.pickString(record['label']) ?? this.normalizeId(record);
   }
 
-  private resolveBusinessProfileName(profileId: string | null, token: string): Observable<string | null> {
+  private resolveBusinessProfileName(profileId: string | null): Observable<string | null> {
     if (!profileId) {
       return of(null);
     }
@@ -1890,7 +1868,6 @@ export class CompanyContextService {
     return this.http.get<{ data?: Array<{ company_name?: string | null }> }>(
       `${this.api}/items/business_profiles?${params.toString()}&_ts=${Date.now()}`,
       {
-        headers: this.auth.getAuthHeaders(token),
         withCredentials: true
       }
     ).pipe(
@@ -1899,7 +1876,7 @@ export class CompanyContextService {
     );
   }
 
-  private resolveDepartmentName(departmentId: string | null, token: string): Observable<string | null> {
+  private resolveDepartmentName(departmentId: string | null): Observable<string | null> {
     if (!departmentId) {
       return of(null);
     }
@@ -1913,7 +1890,6 @@ export class CompanyContextService {
     return this.http.get<{ data?: Array<{ name?: string | null; label?: string | null }> }>(
       `${this.api}/items/departments?${params.toString()}&_ts=${Date.now()}`,
       {
-        headers: this.auth.getAuthHeaders(token),
         withCredentials: true
       }
     ).pipe(

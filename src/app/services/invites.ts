@@ -1,6 +1,6 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, catchError, defer, map, throwError } from 'rxjs';
+import { Observable, catchError, defer, map, switchMap, throwError } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth';
@@ -139,11 +139,6 @@ export class InviteService {
       const normalizedInviteId = inviteId.trim();
       if (!normalizedInviteId) {
         throw new Error('Invite id is missing.');
-      }
-
-      const accessToken = this.auth.getStoredAccessToken();
-      if (!accessToken) {
-        throw new Error('Please sign in first.');
       }
 
       return this.http.get<unknown>(
@@ -684,19 +679,19 @@ export class InviteService {
         throw new Error('Invite id is missing.');
       }
 
-      const accessToken = this.auth.getStoredAccessToken();
-      if (!accessToken) {
-        throw new Error('Please sign in first.');
-      }
-
-      return this.http.post<unknown>(
+      return this.auth.ensureSession().pipe(switchMap((sessionValid) => {
+        if (!sessionValid) {
+          throw new Error('Please sign in first.');
+        }
+        return this.http.post<unknown>(
         `${environment.API_URL}/wellar/workspaces/invites/${encodeURIComponent(normalizedInviteId)}/${action}`,
         {},
         {
           headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
           withCredentials: true
         }
-      ).pipe(
+        );
+      })).pipe(
         map((response) => this.normalizeInviteActionResponse(response))
       );
     }).pipe(

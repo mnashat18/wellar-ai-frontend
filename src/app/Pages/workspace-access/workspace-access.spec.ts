@@ -381,13 +381,13 @@ describe('WorkspaceAccessPageComponent', () => {
     await fixture.whenStable();
     await waitForCondition(() => component.createCompanyLocked);
 
-    expect(refreshAuthAndWorkspaceContextSpy).toHaveBeenCalledTimes(3);
+    expect(refreshAuthAndWorkspaceContextSpy).toHaveBeenCalledTimes(4);
     expect(startActivationSpy).not.toHaveBeenCalled();
     expect(routerSpy.navigateByUrl).not.toHaveBeenCalledWith('/app/workspace-activating', { replaceUrl: true });
     expect(component.createCompanyLocked).toBe(true);
     expect(component.createCompanyError).toBe('');
     expect(component.createCompanySuccessMessage).toBe(
-      'Your company was created, but access is still activating. Please refresh this page in a moment.'
+      'Workspace created. Opening your dashboard...'
     );
 
     component.createCompany();
@@ -433,7 +433,7 @@ describe('WorkspaceAccessPageComponent', () => {
     expect(resolveDestinationStrictSpy).toHaveBeenCalled();
     expect(routerSpy.navigateByUrl).not.toHaveBeenCalled();
     expect(component.createCompanyError).toBe('');
-    expect(component.createCompanyLocked).toBe(true);
+    expect(component.createCompanyLocked).toBe(false);
     expect(component.createCompanySuccessMessage).toBe(
       'Your company was created, but access is still activating. Please refresh this page in a moment.'
     );

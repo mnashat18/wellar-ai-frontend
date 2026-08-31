@@ -430,6 +430,7 @@ export class AuthService {
 
     sessionStorage.removeItem('is_logged_in');
     sessionStorage.removeItem('auth_callback_pending');
+    sessionStorage.removeItem('auth_callback_raw_url');
     sessionStorage.removeItem('auth_refresh_attempted');
     sessionStorage.removeItem('auth_session_established_at');
     sessionStorage.removeItem(this.refreshEndpointMissingSessionKey);

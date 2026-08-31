@@ -4,6 +4,7 @@ import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { NotificationsComponent } from '../../components/notifications/notifications';
 import { SubscriptionService } from '../../services/subscription.service';
+import { AuthService } from '../../services/auth';
 import { AuditLogs } from '../audit-logs/audit-logs';
 
 @Component({
@@ -18,9 +19,10 @@ export class AuditLogsMobileComponent extends AuditLogs {
   constructor(
     http: HttpClient,
     cdr: ChangeDetectorRef,
-    private subscriptions: SubscriptionService
+    private subscriptions: SubscriptionService,
+    auth: AuthService
   ) {
-    super(http, cdr);
+    super(http, cdr, auth);
   }
 
   override ngOnInit() {

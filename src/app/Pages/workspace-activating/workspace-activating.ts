@@ -68,8 +68,10 @@ export class WorkspaceActivatingPageComponent implements OnInit {
 
   private async tryActivateOwnerSession(activation: PendingWorkspaceActivation): Promise<boolean> {
     try {
-      const refreshedToken = await this.auth.refreshAuthTokenWithStoredRefreshToken();
-      if (!refreshedToken) {
+      const sessionEstablished = this.auth.isSessionEstablished()
+        ? true
+        : await firstValueFrom(this.auth.ensureSession());
+      if (!sessionEstablished) {
         return false;
       }
 
