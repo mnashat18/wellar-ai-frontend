@@ -4,7 +4,6 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, map, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
-import { AuthService } from './auth';
 
 export type WorkforceRosterState =
   | 'verified_member'
@@ -174,14 +173,11 @@ export class WorkforceRosterApiService {
 
   constructor(
     private readonly http: HttpClient,
-    private readonly auth: AuthService,
   ) {}
 
   getWorkforceRoster(): Observable<WorkforceRosterPayload> {
-    const token = this.requireToken();
     return this.http
       .get<unknown>(`${this.api}/wellar/workforce`, {
-        headers: this.auth.getAuthHeaders(token),
         withCredentials: true,
       })
       .pipe(
@@ -189,14 +185,6 @@ export class WorkforceRosterApiService {
         map((response) => this.parseRosterResponse(response)),
         catchError((error) => this.handleError(error, 'Workforce roster could not be loaded.')),
       );
-  }
-
-  private requireToken(): string {
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      throw new Error('Session expired. Please sign in again.');
-    }
-    return token;
   }
 
   private parseRosterResponse(response: unknown): WorkforceRosterPayload {

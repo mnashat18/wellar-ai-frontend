@@ -154,12 +154,7 @@ export class WorkspaceAccessService {
   ) {}
 
   loadWorkspaceAccess(forceRefresh = false): Observable<WorkspaceAccessState> {
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      return of(this.buildErrorState('Please sign in first.'));
-    }
-
-    return this.auth.getCurrentUser(token, { hydrateWorkspace: false }).pipe(
+    return this.auth.getVerifiedCurrentUser().pipe(
       switchMap((user) => {
         const userId = this.normalizeId(user?.id);
         const email = this.pickString(user?.email);
@@ -187,7 +182,7 @@ export class WorkspaceAccessService {
 
             this.companyContext.clearActiveWorkspaceContext();
 
-            return from(this.workspaceApplications.getMyApplications(userId, token)).pipe(
+            return from(this.workspaceApplications.getMyApplications(userId)).pipe(
               map((applications) => this.buildState(baseUser, memberships, invites, applications))
             );
           }),
@@ -257,7 +252,7 @@ export class WorkspaceAccessService {
   claimInviteByToken(inviteToken: string): Observable<WorkspaceActionResult> {
     const normalizedToken = inviteToken.trim();
 
-    if (!this.auth.getStoredAccessToken()) {
+    if (!this.auth.isSessionEstablished()) {
       return of({ ok: false, message: 'Please sign in first.' });
     }
     if (!normalizedToken) {

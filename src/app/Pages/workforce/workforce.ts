@@ -1306,12 +1306,10 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
     }
 
     const context = this.companyContext.snapshot().context;
-    const token = this.auth.getStoredAccessToken();
     if (
       !context.authInitialized ||
       !context.workspaceInitialized ||
       !context.isAuthenticated ||
-      !token ||
       !context.activeBusinessProfileId
     ) {
       this.viewState = 'loading';
@@ -1325,19 +1323,17 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
         .subscribe({
           next: () => {
             const settled = this.companyContext.snapshot().context;
-            const settledToken = this.auth.getStoredAccessToken();
             if (
               settled.authInitialized &&
               settled.workspaceInitialized &&
               settled.isAuthenticated &&
-              settledToken &&
               settled.activeBusinessProfileId
             ) {
               queueMicrotask(() => this.loadPage(manualRetry));
               return;
             }
 
-            if (!settledToken || !settled.isAuthenticated) {
+            if (!settled.isAuthenticated) {
               this.viewState = 'error';
               this.errorMessage = 'Please sign in to load workforce data.';
               this.errorDetails = '';

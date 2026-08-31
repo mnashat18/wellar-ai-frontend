@@ -356,19 +356,12 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      this.profileSaveState = 'error';
-      this.profileSaveMessage = 'Session expired. Please sign in again.';
-      return;
-    }
-
     this.savingAccount = true;
     this.profileSaveState = 'saving';
     this.profileSaveMessage = 'Saving account settings...';
 
     try {
-      const avatarId = await this.uploadAvatarIfNeeded(token);
+      const avatarId = await this.uploadAvatarIfNeeded();
       await firstValueFrom(
         this.http.patch(
           `${this.apiUrl()}/users/me`,
@@ -379,7 +372,6 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
             ...(avatarId ? { avatar: avatarId } : {})
           },
           {
-            headers: this.auth.getAuthHeaders(token),
             withCredentials: true
           }
         )
@@ -448,12 +440,12 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     this.onAccountChanged();
   }
 
-  private async uploadAvatarIfNeeded(token: string): Promise<string | null> {
+  private async uploadAvatarIfNeeded(): Promise<string | null> {
     if (!this.avatarFile) {
       return null;
     }
 
-    const fileId = await firstValueFrom(this.uploadAvatarWithToken(token));
+    const fileId = await firstValueFrom(this.uploadAvatarWithToken());
     if (!fileId) {
       throw new Error('The avatar upload could not be completed.');
     }
@@ -461,7 +453,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     const userId = this.normalizeId(this.user?.id);
     if (userId) {
       try {
-        await firstValueFrom(this.assignFileOwner(fileId, userId, token));
+        await firstValueFrom(this.assignFileOwner(fileId, userId));
       } catch {
         // Keep the uploaded file even if ownership reassignment is blocked.
       }
@@ -470,7 +462,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     return fileId;
   }
 
-  private uploadAvatarWithToken(token: string): Observable<string | null> {
+  private uploadAvatarWithToken(): Observable<string | null> {
     const formData = new FormData();
     formData.append('file', this.avatarFile as Blob);
 
@@ -478,7 +470,6 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       `${this.apiUrl()}/files`,
       formData,
       {
-        headers: this.auth.getAuthHeaders(token),
         withCredentials: true
       }
     ).pipe(
@@ -486,12 +477,11 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     );
   }
 
-  private assignFileOwner(fileId: string, userId: string, token: string): Observable<unknown> {
+  private assignFileOwner(fileId: string, userId: string): Observable<unknown> {
     return this.http.patch(
       `${this.apiUrl()}/files/${encodeURIComponent(fileId)}`,
       { uploaded_by: userId },
       {
-        headers: this.auth.getAuthHeaders(token),
         withCredentials: true
       }
     );
@@ -754,11 +744,6 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
   }
 
   private async fetchCurrentUser(): Promise<DirectusUserRow> {
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      throw new Error('Session expired. Please sign in again.');
-    }
-
     const fields = [
       'id',
       'first_name',
@@ -777,7 +762,6 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       this.http.get<{ data?: DirectusUserRow } | DirectusUserRow>(
         `${this.apiUrl()}/users/me?fields=${encodeURIComponent(fields)}&_ts=${Date.now()}`,
         {
-          headers: this.auth.getAuthHeaders(token),
           withCredentials: true
         }
       )

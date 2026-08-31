@@ -4,7 +4,6 @@ import { firstValueFrom, Observable, of } from 'rxjs';
 import { catchError, map } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
-import { AuthService } from './auth';
 
 export type WorkspaceApplicationStatus =
   | 'pending_review'
@@ -58,15 +57,13 @@ export class WorkspaceApplicationsService {
   private readonly api = environment.API_URL;
 
   constructor(
-    private http: HttpClient,
-    private auth: AuthService
+    private http: HttpClient
   ) {}
 
-  listMyPendingApplications(userId: string | null, token?: string | null): Observable<WorkspaceApplicationRecord[]> {
+  listMyPendingApplications(userId: string | null): Observable<WorkspaceApplicationRecord[]> {
     const normalizedUserId = this.normalizeId(userId);
-    const accessToken = token ?? this.auth.getStoredAccessToken();
 
-    if (!normalizedUserId || !accessToken) {
+    if (!normalizedUserId) {
       return of([]);
     }
 
@@ -101,7 +98,6 @@ export class WorkspaceApplicationsService {
     return this.http.get<{ data?: any[] }>(
       `${this.api}/items/workspace_applications?${params.toString()}&_ts=${Date.now()}`,
       {
-        headers: this.auth.getAuthHeaders(accessToken),
         withCredentials: true
       }
     ).pipe(
@@ -113,11 +109,10 @@ export class WorkspaceApplicationsService {
     );
   }
 
-  async getMyApplications(userId: string | null, token?: string | null): Promise<WorkspaceApplicationRecord[]> {
+  async getMyApplications(userId: string | null): Promise<WorkspaceApplicationRecord[]> {
     const normalizedUserId = this.normalizeId(userId);
-    const accessToken = token ?? this.auth.getStoredAccessToken();
 
-    if (!normalizedUserId || !accessToken) {
+    if (!normalizedUserId) {
       return [];
     }
 
@@ -153,7 +148,6 @@ export class WorkspaceApplicationsService {
       this.http.get<{ data?: any[] }>(
         `${this.api}/items/workspace_applications?${params.toString()}&_ts=${Date.now()}`,
         {
-          headers: this.auth.getAuthHeaders(accessToken),
           withCredentials: true
         }
       )
@@ -164,13 +158,10 @@ export class WorkspaceApplicationsService {
 
   createApplication(
     input: WorkspaceApplicationInput,
-    currentUserId: string | null,
-    token?: string | null
+    currentUserId: string | null
   ): Observable<WorkspaceApplicationRecord | null> {
     const normalizedUserId = this.normalizeId(currentUserId);
-    const accessToken = token ?? this.auth.getStoredAccessToken();
-
-    if (!normalizedUserId || !accessToken) {
+    if (!normalizedUserId) {
       return of(null);
     }
 
@@ -180,7 +171,6 @@ export class WorkspaceApplicationsService {
       `${this.api}/items/workspace_applications`,
       payload,
       {
-        headers: this.auth.getAuthHeaders(accessToken),
         withCredentials: true
       }
     ).pipe(
@@ -195,14 +185,11 @@ export class WorkspaceApplicationsService {
   updateApplication(
     applicationId: string,
     input: WorkspaceApplicationInput,
-    currentUserId: string | null,
-    token?: string | null
+    currentUserId: string | null
   ): Observable<WorkspaceApplicationRecord | null> {
     const normalizedApplicationId = this.normalizeId(applicationId);
     const normalizedUserId = this.normalizeId(currentUserId);
-    const accessToken = token ?? this.auth.getStoredAccessToken();
-
-    if (!normalizedApplicationId || !normalizedUserId || !accessToken) {
+    if (!normalizedApplicationId || !normalizedUserId) {
       return of(null);
     }
 
@@ -212,7 +199,6 @@ export class WorkspaceApplicationsService {
       `${this.api}/items/workspace_applications/${encodeURIComponent(normalizedApplicationId)}`,
       payload,
       {
-        headers: this.auth.getAuthHeaders(accessToken),
         withCredentials: true
       }
     ).pipe(

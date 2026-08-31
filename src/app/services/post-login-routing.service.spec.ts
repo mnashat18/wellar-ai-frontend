@@ -24,6 +24,7 @@ describe('PostLoginRoutingService invite welcome handoff', () => {
         last_name: 'Owner'
       })),
       getStoredAccessToken: vi.fn(() => 'header.payload.signature'),
+      isSessionEstablished: vi.fn(() => true),
       refreshAuthTokenWithStoredRefreshToken: vi.fn(() => Promise.resolve('header.payload.signature')),
       clearAuthState: vi.fn()
     };

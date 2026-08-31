@@ -434,11 +434,10 @@ export class PostLoginRoutingService {
       await this.companyContext.refreshCurrentUser({ force: true });
 
       const context = this.companyContext.snapshot().context;
-      const accessToken = this.auth.getStoredAccessToken();
       const ready =
         context.authInitialized &&
         context.isAuthenticated &&
-        Boolean(accessToken) &&
+        this.auth.isSessionEstablished() &&
         Boolean(context.currentUser?.id);
 
       if (ready) {

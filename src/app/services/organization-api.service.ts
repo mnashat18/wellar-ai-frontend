@@ -4,7 +4,6 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, map, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
-import { AuthService } from './auth';
 
 export type OrganizationProfile = {
   id: string;
@@ -112,13 +111,11 @@ export class OrganizationApiService {
   private readonly api = environment.API_URL;
 
   constructor(
-    private readonly http: HttpClient,
-    private readonly auth: AuthService
+    private readonly http: HttpClient
   ) {}
 
   getOrganization(): Observable<OrganizationData> {
     return this.http.get<unknown>(`${this.api}/wellar/organization`, {
-      headers: this.auth.getAuthHeaders(this.requireToken()),
       withCredentials: true
     }).pipe(
       timeout(12000),
@@ -154,7 +151,6 @@ export class OrganizationApiService {
     }
 
     return this.http.patch<unknown>(`${this.api}/wellar/organization/profile`, payload, {
-      headers: this.auth.getAuthHeaders(this.requireToken()),
       withCredentials: true
     }).pipe(
       timeout(12000),
@@ -175,7 +171,6 @@ export class OrganizationApiService {
     };
 
     return this.http.post<unknown>(`${this.api}/wellar/organization/departments`, payload, {
-      headers: this.auth.getAuthHeaders(this.requireToken()),
       withCredentials: true
     }).pipe(
       timeout(12000),
@@ -207,7 +202,6 @@ export class OrganizationApiService {
     }
 
     return this.http.patch<unknown>(`${this.api}/wellar/organization/departments/${encodeURIComponent(id)}`, payload, {
-      headers: this.auth.getAuthHeaders(this.requireToken()),
       withCredentials: true
     }).pipe(
       timeout(12000),
@@ -223,21 +217,12 @@ export class OrganizationApiService {
     }
 
     return this.http.post<unknown>(`${this.api}/wellar/organization/departments/${encodeURIComponent(id)}/deactivate`, {}, {
-      headers: this.auth.getAuthHeaders(this.requireToken()),
       withCredentials: true
     }).pipe(
       timeout(12000),
       map((response) => this.parseDepartmentResponse(response)),
       catchError((error) => this.handleError(error, 'Department could not be deactivated.'))
     );
-  }
-
-  private requireToken(): string {
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      throw new OrganizationApiError('unauthorized', 401, 'Session expired. Please sign in again.');
-    }
-    return token;
   }
 
   private parseOrganizationResponse(response: unknown): OrganizationData {

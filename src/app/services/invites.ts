@@ -104,8 +104,7 @@ export class InviteService {
         throw new Error('Invite token is missing.');
       }
 
-      const accessToken = this.auth.getStoredAccessToken();
-      if (!accessToken) {
+      if (!this.auth.isSessionEstablished()) {
         throw new Error('Please sign in first.');
       }
 

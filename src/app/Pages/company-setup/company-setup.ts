@@ -336,8 +336,7 @@ export class CompanySetupPageComponent implements OnInit {
         use_case: 'Workspace access request submitted from company setup.',
         message: this.buildApplicationMessage()
       },
-      this.currentUserId,
-      this.token
+      this.currentUserId
     ).pipe(
       catchError((error) => {
         this.statusMessage = this.normalizeError(error, 'We could not submit the workspace request.');

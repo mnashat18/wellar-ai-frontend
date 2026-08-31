@@ -25,6 +25,7 @@ import { CardSkeletonLoaderComponent } from '../../shared/ui/card-skeleton-loade
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { RiskBadgeComponent } from '../../shared/ui/risk-badge/risk-badge.component';
 import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge.component';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-dashboard',
@@ -335,12 +336,14 @@ export class Dashboard implements OnInit, OnDestroy {
   private async bootstrap(): Promise<void> {
     const generation = ++this.bootstrapGeneration;
     let resolvedContextKey: string | null = null;
+    let stage = 'bootstrap';
     try {
       this.state = 'loadingContext';
       this.loading = true;
       this.errorMessage = '';
       this.view = null;
 
+      stage = 'resolve-context';
       const context = await this.resolveDashboardContext();
       if (generation !== this.bootstrapGeneration) {
         return;
@@ -371,15 +374,24 @@ export class Dashboard implements OnInit, OnDestroy {
 
       this.state = 'loadingDashboard';
 
+      stage = 'load-dashboard-data';
       await this.loadDashboardData(context.activeBusinessProfile.id, generation);
       if (generation !== this.bootstrapGeneration) {
         return;
       }
 
       this.state = 'ready';
-    } catch {
+    } catch (error) {
       if (generation !== this.bootstrapGeneration) {
         return;
+      }
+      if (!environment.production) {
+        const details = error as { status?: number; url?: string } | null;
+        console.error('[Dashboard bootstrap failed]', {
+          stage,
+          status: details?.status,
+          url: details?.url ? new URL(details.url, window.location.origin).pathname : undefined
+        });
       }
       this.state = 'error';
       this.errorMessage = 'Dashboard failed to load.';

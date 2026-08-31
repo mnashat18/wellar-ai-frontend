@@ -216,16 +216,6 @@ export class InviteClaimPageComponent implements OnInit {
     this.showRetryAction = false;
     this.showCancelAction = false;
 
-    this.logInviteClaim('checking auth token');
-    const accessToken = this.resolveAccessToken();
-    const tokenDiagnostics = this.getTokenDiagnostics(accessToken);
-    this.logInviteClaim('session readiness token diagnostics', tokenDiagnostics);
-
-    if (!tokenDiagnostics.exists || !tokenDiagnostics.validJwt || tokenDiagnostics.expired) {
-      await this.redirectToInviteSignupOnHomepage(token);
-      return;
-    }
-
     const authState = await this.resolveAuthStateWithTimeout(this.sessionReadyTimeoutMs);
     this.logInviteClaim('session readiness verification result', {
       status: authState.status,
@@ -237,7 +227,7 @@ export class InviteClaimPageComponent implements OnInit {
     }
 
     try {
-      this.logInviteClaim('valid auth token found, accepting invite');
+      this.logInviteClaim('verified cookie session found, accepting invite');
       this.statusMessage = 'Joining your workspace...';
       this.statusSubtext = 'We are connecting your account to the organization.';
       const nextRoute = await this.postLoginRouting.resolveDestination();
@@ -313,29 +303,6 @@ export class InviteClaimPageComponent implements OnInit {
     return token;
   }
 
-  private resolveAccessToken(): string | null {
-    const authAny = this.auth as unknown as {
-      getAccessToken?: () => string | null | undefined;
-      getStoredAccessToken?: () => string | null | undefined;
-    };
-
-    const fromStorage =
-      this.auth.getStoredAccessToken();
-    const fromService =
-      (typeof authAny.getAccessToken === 'function' ? authAny.getAccessToken() : null) ??
-      (typeof authAny.getStoredAccessToken === 'function' ? authAny.getStoredAccessToken() : null);
-
-    const token = (fromStorage ?? fromService ?? '').trim();
-    return token || null;
-  }
-
-  private isValidJwt(value: string | null): boolean {
-    if (!value) {
-      return false;
-    }
-    return value.split('.').length === 3;
-  }
-
   private showSessionVerificationError(token: string): void {
     this.loading = false;
     this.statusSubtext = '';
@@ -346,28 +313,6 @@ export class InviteClaimPageComponent implements OnInit {
     this.showRetryAction = true;
     this.showCancelAction = true;
     this.errorMessage = 'We could not verify your signed-in session. Please sign in again and retry your invitation.';
-  }
-
-  private getTokenDiagnostics(token: string | null): { exists: boolean; validJwt: boolean; expired: boolean } {
-    return {
-      exists: Boolean(token),
-      validJwt: this.isValidJwt(token),
-      expired: this.isJwtExpired(token)
-    };
-  }
-
-  private isJwtExpired(token: string | null): boolean {
-    if (!this.isValidJwt(token)) {
-      return false;
-    }
-
-    try {
-      const payload = JSON.parse(atob(token!.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const exp = payload?.exp;
-      return typeof exp === 'number' && Math.floor(Date.now() / 1000) >= exp;
-    } catch {
-      return false;
-    }
   }
 
   private async redirectToInviteSignupOnHomepage(token: string): Promise<void> {

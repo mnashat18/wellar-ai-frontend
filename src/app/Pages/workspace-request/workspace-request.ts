@@ -894,7 +894,7 @@ export class WorkspaceRequestPageComponent implements OnInit {
 
       let applications: WorkspaceApplicationRecord[] = [];
       try {
-        applications = await this.workspaceApplications.getMyApplications(this.normalizeUserId(user.id), undefined);
+        applications = await this.workspaceApplications.getMyApplications(this.normalizeUserId(user.id));
       } catch (error) {
         console.warn('[WorkspaceRequest] Could not load applications', error);
         applications = [];
