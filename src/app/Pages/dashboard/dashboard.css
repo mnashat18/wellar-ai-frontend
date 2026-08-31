@@ -17,12 +17,13 @@
   display: grid;
   gap: 0.95rem;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  align-items: start;
 }
 
 .dashboard-summary-grid > .dashboard-card {
   display: block;
   min-width: 0;
-  height: 100%;
+  align-self: start;
 }
 
 .dashboard-two-column {
@@ -407,6 +408,7 @@
   display: grid;
   gap: 0.95rem;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
 }
 
 .dashboard-operations-card {

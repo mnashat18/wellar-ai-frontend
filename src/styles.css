@@ -3370,10 +3370,11 @@ body::selection {
   }
 
   .app-shell .app-sidebar__nav {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-auto-rows: max-content;
     gap: 0.26rem;
     flex: 1 1 auto;
+    align-content: flex-start;
     min-height: 0;
     overflow: visible;
   }
