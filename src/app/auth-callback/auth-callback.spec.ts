@@ -28,6 +28,7 @@ describe('AuthCallbackComponent', () => {
       captureAuthFromUrl: vi.fn(() => ({ stored: false, hasCode: false })),
       getStoredAccessToken: vi.fn(() => null),
       refreshFromCookie: vi.fn(() => of(null)),
+      ensureSession: vi.fn(() => of(false)),
       getCurrentUser: vi.fn(() => of(null)),
       clearAuthRecoveryState: vi.fn(),
       setAuthNotice: vi.fn(),
@@ -118,12 +119,12 @@ describe('AuthCallbackComponent', () => {
       stored: false,
       hasCode: true
     });
-    authSpy.refreshFromCookie.mockReturnValue(of(null));
+    authSpy.ensureSession.mockReturnValue(of(false));
 
     fixture.detectChanges();
     await fixture.whenStable();
 
-    expect(authSpy.refreshFromCookie).toHaveBeenCalledTimes(1);
+    expect(authSpy.ensureSession).toHaveBeenCalledTimes(1);
     expect(authSpy.clearAuthRecoveryState).toHaveBeenCalledTimes(1);
     expect(authSpy.setAuthNotice).toHaveBeenCalledWith('We couldn’t complete sign-in. Please try again.');
     expect(routerSpy.navigateByUrl).toHaveBeenCalledWith('/?auth=login', { replaceUrl: true });
@@ -134,7 +135,7 @@ describe('AuthCallbackComponent', () => {
       stored: false,
       hasCode: false
     });
-    authSpy.refreshFromCookie.mockReturnValue(of(true));
+    authSpy.ensureSession.mockReturnValue(of(true));
     authSpy.getCurrentUser.mockReturnValue(of({ id: 'user-1' }));
 
     fixture.detectChanges();
@@ -150,7 +151,7 @@ describe('AuthCallbackComponent', () => {
       stored: false,
       hasCode: false
     });
-    authSpy.refreshFromCookie.mockReturnValue(of(true));
+    authSpy.ensureSession.mockReturnValue(of(true));
     authSpy.getCurrentUser.mockReturnValue(of({ id: 'user-1' }));
     postLoginRoutingSpy.resolveDestination.mockResolvedValue('/app/dashboard');
 

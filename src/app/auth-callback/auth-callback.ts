@@ -116,7 +116,9 @@ export class AuthCallbackComponent implements OnInit {
   }
 
   private refreshAccessTokenFromCookie() {
-    return this.auth.refreshFromCookie().pipe(
+    // Route callback restoration through the shared session gate so guards and
+    // shell initialization cannot issue a second concurrent refresh request.
+    return this.auth.ensureSession().pipe(
       map((authenticated) => authenticated),
       catchError(() => of(null))
     );
