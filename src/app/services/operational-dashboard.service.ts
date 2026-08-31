@@ -5,7 +5,6 @@ import { catchError, map, switchMap, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { type ActiveMemberRole } from '../ia/wellar-ia';
-import { AdminTokenService } from './admin-token';
 import { AuthService } from './auth';
 import { CompanyContextService } from '../core/context/company-context.service';
 import { WorkforceRosterApiService, type WorkforceRosterRow } from './workforce-roster-api.service';
@@ -250,7 +249,6 @@ export class OperationalDashboardService {
   constructor(
     private http: HttpClient,
     private auth: AuthService,
-    private adminTokens: AdminTokenService,
     private companyContext: CompanyContextService,
     private workforceRosterApi: WorkforceRosterApiService
   ) {}
@@ -294,10 +292,8 @@ export class OperationalDashboardService {
               return throwError(() => new Error('No active company context was found.'));
             }
 
-            return this.adminTokens.getToken().pipe(
-              map((adminToken) => adminToken ?? this.auth.getStoredAccessToken() ?? ''),
-              switchMap((token) =>
-                forkJoin({
+            const token = this.auth.getStoredAccessToken() ?? '';
+            return forkJoin({
                   members: this.loadRosterMembersSection(400, 'Active members could not be loaded.'),
                   departments: this.querySection<DepartmentRecord>({
                     collection: 'departments',
@@ -385,9 +381,7 @@ export class OperationalDashboardService {
                       )
                     );
                   })
-                )
-              )
-            );
+                );
           })
         );
       })

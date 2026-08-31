@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { Observable, firstValueFrom, from, of, throwError } from 'rxjs';
-import { catchError, map, switchMap, tap, timeout } from 'rxjs/operators';
+import { catchError, map, shareReplay, switchMap, tap, timeout } from 'rxjs/operators';
 
 type AuthCaptureResult = {
   stored: boolean;
@@ -14,8 +14,7 @@ type AuthCaptureResult = {
 };
 
 type StoredTokens = {
-  accessToken: string | null;
-  refreshToken: string | null;
+  authenticated: boolean;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -23,6 +22,9 @@ export class AuthService {
   private readonly api = environment.API_URL;
   private readonly refreshEndpointMissingSessionKey = 'auth_refresh_endpoint_missing';
   private readonly loginTimeoutMs = 20000;
+  private sessionEstablished = false;
+  private sessionCheck$: Observable<boolean> | null = null;
+  private logoutInFlight = false;
 
   constructor(private http: HttpClient) {}
 
@@ -33,25 +35,6 @@ export class AuthService {
 
     const current = new URL(window.location.href);
     let source = current;
-    const rawCallbackUrl = sessionStorage.getItem('auth_callback_raw_url');
-
-    if (rawCallbackUrl) {
-      try {
-        const parsed = new URL(rawCallbackUrl);
-        const candidate = `${parsed.search}${parsed.hash}`;
-        if (
-          candidate.includes('access_token=') ||
-          candidate.includes('refresh_token=') ||
-          candidate.includes('code=') ||
-          candidate.includes('error=')
-        ) {
-          source = parsed;
-        }
-      } catch {
-        // ignore invalid stored URL
-      }
-      sessionStorage.removeItem('auth_callback_raw_url');
-    }
 
     const hashParams = source.hash ? new URLSearchParams(source.hash.replace('#', '?')) : null;
     const searchParams = source.search ? new URLSearchParams(source.search) : null;
@@ -70,18 +53,6 @@ export class AuthService {
       isAuthCallback &&
       (hashParams?.has('code') === true || searchParams?.has('code') === true);
 
-    const accessTokenCandidate =
-      hashParams?.get('access_token') ??
-      searchParams?.get('access_token') ??
-      (isAuthCallback
-        ? hashParams?.get('token') ??
-          searchParams?.get('token')
-        : undefined);
-
-    const refreshToken =
-      hashParams?.get('refresh_token') ??
-      searchParams?.get('refresh_token') ??
-      undefined;
 
     const reason =
       searchParams?.get('reason') ??
@@ -95,28 +66,6 @@ export class AuthService {
       hashParams?.get('error_description') ??
       undefined;
 
-    const normalizedAccessToken = accessTokenCandidate?.trim() ?? '';
-    const accessToken =
-      normalizedAccessToken && this.isLikelyJwt(normalizedAccessToken)
-        ? normalizedAccessToken
-        : undefined;
-
-    if (normalizedAccessToken && !accessToken) {
-      if (this.isInviteLikeToken(normalizedAccessToken)) {
-        this.persistPendingInviteToken(normalizedAccessToken);
-      }
-      this.clearInvalidStoredAuthToken(normalizedAccessToken, 'captureAuthFromUrl');
-    }
-
-    const normalizedRefreshToken = refreshToken?.trim() ?? '';
-
-    if (accessToken) {
-      this.storeAccessToken(accessToken);
-    }
-    if (normalizedRefreshToken) {
-      this.storeRefreshToken(normalizedRefreshToken);
-    }
-
     if (hasCode && !reason && !errorDescription) {
       sessionStorage.setItem('auth_callback_pending', '1');
       sessionStorage.removeItem('auth_refresh_attempted');
@@ -127,20 +76,9 @@ export class AuthService {
       sessionStorage.removeItem('auth_refresh_attempted');
     }
 
-    if (accessToken || normalizedRefreshToken) {
-      sessionStorage.removeItem('auth_callback_pending');
-      localStorage.removeItem('auth_error');
-    }
+    if (isAuthCallback && !reason && !errorDescription) sessionStorage.removeItem('auth_callback_pending');
 
-    const hasAuthTokenParam =
-      searchParams?.has('access_token') === true ||
-      hashParams?.has('access_token') === true ||
-      (isAuthCallback && (searchParams?.has('token') === true || hashParams?.has('token') === true));
-    const hasRefreshTokenParam =
-      searchParams?.has('refresh_token') === true || hashParams?.has('refresh_token') === true;
     const hasAuthSignal =
-      hasAuthTokenParam ||
-      hasRefreshTokenParam ||
       Boolean(reason) ||
       Boolean(errorDescription) ||
       hasCode;
@@ -148,8 +86,6 @@ export class AuthService {
     if (hasAuthSignal) {
       const cleaned = new URL(window.location.href);
       const dropKeys = [
-        'access_token',
-        'refresh_token',
         'expires',
         'expires_in',
         'state',
@@ -171,9 +107,7 @@ export class AuthService {
     }
 
     return {
-      stored: Boolean(accessToken),
-      accessToken,
-      refreshToken: normalizedRefreshToken || undefined,
+      stored: false,
       reason,
       errorDescription,
       hasCode
@@ -186,7 +120,7 @@ export class AuthService {
       {
         email,
         password,
-        mode: 'json'
+        mode: 'session'
       },
       {
         headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
@@ -195,11 +129,11 @@ export class AuthService {
     ).pipe(
       timeout(this.loginTimeoutMs),
       tap((res) => {
-        this.storeTokensFromAuthResponse(res);
+        this.sessionEstablished = true;
         localStorage.setItem('user_email', email);
       }),
       switchMap((res) =>
-        this.getCurrentUser(this.getStoredAccessToken() ?? undefined).pipe(
+        this.getCurrentUser().pipe(
           switchMap((user) => user ? of(res) : throwError(() => ({ status: 401 })))
         )
       ),
@@ -278,13 +212,13 @@ export class AuthService {
       {
         phone,
         otp,
-        mode: 'json'
+        mode: 'session'
       },
       { withCredentials: true }
     ).pipe(
       tap((res) => this.storeTokensFromAuthResponse(res)),
       switchMap((res) =>
-        this.getCurrentUser(this.getStoredAccessToken() ?? undefined).pipe(
+        this.getCurrentUser().pipe(
           map(() => res)
         )
       ),
@@ -333,8 +267,8 @@ export class AuthService {
     return defaultPath;
   }
 
-  refreshFromCookie(): Observable<string | null> {
-    return from(this.refreshFromCookieInternal());
+  refreshFromCookie(): Observable<boolean> {
+    return from(this.refreshFromCookieInternal()).pipe(map(Boolean));
   }
 
   refreshSession() {
@@ -344,30 +278,33 @@ export class AuthService {
   }
 
   ensureSessionToken() {
-    const existing = this.getStoredAccessToken();
-    if (existing) {
-      return this.getCurrentUser(existing).pipe(
-        switchMap((user) => {
-          if (user) {
-            return of(true);
-          }
-          if (sessionStorage.getItem('auth_refresh_attempted')) {
-            return of(false);
-          }
-          sessionStorage.setItem('auth_refresh_attempted', '1');
-          return this.refreshUserFromCookie().pipe(map((refreshedUser) => Boolean(refreshedUser)));
-        })
-      );
-    }
-
-    if (sessionStorage.getItem('auth_refresh_attempted')) {
-      return of(false);
-    }
-    sessionStorage.setItem('auth_refresh_attempted', '1');
-
-    return this.refreshUserFromCookie().pipe(
-      map((user) => Boolean(user))
+    if (this.sessionCheck$) return this.sessionCheck$;
+    this.sessionCheck$ = this.refreshUserFromCookie().pipe(
+      map((user) => { this.sessionEstablished = Boolean(user); return this.sessionEstablished; }),
+      catchError(() => { this.sessionEstablished = false; return of(false); }),
+      tap(() => { this.sessionCheck$ = null; }),
+      shareReplay({ bufferSize: 1, refCount: false })
     );
+    return this.sessionCheck$;
+  }
+
+  /** Returns only the last server-verified in-memory session state. */
+  isSessionEstablished(): boolean {
+    return this.sessionEstablished;
+  }
+
+  /** Shared server verification for guards and authenticated initialization. */
+  ensureSession(): Observable<boolean> {
+    return this.ensureSessionToken();
+  }
+
+  getVerifiedCurrentUser(): Observable<any | null> {
+    return this.getCurrentUser();
+  }
+
+  /** @deprecated Session authentication has no browser-readable access token. */
+  getStoredAccessToken(): null {
+    return null;
   }
 
   getCurrentUser(
@@ -473,53 +410,6 @@ export class AuthService {
     );
   }
 
-  getStoredAccessToken(): string | null {
-    const token =
-      localStorage.getItem('token') ??
-      localStorage.getItem('access_token') ??
-      localStorage.getItem('directus_token');
-    const normalizedToken = token?.trim() ?? '';
-
-    if (!normalizedToken) {
-      return null;
-    }
-
-    if (!this.isLikelyJwt(normalizedToken) || this.isInviteLikeToken(normalizedToken)) {
-      this.clearInvalidStoredAuthToken(normalizedToken, 'getStoredAccessToken');
-      return null;
-    }
-
-    if (this.isTokenExpired(normalizedToken)) {
-      this.clearStoredAccessTokenAliases();
-      return null;
-    }
-
-    this.syncAccessTokenAliases(normalizedToken);
-
-    return normalizedToken;
-  }
-
-  storeAccessToken(token: string) {
-    const normalizedToken = token.trim();
-    if (!normalizedToken || !this.isLikelyJwt(normalizedToken) || this.isInviteLikeToken(normalizedToken)) {
-      this.clearInvalidStoredAuthToken(normalizedToken, 'storeAccessToken');
-      return;
-    }
-
-    localStorage.setItem('token', normalizedToken);
-    localStorage.setItem('access_token', normalizedToken);
-    localStorage.setItem('directus_token', normalizedToken);
-    sessionStorage.setItem('is_logged_in', '1');
-    sessionStorage.setItem('auth_session_established_at', Date.now().toString());
-    localStorage.removeItem('auth_error');
-    this.notifyAuthStateChanged();
-  }
-
-  storeRefreshToken(token: string) {
-    localStorage.setItem('refresh_token', token);
-    localStorage.setItem('directus_refresh_token', token);
-  }
-
   clearAuthState() {
     this.clearAuthRecoveryState();
     this.clearInviteFlowState();
@@ -529,11 +419,7 @@ export class AuthService {
   }
 
   clearAuthRecoveryState(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('directus_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('directus_refresh_token');
+    this.sessionEstablished = false;
     localStorage.removeItem('auth_error');
     localStorage.removeItem('user_email');
     localStorage.removeItem('current_user_id');
@@ -544,8 +430,8 @@ export class AuthService {
 
     sessionStorage.removeItem('is_logged_in');
     sessionStorage.removeItem('auth_callback_pending');
-    sessionStorage.removeItem('auth_refresh_attempted');
     sessionStorage.removeItem('auth_callback_raw_url');
+    sessionStorage.removeItem('auth_refresh_attempted');
     sessionStorage.removeItem('auth_session_established_at');
     sessionStorage.removeItem(this.refreshEndpointMissingSessionKey);
     this.notifyAuthStateReset('auth-recovery-cleared');
@@ -562,38 +448,22 @@ export class AuthService {
   }
 
   getAuthHeaders(accessToken?: string): HttpHeaders {
-    const candidate = (accessToken ?? this.getStoredAccessToken())?.trim() ?? null;
-    if (!candidate) {
-      return new HttpHeaders();
-    }
-
-    if (!this.isLikelyJwt(candidate) || this.isInviteLikeToken(candidate)) {
-      this.clearInvalidStoredAuthToken(candidate, 'getAuthHeaders');
-      return new HttpHeaders();
-    }
-
-    const token = this.isTokenExpired(candidate) ? null : candidate;
-
-    if (candidate && !token) {
-      this.clearStoredAccessTokenAliases();
-    }
-
-    return token
-      ? new HttpHeaders({ Authorization: `Bearer ${token}` })
-      : new HttpHeaders();
+    void accessToken;
+    return new HttpHeaders();
   }
 
   isLoggedIn(): boolean {
-    return Boolean(this.getStoredAccessToken()) || sessionStorage.getItem('is_logged_in') === '1';
+    return this.sessionEstablished;
   }
 
   logout() {
-    const refreshToken = this.getStoredRefreshToken();
-    const body = refreshToken ? { refresh_token: refreshToken } : {};
+    if (this.logoutInFlight) return;
+    this.logoutInFlight = true;
+    this.clearAuthState();
 
     this.http.post(
       `${this.api}/auth/logout`,
-      body,
+      { mode: 'session' },
       {
         headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
         withCredentials: true
@@ -601,7 +471,7 @@ export class AuthService {
     ).pipe(
       catchError(() => of(null))
     ).subscribe(() => {
-      this.clearAuthState();
+      this.logoutInFlight = false;
     });
   }
 
@@ -610,10 +480,9 @@ export class AuthService {
   }
 
   async getCurrentUserAfterRestore(): Promise<any | null> {
-    const token = this.getStoredAccessToken() ?? undefined;
     try {
       return await firstValueFrom(
-        this.getCurrentUser(token).pipe(
+        this.getCurrentUser().pipe(
           timeout(16000),
           catchError(() => of(null))
         )
@@ -623,8 +492,8 @@ export class AuthService {
     }
   }
 
-  async refreshAuthTokenWithStoredRefreshToken(): Promise<string | null> {
-    return this.refreshFromCookieInternal();
+  async refreshAuthTokenWithStoredRefreshToken(): Promise<boolean> {
+    return Boolean(await this.refreshFromCookieInternal());
   }
 
   setAuthNotice(message: string): void {
@@ -653,34 +522,27 @@ export class AuthService {
 
   private refreshUserFromCookie(): Observable<any | null> {
     return this.refreshFromCookie().pipe(
-      switchMap((token) => {
-        if (!token) {
+      switchMap((authenticated) => {
+        if (!authenticated) {
           return of(null);
         }
-        return this.getCurrentUser(token);
+        return this.getCurrentUser();
       })
     );
   }
 
-  private async refreshFromCookieInternal(): Promise<string | null> {
+  private async refreshFromCookieInternal(): Promise<boolean> {
     if (
       typeof sessionStorage !== 'undefined' &&
       sessionStorage.getItem(this.refreshEndpointMissingSessionKey) === '1'
     ) {
-      return null;
+      return false;
     }
 
-    const storedRefreshToken = this.getStoredRefreshToken();
-    const attempts: Array<Record<string, string>> = [];
-
-    if (storedRefreshToken) {
-      attempts.push({ mode: 'json', refresh_token: storedRefreshToken });
-    }
-    attempts.push({ mode: 'json' });
-    attempts.push({});
+    const attempts: Array<Record<string, string>> = [{ mode: 'session' }];
 
     if (!attempts.length) {
-      return null;
+      return false;
     }
 
     let lastErr: any = null;
@@ -695,13 +557,13 @@ export class AuthService {
           )
         );
         const tokens = this.storeTokensFromAuthResponse(res);
-        if (tokens.accessToken) {
+        if (tokens.authenticated) {
           if (typeof sessionStorage !== 'undefined') {
             sessionStorage.removeItem(this.refreshEndpointMissingSessionKey);
           }
           sessionStorage.removeItem('auth_callback_pending');
           sessionStorage.removeItem('auth_refresh_attempted');
-          return tokens.accessToken;
+          return true;
         }
       } catch (err) {
         lastErr = err;
@@ -715,46 +577,13 @@ export class AuthService {
     }
 
     this.storeAuthError(lastErr);
-    return null;
-  }
-
-  private getStoredRefreshToken(): string | null {
-    const refreshToken =
-      localStorage.getItem('refresh_token') ??
-      localStorage.getItem('directus_refresh_token');
-
-    if (refreshToken) {
-      this.syncRefreshTokenAliases(refreshToken);
-    }
-
-    return refreshToken;
+    return false;
   }
 
   private storeTokensFromAuthResponse(res: any): StoredTokens {
-    const container = res?.data ?? res ?? {};
-    const accessToken =
-      typeof container?.access_token === 'string'
-        ? container.access_token
-        : typeof container?.token === 'string'
-          ? container.token
-          : null;
-
-    const refreshToken =
-      typeof container?.refresh_token === 'string'
-        ? container.refresh_token
-        : null;
-
-    if (accessToken) {
-      this.storeAccessToken(accessToken);
-    }
-    if (refreshToken) {
-      this.storeRefreshToken(refreshToken);
-    }
-    if (accessToken || refreshToken) {
-      localStorage.removeItem('auth_error');
-    }
-
-    return { accessToken, refreshToken };
+    this.sessionEstablished = true;
+    localStorage.removeItem('auth_error');
+    return { authenticated: true };
   }
 
   private storeAuthError(err: any) {
@@ -781,40 +610,6 @@ export class AuthService {
     } catch {
       return false;
     }
-  }
-
-  private isTokenExpired(token: string): boolean {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return false;
-    }
-
-    try {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const exp = payload?.exp;
-      if (typeof exp !== 'number') {
-        return false;
-      }
-      return Math.floor(Date.now() / 1000) >= exp;
-    } catch {
-      return false;
-    }
-  }
-
-  private clearStoredAccessTokenAliases(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('directus_token');
-    sessionStorage.removeItem('is_logged_in');
-  }
-
-  private isLikelyJwt(token: string): boolean {
-    const parts = token.split('.');
-    return parts.length === 3 && parts.every((part) => part.trim().length > 0);
-  }
-
-  private isInviteLikeToken(token: string): boolean {
-    return /^wlr-[a-z0-9_-]+$/i.test(token.trim());
   }
 
   private isAuthCallbackPath(pathname: string): boolean {
@@ -867,44 +662,6 @@ export class AuthService {
     }
   }
 
-  private clearInvalidStoredAuthToken(token: string, source: string): void {
-    if (!token) {
-      return;
-    }
-
-    this.clearStoredAccessTokenAliases();
-    if (environment.production) {
-      return;
-    }
-
-    if (this.isInviteLikeToken(token)) {
-      console.error('[Auth] invalid auth credential storage contained an invite credential', { source });
-      return;
-    }
-
-    console.error('[Auth] invalid auth credential storage', { source });
-  }
-
-  private syncAccessTokenAliases(token: string): void {
-    if (localStorage.getItem('token') !== token) {
-      localStorage.setItem('token', token);
-    }
-    if (localStorage.getItem('access_token') !== token) {
-      localStorage.setItem('access_token', token);
-    }
-    if (localStorage.getItem('directus_token') !== token) {
-      localStorage.setItem('directus_token', token);
-    }
-  }
-
-  private syncRefreshTokenAliases(token: string): void {
-    if (localStorage.getItem('refresh_token') !== token) {
-      localStorage.setItem('refresh_token', token);
-    }
-    if (localStorage.getItem('directus_refresh_token') !== token) {
-      localStorage.setItem('directus_refresh_token', token);
-    }
-  }
 
   private notifyAuthStateChanged(): void {
     if (typeof window === 'undefined') {

@@ -1,11 +1,10 @@
-import { HttpHeaders, provideHttpClient } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { BehaviorSubject, of } from 'rxjs';
 import { vi } from 'vitest';
 
 import type { CompanyContextState } from '../core/context/company-context.service';
-import { AuthService } from './auth';
 import { NotificationsService } from './notifications.service';
 import { CompanyContextService } from '../core/context/company-context.service';
 
@@ -30,6 +29,38 @@ const readyContext = (): CompanyContextState['context'] => ({
   availableCompanies: [],
   hubReason: null
 });
+async function expectNotificationListRequest(
+  httpMock: HttpTestingController,
+  scope: 'workspace' | 'personal-workspace' = 'workspace'
+) {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+  const request = httpMock.expectOne((req) => req.method === 'GET' && req.url.includes('/items/notifications'));
+  const decoded = decodeURIComponent(request.request.urlWithParams);
+  expect(request.request.method).toBe('GET');
+  expect(request.request.url).toContain('/items/notifications');
+  expect(request.request.withCredentials).toBe(true);
+  expect(decoded).toContain('limit=30');
+  expect(decoded).toContain('sort=-date_created');
+  if (scope === 'personal-workspace') {
+    expect(decoded).toContain('filter[_or][0][business_profile][_eq]=profile-1');
+    expect(decoded).toContain('filter[_or][1][business_profile][_null]=true');
+    expect(decoded).toContain('filter[_or][1][recipient][_eq]=user-1');
+  } else {
+    expect(decoded).toContain('filter[business_profile][_eq]=profile-1');
+  }
+  expect(request.request.withCredentials).toBe(true);
+  return request;
+}
+
+async function waitForLoadedState(service: NotificationsService, expectedCount = 1): Promise<void> {
+  await vi.waitFor(() => {
+    const state = (service as any).stateSubject.value;
+    expect(state.loading).toBe(false);
+    expect(state.recentNotifications).toHaveLength(expectedCount);
+  });
+}
 
 describe('NotificationsService', () => {
   const originalPathname = window.location.pathname;
@@ -49,14 +80,8 @@ describe('NotificationsService', () => {
     const http = {
       get: vi.fn(() => of({ data: [] }))
     };
-    const auth = {
-      getStoredAccessToken: vi.fn(() => 'jwt-token'),
-      getAuthHeaders: vi.fn(() => ({}))
-    };
-
     const service = new NotificationsService(
       http as any,
-      auth as any,
       {
         state$: state$.asObservable(),
         snapshot: () => state$.value
@@ -68,31 +93,24 @@ describe('NotificationsService', () => {
     expect(http.get).not.toHaveBeenCalled();
   });
 });
-
 describe('NotificationsService notification filters', () => {
   let service: NotificationsService;
   let httpMock: HttpTestingController;
   let state$: BehaviorSubject<CompanyContextState>;
 
-  beforeEach(() => {
+  beforeEach(async () => {
+    TestBed.resetTestingModule();
     state$ = new BehaviorSubject<CompanyContextState>({
       loading: false,
       error: null,
       context: readyContext()
     });
 
-    TestBed.configureTestingModule({
+    await TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         NotificationsService,
-        {
-          provide: AuthService,
-          useValue: {
-            getStoredAccessToken: vi.fn(() => 'jwt-token'),
-            getAuthHeaders: vi.fn((token?: string) => new HttpHeaders({ Authorization: `Bearer ${token ?? 'jwt-token'}` }))
-          }
-        },
         {
           provide: CompanyContextService,
           useValue: {
@@ -101,7 +119,7 @@ describe('NotificationsService notification filters', () => {
           }
         }
       ]
-    });
+    }).compileComponents();
 
     service = TestBed.inject(NotificationsService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -137,12 +155,7 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
-    const notificationsRequest = httpMock.expectOne((req) =>
-      req.url.includes('/items/notifications') &&
-      req.params.get('filter[_or][0][business_profile][_eq]') === 'profile-1' &&
-      req.params.get('filter[_or][1][business_profile][_null]') === 'true' &&
-      req.params.get('filter[_or][1][recipient][_eq]') === 'user-1'
-    );
+    const notificationsRequest = await expectNotificationListRequest(httpMock, 'personal-workspace');
     notificationsRequest.flush({ data: [] });
   });
 
@@ -166,7 +179,7 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
-    const notificationsRequest = httpMock.expectOne((req) => req.url.includes('/items/notifications'));
+    const notificationsRequest = await expectNotificationListRequest(httpMock);
     notificationsRequest.flush({
       data: [
         {
@@ -184,6 +197,7 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
+    await waitForLoadedState(service);
     const markPromise = service.markNotificationRead('notification-1');
     const optimisticState = (service as any).stateSubject.value;
 
@@ -194,6 +208,7 @@ describe('NotificationsService notification filters', () => {
       isUnread: false
     }));
 
+    await Promise.resolve();
     const patchRequest = httpMock.expectOne((req) =>
       req.method === 'PATCH' && req.url.includes('/items/notifications/notification-1')
     );
@@ -224,7 +239,7 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
-    const notificationsRequest = httpMock.expectOne((req) => req.url.includes('/items/notifications'));
+    const notificationsRequest = await expectNotificationListRequest(httpMock);
     notificationsRequest.flush({
       data: [
         {
@@ -239,6 +254,7 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
+    await waitForLoadedState(service);
     await expect(service.markNotificationRead('notification-1')).resolves.toBeUndefined();
     httpMock.expectNone((req) => req.method === 'PATCH' && req.url.includes('/items/notifications/notification-1'));
     expect((service as any).stateSubject.value.unreadCount).toBe(0);
@@ -261,7 +277,7 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
-    const notificationsRequest = httpMock.expectOne((req) => req.url.includes('/items/notifications'));
+    const notificationsRequest = await expectNotificationListRequest(httpMock);
     notificationsRequest.flush({
       data: [
         {
@@ -276,9 +292,11 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
+    await waitForLoadedState(service);
     const markPromise = service.markNotificationRead('notification-1');
     expect((service as any).stateSubject.value.unreadCount).toBe(0);
 
+    await waitForLoadedState(service);
     const patchRequest = httpMock.expectOne((req) =>
       req.method === 'PATCH' && req.url.includes('/items/notifications/notification-1')
     );
@@ -310,7 +328,7 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
-    const notificationsRequest = httpMock.expectOne((req) => req.url.includes('/items/notifications'));
+    const notificationsRequest = await expectNotificationListRequest(httpMock);
     notificationsRequest.flush({
       data: [
         {
@@ -325,12 +343,16 @@ describe('NotificationsService notification filters', () => {
       ]
     });
 
+    await waitForLoadedState(service);
     const first = service.markNotificationRead('notification-1');
     const second = service.markNotificationRead('notification-1');
 
-    const patchRequest = httpMock.expectOne((req) =>
+    await Promise.resolve();
+    const patchRequests = httpMock.match((req) =>
       req.method === 'PATCH' && req.url.includes('/items/notifications/notification-1')
     );
+    expect(patchRequests).toHaveLength(1);
+    const patchRequest = patchRequests[0];
     patchRequest.flush({ data: { id: 'notification-1' } });
 
     await expect(first).resolves.toBeUndefined();

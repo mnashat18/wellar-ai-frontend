@@ -4,6 +4,7 @@ import { NavigationEnd, Router, RouterModule } from '@angular/router';
 import { Subscription, of } from 'rxjs';
 import { catchError, filter, map, startWith, switchMap } from 'rxjs/operators';
 import { SubscriptionService, UserSubscription } from '../../services/subscription.service';
+import { AuthService } from '../../services/auth';
 
 type RouteGuide = {
   title: string;
@@ -120,7 +121,8 @@ export class NewUserGuideComponent implements OnInit, OnDestroy {
 
   constructor(
     private router: Router,
-    private subscriptions: SubscriptionService
+    private subscriptions: SubscriptionService,
+    private auth: AuthService
   ) {}
 
   ngOnInit() {
@@ -162,9 +164,8 @@ export class NewUserGuideComponent implements OnInit, OnDestroy {
     }
 
     const safeRouteKey = routeKey as string;
-    const token = this.getToken();
-    const userId = token ? this.getUserIdFromToken(token) : null;
-    if (!token || !userId) {
+    const userId = this.auth.isSessionEstablished() ? localStorage.getItem('current_user_id') : null;
+    if (!userId) {
       return of({
         routeKey: safeRouteKey,
         shouldShow: false,
@@ -274,41 +275,5 @@ export class NewUserGuideComponent implements OnInit, OnDestroy {
     return `wellar_new_user_guide_seen_${userId}`;
   }
 
-  private getToken(): string | null {
-    const token = localStorage.getItem('token') ?? localStorage.getItem('access_token') ?? localStorage.getItem('directus_token');
-    if (!token || this.isTokenExpired(token)) {
-      return null;
-    }
-    return token;
-  }
-
-  private getUserIdFromToken(token: string): string | null {
-    const payload = this.decodeJwtPayload(token);
-    const id = payload?.['id'] ?? payload?.['user_id'] ?? payload?.['sub'];
-    return typeof id === 'string' && id ? id : null;
-  }
-
-  private decodeJwtPayload(token: string): Record<string, unknown> | null {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return null;
-    }
-
-    try {
-      const payload = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
-      return JSON.parse(payload) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  }
-
-  private isTokenExpired(token: string): boolean {
-    const payload = this.decodeJwtPayload(token);
-    const exp = payload?.['exp'];
-    if (typeof exp !== 'number') {
-      return false;
-    }
-    return Math.floor(Date.now() / 1000) >= exp;
-  }
 }
 

@@ -5,7 +5,6 @@ import { catchError, distinctUntilChanged, map } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { CompanyContextService, type CompanyContext } from '../core/context/company-context.service';
-import { AuthService } from './auth';
 import { sanitizeDisplayValue } from '../shared/utils/display-formatters';
 
 type NotificationRow = {
@@ -127,7 +126,6 @@ export class NotificationsService implements OnDestroy {
 
   constructor(
     private http: HttpClient,
-    private auth: AuthService,
     private companyContext: CompanyContextService
   ) {
     this.contextSub = this.companyContext.state$.pipe(
@@ -236,19 +234,6 @@ export class NotificationsService implements OnDestroy {
   }
 
   private async loadForWorkspace(workspaceId: string, userId: string | null, reason: string): Promise<void> {
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      this.stateSubject.next({
-        ...this.stateSubject.value,
-        unreadCount: 0,
-        recentNotifications: [],
-        loading: false,
-        error: 'No active access token.',
-        activeWorkspaceId: workspaceId
-      });
-      return;
-    }
-
     const version = ++this.loadVersion;
     this.stateSubject.next({
       ...this.stateSubject.value,
@@ -262,8 +247,8 @@ export class NotificationsService implements OnDestroy {
     console.log('[Notifications] load reason', reason);
 
     try {
-      const schema = await this.resolveSchema(token, workspaceId);
-      const rows = await this.queryNotifications(token, workspaceId, userId, schema);
+      const schema = await this.resolveSchema(workspaceId);
+      const rows = await this.queryNotifications(workspaceId, userId, schema);
       const mapped = rows
         .map((row) => this.mapNotification(row, schema))
         .filter((item): item is WorkspaceNotification => item !== null)
@@ -305,7 +290,7 @@ export class NotificationsService implements OnDestroy {
     }
   }
 
-  private async resolveSchema(token: string, workspaceId: string): Promise<NotificationSchema> {
+  private async resolveSchema(workspaceId: string): Promise<NotificationSchema> {
     const cached = this.schemaCache.get(workspaceId);
     if (cached) {
       return cached;
@@ -316,7 +301,7 @@ export class NotificationsService implements OnDestroy {
     const fieldsResponse = await firstValueFrom(
       this.http.get<{ data?: DirectusFieldRow[] }>(
         `${this.api}/fields/notifications?_ts=${Date.now()}`,
-        { headers: this.auth.getAuthHeaders(token), withCredentials: true }
+        { withCredentials: true }
       ).pipe(
         map((response) => response.data ?? []),
         catchError((error: DirectusHttpError) => {
@@ -382,7 +367,6 @@ export class NotificationsService implements OnDestroy {
   }
 
   private async queryNotifications(
-    token: string,
     workspaceId: string,
     userId: string | null,
     schema: NotificationSchema
@@ -412,7 +396,7 @@ export class NotificationsService implements OnDestroy {
         const response = await firstValueFrom(
           this.http.get<{ data?: NotificationRow[] }>(
             `${this.api}/items/notifications?${params.toString()}&_ts=${Date.now()}`,
-            { headers: this.auth.getAuthHeaders(token), withCredentials: true }
+            { withCredentials: true }
           )
         );
 
@@ -627,12 +611,7 @@ export class NotificationsService implements OnDestroy {
       throw new Error('Active workspace context is missing.');
     }
 
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
-      throw new Error('No active access token.');
-    }
-
-    const schema = await this.resolveSchema(token, this.currentWorkspaceId);
+    const schema = await this.resolveSchema(this.currentWorkspaceId);
     const payload: Record<string, string> = {};
     const timestamp = new Date().toISOString();
 
@@ -654,7 +633,7 @@ export class NotificationsService implements OnDestroy {
       this.http.patch(
         `${this.api}/items/notifications/${encodeURIComponent(notificationId)}`,
         payload,
-        { headers: this.auth.getAuthHeaders(token), withCredentials: true }
+        { withCredentials: true }
       )
     );
   }

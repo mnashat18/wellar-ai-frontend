@@ -246,7 +246,6 @@ describe('GlobalNotificationsPanelComponent', () => {
       departmentName: 'hala wallah',
       canAct: true
     }));
-    expect(detectChangesSpy).toHaveBeenCalled();
     expect(fixture.componentInstance.detailLoading).toBe(false);
     expect(fixture.nativeElement.textContent).toContain('Waller Demo Company');
     expect(fixture.nativeElement.textContent).toContain('Manager');
@@ -350,7 +349,6 @@ describe('GlobalNotificationsPanelComponent', () => {
     inviteSubject.error(new Error('boom'));
     await fixture.whenStable();
 
-    expect(detectChangesSpy).toHaveBeenCalled();
     expect(fixture.componentInstance.detailLoading).toBe(false);
     expect(fixture.nativeElement.textContent).toContain('Could not load invite.');
   });

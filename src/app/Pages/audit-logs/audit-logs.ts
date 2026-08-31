@@ -1,10 +1,10 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { of, throwError } from 'rxjs';
 import { catchError, map, timeout } from 'rxjs/operators';
-import { AdminTokenService } from '../../services/admin-token';
 import { environment } from '../../../environments/environment';
+import { AuthService } from '../../services/auth';
 
 @Component({
   selector: 'app-audit-logs',
@@ -25,19 +25,23 @@ export class AuditLogs implements OnInit {
 
   constructor(
     private http: HttpClient,
-    private adminTokens: AdminTokenService,
-    private cdr: ChangeDetectorRef
+    private cdr: ChangeDetectorRef,
+    private auth: AuthService
   ) {}
 
   ngOnInit() {
-    const userToken = this.getUserToken();
-    const payload = userToken ? this.decodeJwtPayload(userToken) : null;
-    this.isAdminUser = this.checkAdminAccess(payload);
-    this.canReviewLogs = this.checkReviewAccess(payload);
-    this.currentUserEmail = this.extractUserEmail(payload);
-    this.currentUserId = this.extractUserId(payload);
-    this.canViewLogs = this.canReviewLogs || Boolean(userToken);
-    this.loadLogs();
+    this.auth.getVerifiedCurrentUser().subscribe((user) => {
+      if (!user) { this.canViewLogs = false; return; }
+      const role = this.roleName(user);
+      const roleId = this.roleId(user);
+      const allowed = (environment.AUDIT_LOG_REVIEW_ROLE_IDS ?? []).map(String);
+      this.isAdminUser = /admin|owner|manager|hr/i.test(role);
+      this.canReviewLogs = this.isAdminUser || allowed.includes(roleId);
+      this.currentUserEmail = typeof user.email === 'string' ? user.email : '';
+      this.currentUserId = typeof user.id === 'string' ? user.id : null;
+      this.canViewLogs = true;
+      this.loadLogs();
+    });
   }
 
   openCreateLog(): void {
@@ -94,8 +98,7 @@ export class AuditLogs implements OnInit {
     this.cdr.detectChanges();
 
     if (!this.canReviewLogs) {
-      const userToken = this.getUserToken();
-      if (!userToken) {
+      if (!this.canViewLogs) {
         this.submitFeedback = { type: 'error', message: 'Please sign in to submit logs.' };
         this.cdr.detectChanges();
         return;
@@ -107,7 +110,7 @@ export class AuditLogs implements OnInit {
         description: trimmedDescription,
         metadata: parsedMetadata,
         timestamp: new Date().toISOString()
-      }, userToken).subscribe({
+      }, null).subscribe({
         next: () => {
           console.info('[audit-logs] log created');
           this.submitFeedback = { type: 'success', message: 'Log submitted successfully.' };
@@ -123,65 +126,7 @@ export class AuditLogs implements OnInit {
       return;
     }
 
-    if (this.isAdminUser) {
-      this.adminTokens.getToken().subscribe({
-        next: (adminToken) => {
-          const userToken = this.getUserToken();
-          // Prefer the admin token only when it is present and not expired; a
-          // stale admin token must not shadow a valid user token (which would
-          // force an unauthenticated request via buildAuthHeaders).
-          const usingAdmin = !!adminToken && !this.isTokenExpired(adminToken);
-          const token = usingAdmin ? adminToken : userToken;
-          const tokenSource = usingAdmin ? 'admin' : userToken ? 'user' : 'none';
-          console.info('[audit-logs] submit using token source:', tokenSource);
-
-          this.resolveUserId(effectiveEmail, token).subscribe({
-            next: (userId) => {
-              this.createLog({
-                user: userId ?? effectiveEmail,
-                type: trimmedType,
-                description: trimmedDescription,
-                metadata: parsedMetadata,
-                timestamp: new Date().toISOString()
-              }, token).subscribe({
-                next: () => {
-                  console.info('[audit-logs] log created');
-                  this.submitFeedback = { type: 'success', message: 'Log submitted successfully.' };
-                  this.cdr.detectChanges();
-                  this.loadLogs();
-                },
-                error: (err) => {
-                  console.error('[audit-logs] create log error:', err);
-                  this.submitFeedback = { type: 'error', message: 'Failed to submit log.' };
-                  this.cdr.detectChanges();
-                }
-              });
-            },
-            error: (err) => {
-              console.error('[audit-logs] resolve user error:', err);
-              this.submitFeedback = { type: 'error', message: 'Failed to resolve user email.' };
-              this.cdr.detectChanges();
-            }
-          });
-        },
-        error: (err) => {
-          console.error('[audit-logs] admin token error:', err);
-          this.submitFeedback = { type: 'error', message: 'Failed to get admin token.' };
-          this.cdr.detectChanges();
-        }
-      });
-      return;
-    }
-
-    const reviewerToken = this.getUserToken();
-    if (!reviewerToken) {
-      this.submitFeedback = { type: 'error', message: 'Please sign in to submit logs.' };
-      this.cdr.detectChanges();
-      return;
-    }
-
-    console.info('[audit-logs] submit using token source: user');
-    this.resolveUserId(effectiveEmail, reviewerToken).subscribe({
+    this.resolveUserId(effectiveEmail).subscribe({
       next: (userId) => {
         this.createLog({
           user: userId ?? effectiveEmail,
@@ -189,7 +134,7 @@ export class AuditLogs implements OnInit {
           description: trimmedDescription,
           metadata: parsedMetadata,
           timestamp: new Date().toISOString()
-        }, reviewerToken).subscribe({
+        }, null).subscribe({
           next: () => {
             console.info('[audit-logs] log created');
             this.submitFeedback = { type: 'success', message: 'Log submitted successfully.' };
@@ -212,9 +157,8 @@ export class AuditLogs implements OnInit {
   }
 
   private loadLogs() {
-    const userToken = this.getUserToken();
     if (!this.canReviewLogs) {
-      if (!userToken) {
+      if (!this.canViewLogs) {
         this.logs = [];
         this.cdr.detectChanges();
         return;
@@ -224,8 +168,7 @@ export class AuditLogs implements OnInit {
         userId: this.currentUserId,
         email: this.currentUserEmail
       };
-      console.info('[audit-logs] using token source: user');
-      this.fetchLogs(userToken, filters).subscribe({
+      this.fetchLogs(filters).subscribe({
         next: (logs) => {
           console.info('[audit-logs] audit_logs count:', logs.length);
           this.applyLogs(logs);
@@ -237,64 +180,20 @@ export class AuditLogs implements OnInit {
       return;
     }
 
-    if (!this.isAdminUser) {
-      const tokenSource = userToken ? 'user' : 'none';
-      console.info('[audit-logs] using token source:', tokenSource);
-
-      this.fetchLogs(userToken).subscribe({
-        next: (logs) => {
-          console.info('[audit-logs] audit_logs count:', logs.length);
-          this.applyLogs(logs);
-        },
-        error: (err) => {
-          console.error('[audit-logs] audit_logs error:', err);
-        }
-      });
-      return;
-    }
-
-    this.adminTokens.getToken().subscribe({
-      next: (adminToken) => {
-        // Prefer the admin token only when present and not expired; otherwise
-        // fall back to the user token rather than sending a stale/unusable one.
-        const usingAdmin = !!adminToken && !this.isTokenExpired(adminToken);
-        const token = usingAdmin ? adminToken : userToken;
-        const tokenSource = usingAdmin ? 'admin' : userToken ? 'user' : 'none';
-        console.info('[audit-logs] using token source:', tokenSource);
-
-        this.fetchLogs(token).subscribe({
-          next: (logs) => {
-            console.info('[audit-logs] audit_logs count:', logs.length);
-            this.applyLogs(logs);
-          },
-          error: (err) => {
-            console.error('[audit-logs] audit_logs error:', err);
-          }
-        });
+    this.fetchLogs().subscribe({
+      next: (logs) => {
+        console.info('[audit-logs] audit_logs count:', logs.length);
+        this.applyLogs(logs);
       },
       error: (err) => {
-        console.error('[audit-logs] admin token error:', err);
-        const tokenSource = userToken ? 'user' : 'none';
-        console.info('[audit-logs] using token source:', tokenSource);
-
-        this.fetchLogs(userToken).subscribe({
-          next: (logs) => {
-            console.info('[audit-logs] audit_logs count:', logs.length);
-            this.applyLogs(logs);
-          },
-          error: (fetchErr) => {
-            console.error('[audit-logs] audit_logs error:', fetchErr);
-          }
-        });
+        console.error('[audit-logs] audit_logs error:', err);
       }
     });
   }
 
   private fetchLogs(
-    token: string | null,
     filters?: { userId?: string | null; email?: string }
   ) {
-    const headers = this.buildAuthHeaders(token);
     const fields = [
       '*',
       'user.email'
@@ -313,7 +212,7 @@ export class AuditLogs implements OnInit {
 
     return this.http.get<{ data?: AuditLogRecord[] }>(
       `${environment.API_URL}/items/audit_logs?${params.toString()}`,
-      headers ? { headers } : {}
+      { withCredentials: true }
     ).pipe(
       map(res => res.data ?? [])
     );
@@ -364,12 +263,11 @@ export class AuditLogs implements OnInit {
   // Both callers are gated behind isAdminUser / canReviewLogs, so this lookup is
   // intentionally cross-tenant; there is no business_profile/workspace id in this
   // component to scope by. `fields` is already restricted to `id` (no PII pulled).
-  private resolveUserId(email: string, token: string | null) {
+  private resolveUserId(email: string) {
     if (!email) {
       return of(null);
     }
 
-    const headers = this.buildAuthHeaders(token);
     const params = new URLSearchParams({
       'filter[email][_eq]': email,
       'fields': 'id',
@@ -379,7 +277,7 @@ export class AuditLogs implements OnInit {
 
     return this.http.get<{ data?: Array<{ id?: string }> }>(
       url,
-      headers ? { headers } : {}
+      { withCredentials: true }
     ).pipe(
       timeout(15000),
       map(res => (Array.isArray(res?.data) ? res.data[0]?.id : null) ?? null),
@@ -394,12 +292,11 @@ export class AuditLogs implements OnInit {
     );
   }
 
-  private createLog(payload: CreateAuditLogPayload, token: string | null) {
-    const headers = this.buildAuthHeaders(token);
+  private createLog(payload: CreateAuditLogPayload, _unused: null) {
     return this.http.post(
       `${environment.API_URL}/items/audit_logs`,
       payload,
-      headers ? { headers } : {}
+      { withCredentials: true }
     );
   }
 
@@ -514,98 +411,13 @@ export class AuditLogs implements OnInit {
     return '';
   }
 
-  private buildAuthHeaders(token: string | null): HttpHeaders | null {
-    if (!token || this.isTokenExpired(token)) {
-      return null;
-    }
-
-    return new HttpHeaders({
-      Authorization: `Bearer ${token}`
-    });
+  private roleName(user: any): string {
+    return typeof user?.role?.name === 'string' ? user.role.name : '';
   }
 
-  private getUserToken(): string | null {
-    const userToken = this.getStoredToken();
-    if (!userToken || this.isTokenExpired(userToken)) {
-      return null;
-    }
-
-    return userToken;
-  }
-
-  private isTokenExpired(token: string): boolean {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return false;
-    }
-
-    try {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const exp = payload?.exp;
-      if (typeof exp !== 'number') {
-        return false;
-      }
-      return Math.floor(Date.now() / 1000) >= exp;
-    } catch {
-      return false;
-    }
-  }
-
-  private checkAdminAccess(payload?: Record<string, unknown> | null): boolean {
-    const data = payload ?? this.decodeJwtPayload(this.getStoredToken() ?? '');
-    return data?.['admin_access'] === true;
-  }
-
-  private decodeJwtPayload(token: string): Record<string, unknown> | null {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return null;
-    }
-
-    try {
-      const payload = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
-      return JSON.parse(payload) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  }
-
-  private checkReviewAccess(payload?: Record<string, unknown> | null): boolean {
-    const data = payload ?? this.decodeJwtPayload(this.getStoredToken() ?? '');
-    if (!data) {
-      return false;
-    }
-
-    if (data['admin_access'] === true) {
-      return true;
-    }
-
-    const roleId = typeof data['role'] === 'string' ? data['role'] : '';
-    const allowedRoles = environment.AUDIT_LOG_REVIEW_ROLE_IDS ?? [];
-    return roleId !== '' && allowedRoles.includes(roleId);
-  }
-
-  private getStoredToken(): string | null {
-    return (
-      localStorage.getItem('token') ??
-      localStorage.getItem('access_token') ??
-      localStorage.getItem('directus_token')
-    );
-  }
-
-  private extractUserEmail(payload?: Record<string, unknown> | null): string {
-    const email = payload?.['email'];
-    if (typeof email === 'string' && email) {
-      return email;
-    }
-
-    const stored = localStorage.getItem('user_email');
-    return stored ?? '';
-  }
-
-  private extractUserId(payload?: Record<string, unknown> | null): string | null {
-    const id = payload?.['id'];
-    return typeof id === 'string' && id ? id : null;
+  private roleId(user: any): string {
+    const id = typeof user?.role === 'string' ? user.role : user?.role?.id;
+    return typeof id === 'string' ? id : '';
   }
 }
 

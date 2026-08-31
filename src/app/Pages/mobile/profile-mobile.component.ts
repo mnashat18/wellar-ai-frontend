@@ -1,13 +1,12 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth';
-import { AdminTokenService } from '../../services/admin-token';
 import { SubscriptionService } from '../../services/subscription.service';
 import { NotificationsComponent } from '../../components/notifications/notifications';
 
@@ -38,7 +37,6 @@ export class ProfileMobileComponent implements OnInit {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private auth: AuthService,
-    private adminTokens: AdminTokenService,
     private subscriptions: SubscriptionService,
     private router: Router
   ) {}
@@ -49,18 +47,7 @@ export class ProfileMobileComponent implements OnInit {
   }
 
   logout() {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) {
-      this.finishLogout();
-      return;
-    }
-
-    this.http.post(`${environment.API_URL}/auth/logout`, {
-      refresh_token: refreshToken
-    }).subscribe({
-      next: () => this.finishLogout(),
-      error: () => this.finishLogout()
-    });
+    this.finishLogout();
   }
 
   startEdit() {
@@ -101,8 +88,7 @@ export class ProfileMobileComponent implements OnInit {
       return;
     }
 
-    const token = localStorage.getItem('token') ?? localStorage.getItem('access_token') ?? localStorage.getItem('directus_token');
-    if (!token || this.isTokenExpired(token)) {
+    if (!this.auth.isSessionEstablished()) {
       this.saveFeedback = { type: 'error', message: 'Session expired. Please login again.' };
       this.cdr.detectChanges();
       return;
@@ -115,7 +101,7 @@ export class ProfileMobileComponent implements OnInit {
     const nextFirstName = this.form.firstName.trim() || this.profile.firstName;
     const nextLastName = this.form.lastName.trim() || this.profile.lastName;
 
-    this.uploadAvatar(token).pipe(
+    this.uploadAvatar().pipe(
       switchMap((uploadResult) => {
         const avatarId = uploadResult.id;
         const payload: ProfileUpdatePayload = {
@@ -130,15 +116,15 @@ export class ProfileMobileComponent implements OnInit {
         if (avatarId) {
           payload.avatar = avatarId;
         }
-        return this.updateProfile(token, payload, avatarId);
+        return this.updateProfile(payload, avatarId);
       })
     ).subscribe({
       next: ({ res, avatarId }) => {
         const user = res?.data;
         if (user) {
-          this.profile = this.mapProfile(user, token);
+          this.profile = this.mapProfile(user);
           if (avatarId) {
-            this.profile.avatarUrl = this.buildAvatarUrl(avatarId, token);
+            this.profile.avatarUrl = this.buildAvatarUrl(avatarId);
           }
         }
         this.saving = false;
@@ -164,55 +150,32 @@ export class ProfileMobileComponent implements OnInit {
   }
 
   private loadProfile() {
-    const token = localStorage.getItem('token') ?? localStorage.getItem('access_token') ?? localStorage.getItem('directus_token');
-    if (!token || this.isTokenExpired(token)) {
+    if (!this.auth.isSessionEstablished()) {
       this.loading = false;
       this.errorMessage = 'You are not signed in.';
       this.cdr.detectChanges();
       return;
     }
 
-    const payload = this.decodeJwtPayload(token);
-    this.userId = this.extractUserId(payload);
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    this.userId = null;
     const fields = this.getProfileFields();
 
     this.http.get<{ data?: ProfileUser }>(
       `${environment.API_URL}/users/me?fields=${fields}`,
-      { headers }
+      { withCredentials: true }
     ).pipe(
       map((res) => res?.data ?? null),
-      switchMap((user) => {
-        const userId = this.userId;
-        if (!userId || !this.shouldHydrateFromAdmin(user)) {
-          return of(user);
-        }
-
-        return this.adminTokens.getToken().pipe(
-          switchMap((adminToken) => {
-            if (!adminToken) {
-              return of(user);
-            }
-            return this.fetchUserById(userId, adminToken).pipe(
-              map((adminUser) => adminUser ?? user),
-              catchError(() => of(user))
-            );
-          })
-        );
-      }),
       switchMap((user) => {
         if (!user) {
           return of({ user: null, roleLabel: '' });
         }
-        return this.resolveRoleLabel(user.role, token).pipe(
+        return this.resolveRoleLabel(user.role).pipe(
           map((roleLabel) => ({ user, roleLabel }))
         );
       })
     ).pipe(
       finalize(() => {
         this.loading = false;
-        console.log('profile-mobile loading', this.loading);
-        console.log('profile-mobile data', this.profile);
         this.cdr.detectChanges();
       })
     ).subscribe({
@@ -224,7 +187,7 @@ export class ProfileMobileComponent implements OnInit {
           return;
         }
 
-        this.profile = this.mapProfile(user, token, roleLabel);
+        this.profile = this.mapProfile(user, roleLabel);
         this.editing = false;
         this.saveFeedback = null;
         this.loading = false;
@@ -238,35 +201,13 @@ export class ProfileMobileComponent implements OnInit {
     });
   }
 
-  private updateProfile(token: string, payload: ProfileUpdatePayload, avatarId: string | null) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+  private updateProfile(payload: ProfileUpdatePayload, avatarId: string | null) {
 
     return this.http.patch<{ data?: ProfileUser }>(
       `${environment.API_URL}/users/me`,
       payload,
-      { headers }
-    ).pipe(
-      map((res) => ({ res, avatarId })),
-      catchError((err) => {
-        return this.adminTokens.getToken().pipe(
-          switchMap((adminToken) => {
-            if (!adminToken || !this.profile?.id) {
-              return throwError(() => err);
-            }
-
-            const adminHeaders = new HttpHeaders({ Authorization: `Bearer ${adminToken}` });
-
-            return this.http.patch<{ data?: ProfileUser }>(
-              `${environment.API_URL}/users/${this.profile.id}`,
-              payload,
-              { headers: adminHeaders }
-            ).pipe(
-              map((res) => ({ res, avatarId }))
-            );
-          })
-        );
-      })
-    );
+      { withCredentials: true }
+    ).pipe(map((res) => ({ res, avatarId })));
   }
 
   private getProfileFields(): string {
@@ -282,43 +223,21 @@ export class ProfileMobileComponent implements OnInit {
     ].join(',');
   }
 
-  private shouldHydrateFromAdmin(user: ProfileUser | null): boolean {
-    if (!user) return true;
-    if (!user.email) return true;
-    if (!user.first_name && !user.last_name) return true;
-    if (!user.avatar) return true;
-    return false;
-  }
-
-  private fetchUserById(userId: string, token: string) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-    const fields = this.getProfileFields();
-
-    return this.http.get<{ data?: ProfileUser }>(
-      `${environment.API_URL}/users/${userId}?fields=${fields}`,
-      { headers }
-    ).pipe(
-      map((res) => res?.data ?? null)
-    );
-  }
-
-  private mapProfile(user: ProfileUser, token: string, roleLabelOverride?: string): ProfileView {
-    const payload = this.decodeJwtPayload(token);
+  private mapProfile(user: ProfileUser, roleLabelOverride?: string): ProfileView {
     const fullName = this.buildName(user.first_name, user.last_name);
     const email = user.email ?? '';
     const displayName = fullName || email || 'Wellar User';
     const initials = this.buildInitials(displayName);
-    const avatarUrl = user.avatar ? this.buildAvatarUrl(user.avatar, token) : '';
+    const avatarUrl = user.avatar ? this.buildAvatarUrl(user.avatar) : '';
     const status = this.formatStatus(user.status);
     const roleLabel = this.normalizeRoleLabel(
-      roleLabelOverride ?? this.extractRoleName(user.role),
-      token
+      roleLabelOverride ?? this.extractRoleName(user.role)
     );
     const memberSince = this.formatDate(
-      user.date_created ?? this.getTokenIssuedAtDate(payload) ?? new Date()
+      user.date_created ?? new Date()
     );
     const lastAccess = this.formatDateTime(
-      user.last_access ?? this.getTokenIssuedAtDate(payload) ?? new Date()
+      user.last_access ?? new Date()
     );
 
     return {
@@ -343,13 +262,9 @@ export class ProfileMobileComponent implements OnInit {
     return [safeFirst, safeLast].filter(Boolean).join(' ');
   }
 
-  private buildAvatarUrl(avatarId: string, token: string): string {
+  private buildAvatarUrl(avatarId: string): string {
     const base = `${environment.API_URL}/assets/${avatarId}`;
-    if (!token || this.isTokenExpired(token)) {
-      return base;
-    }
-    const separator = base.includes('?') ? '&' : '?';
-    return `${base}${separator}access_token=${encodeURIComponent(token)}`;
+    return base;
   }
 
   private buildInitials(label: string): string {
@@ -367,31 +282,24 @@ export class ProfileMobileComponent implements OnInit {
     return value ? value : 'Active';
   }
 
-  private resolveRoleLabel(role: ProfileUser['role'], token: string) {
+  private resolveRoleLabel(role: ProfileUser['role']) {
     const name = this.extractRoleName(role);
-    if (name) return of(this.normalizeRoleLabel(name, token));
+    if (name) return of(this.normalizeRoleLabel(name));
 
     if (typeof role !== 'string' || !role) {
-      return of(this.normalizeRoleLabel('', token));
+      return of(this.normalizeRoleLabel(''));
     }
 
-    return this.adminTokens.getToken().pipe(
-      switchMap((adminToken) => {
-        const bearer = adminToken ?? token;
-        if (!bearer) return of('');
-        return this.fetchRoleName(role, bearer);
-      }),
-      map((roleName) => this.normalizeRoleLabel(roleName, token)),
-      catchError(() => of(this.normalizeRoleLabel('', token)))
+    return this.fetchRoleName(role).pipe(
+      map((roleName) => this.normalizeRoleLabel(roleName)),
+      catchError(() => of(this.normalizeRoleLabel('')))
     );
   }
 
-  private fetchRoleName(roleId: string, token: string) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-
+  private fetchRoleName(roleId: string) {
     return this.http.get<{ data?: { name?: string } }>(
       `${environment.API_URL}/roles/${roleId}?fields=name`,
-      { headers }
+      { withCredentials: true }
     ).pipe(
       map((res) => res?.data?.name ?? '')
     );
@@ -406,10 +314,10 @@ export class ProfileMobileComponent implements OnInit {
     return '';
   }
 
-  private normalizeRoleLabel(roleName: string, token: string): string {
+  private normalizeRoleLabel(roleName: string): string {
     const name = roleName.trim();
     if (!name) {
-      return this.isAdminFromToken(token) ? 'ADMIN' : 'USER';
+      return '';
     }
     const lower = name.toLowerCase();
     if (lower.includes('admin')) return 'ADMIN';
@@ -442,101 +350,26 @@ export class ProfileMobileComponent implements OnInit {
     return `${datePart} ${timePart}`;
   }
 
-  private isAdminFromToken(token: string): boolean {
-    const payload = this.decodeJwtPayload(token);
-    return payload?.['admin_access'] === true;
-  }
-
-  private decodeJwtPayload(token: string): Record<string, unknown> | null {
-    const parts = token.split('.');
-    if (parts.length !== 3) return null;
-    try {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return typeof payload === 'object' && payload ? (payload as Record<string, unknown>) : null;
-    } catch {
-      return null;
-    }
-  }
-
-  private extractUserId(payload: Record<string, unknown> | null): string | null {
-    if (!payload) return null;
-    const id = payload['id'] ?? payload['user_id'] ?? payload['sub'];
-    return typeof id === 'string' && id ? id : null;
-  }
-
-  private getTokenIssuedAtDate(payload: Record<string, unknown> | null): Date | null {
-    if (!payload) return null;
-    const iat = payload['iat'];
-    if (typeof iat !== 'number') return null;
-    return new Date(iat * 1000);
-  }
-
-  private isTokenExpired(token: string): boolean {
-    const parts = token.split('.');
-    if (parts.length !== 3) return false;
-
-    try {
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      const exp = payload?.exp;
-      if (typeof exp !== 'number') return false;
-      return Math.floor(Date.now() / 1000) >= exp;
-    } catch {
-      return false;
-    }
-  }
-
-  private uploadAvatar(token: string) {
+  private uploadAvatar() {
     if (!this.avatarFile) {
-      return of({ id: null, usedAdmin: false } satisfies UploadResult);
+      return of({ id: null } satisfies UploadResult);
     }
 
-    return this.uploadAvatarWithToken(token).pipe(
-      map((id) => ({ id, usedAdmin: false } satisfies UploadResult)),
-      catchError((err) => {
-        return this.adminTokens.getToken().pipe(
-          switchMap((adminToken) => {
-            if (!adminToken) {
-              return throwError(() => err);
-            }
-            return this.uploadAvatarWithToken(adminToken).pipe(
-              switchMap((id) => {
-                if (!id || !this.userId) {
-                  return of({ id, usedAdmin: true } satisfies UploadResult);
-                }
-                return this.assignFileOwner(id, this.userId, adminToken).pipe(
-                  map(() => ({ id, usedAdmin: true } satisfies UploadResult)),
-                  catchError(() => of({ id, usedAdmin: true } satisfies UploadResult))
-                );
-              })
-            );
-          }),
-          catchError(() => of({ id: null, usedAdmin: false } satisfies UploadResult))
-        );
-      })
+    return this.uploadAvatarWithSession().pipe(
+      map((id) => ({ id } satisfies UploadResult))
     );
   }
 
-  private uploadAvatarWithToken(token: string) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+  private uploadAvatarWithSession() {
     const formData = new FormData();
     formData.append('file', this.avatarFile as Blob);
 
     return this.http.post<{ data?: { id?: string } }>(
       `${environment.API_URL}/files`,
       formData,
-      { headers }
+      { withCredentials: true }
     ).pipe(
       map((res) => res?.data?.id ?? null)
-    );
-  }
-
-  private assignFileOwner(fileId: string, userId: string, token: string) {
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-
-    return this.http.patch(
-      `${environment.API_URL}/files/${fileId}`,
-      { uploaded_by: userId },
-      { headers }
     );
   }
 
@@ -609,6 +442,5 @@ type ProfileUpdatePayload = {
 
 type UploadResult = {
   id: string | null;
-  usedAdmin: boolean;
 };
 

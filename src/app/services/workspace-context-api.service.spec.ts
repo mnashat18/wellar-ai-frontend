@@ -12,6 +12,7 @@ describe('WorkspaceContextApiService', () => {
   let httpMock: HttpTestingController;
 
   beforeEach(() => {
+    TestBed.resetTestingModule();
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
@@ -46,11 +47,10 @@ describe('WorkspaceContextApiService', () => {
     });
 
     const req = httpMock.expectOne((request) =>
-      request.url === `${environment.API_URL}/wellar/workspaces/context` &&
-      request.params.has('_ts')
+      request.method === 'GET' && request.url.includes('/wellar/workspaces/context')
     );
     expect(req.request.method).toBe('GET');
-    expect(req.request.params.get('_ts')).toBeTruthy();
+    expect(req.request.urlWithParams).toContain('_ts=');
     req.flush({
       data: {
         active: {

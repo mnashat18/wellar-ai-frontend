@@ -1,7 +1,8 @@
-import { HttpHeaders, provideHttpClient } from '@angular/common/http';
+import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { vi } from 'vitest';
+import { of } from 'rxjs';
 
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth';
@@ -11,21 +12,15 @@ describe('InviteService invitation actions', () => {
   let service: InviteService;
   let httpMock: HttpTestingController;
 
-  beforeEach(() => {
-    TestBed.configureTestingModule({
+  beforeEach(async () => {
+    await TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         InviteService,
-        {
-          provide: AuthService,
-          useValue: {
-            getStoredAccessToken: vi.fn(() => 'jwt-token'),
-            getAuthHeaders: vi.fn((token?: string) => new HttpHeaders({ Authorization: `Bearer ${token ?? 'jwt-token'}` }))
-          }
-        }
+        { provide: AuthService, useValue: { ensureSession: vi.fn(() => of(true)) } }
       ]
-    });
+    }).compileComponents();
 
     service = TestBed.inject(InviteService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -42,8 +37,7 @@ describe('InviteService invitation actions', () => {
     });
 
     const req = httpMock.expectOne((request) =>
-      request.url === `${environment.API_URL}/wellar/workspaces/invites/invite-1` &&
-      request.params.has('_ts')
+      request.urlWithParams.startsWith(`${environment.API_URL}/wellar/workspaces/invites/invite-1?_ts=`)
     );
     expect(req.request.method).toBe('GET');
     req.flush({
@@ -77,8 +71,7 @@ describe('InviteService invitation actions', () => {
     });
 
     const req = httpMock.expectOne((request) =>
-      request.url === `${environment.API_URL}/wellar/workspaces/invites/invite-1` &&
-      request.params.has('_ts')
+      request.urlWithParams.startsWith(`${environment.API_URL}/wellar/workspaces/invites/invite-1?_ts=`)
     );
     expect(req.request.method).toBe('GET');
     req.flush({

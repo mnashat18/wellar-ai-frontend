@@ -3,8 +3,8 @@ import { ChangeDetectorRef, Component } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { RouterModule } from '@angular/router';
 import { NotificationsComponent } from '../../components/notifications/notifications';
-import { AdminTokenService } from '../../services/admin-token';
 import { SubscriptionService } from '../../services/subscription.service';
+import { AuthService } from '../../services/auth';
 import { AuditLogs } from '../audit-logs/audit-logs';
 
 @Component({
@@ -18,11 +18,11 @@ export class AuditLogsMobileComponent extends AuditLogs {
 
   constructor(
     http: HttpClient,
-    adminTokens: AdminTokenService,
     cdr: ChangeDetectorRef,
-    private subscriptions: SubscriptionService
+    private subscriptions: SubscriptionService,
+    auth: AuthService
   ) {
-    super(http, adminTokens, cdr);
+    super(http, cdr, auth);
   }
 
   override ngOnInit() {

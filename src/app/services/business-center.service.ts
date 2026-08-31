@@ -368,7 +368,7 @@ export class BusinessCenterService {
     if (!userId) {
       return of(null);
     }
-    const token = accessToken ?? this.getToken();
+    const token = accessToken ?? null;
 
     return this.fetchOwnedProfile(userId, token, null).pipe(
       switchMap((owned) => {
@@ -389,7 +389,7 @@ export class BusinessCenterService {
     userId: string,
     token?: string | null
   ): Observable<boolean> {
-    return this.ensureOwnerMembership(profileId, userId, token ?? this.getToken()).pipe(
+    return this.ensureOwnerMembership(profileId, userId, token ?? null).pipe(
       catchError(() => of(false))
     );
   }
@@ -400,7 +400,7 @@ export class BusinessCenterService {
     token?: string | null
   ): Observable<WorkspaceCreateResult> {
     const normalizedOwnerUserId = this.normalizeId(ownerUserId);
-    const accessToken = token ?? this.getToken();
+    const accessToken = token ?? null;
 
     if (!normalizedOwnerUserId) {
       return of({
@@ -1106,7 +1106,7 @@ export class BusinessCenterService {
   ): Observable<boolean> {
     const userId = this.normalizeId(user?.['id']);
     const userEmail = this.pickString(user?.['email'])?.toLowerCase() ?? null;
-    const token = accessToken ?? this.getToken();
+    const token = accessToken ?? null;
 
     if (!userId || !token) {
       return of(false);
@@ -2014,37 +2014,13 @@ export class BusinessCenterService {
   }
 
   private getAccessContext(): AccessContext {
-    const token = this.getToken();
     const stored = this.readStoredAccessContext();
-    const payload = token ? this.decodeJwtPayload(token) : null;
-    const userIdValue = token
-      ? (
-        payload?.['id'] ??
-        payload?.['user_id'] ??
-        payload?.['sub'] ??
-        payload?.['user'] ??
-        payload?.['userId'] ??
-        stored.userId
-      )
-      : null;
     return {
-      token,
-      userId: this.normalizeId(userIdValue),
-      activeBusinessProfileId: this.normalizeId(
-        payload?.['active_business_profile'] ??
-        payload?.['activeBusinessProfile'] ??
-        stored.activeBusinessProfileId
-      ),
-      activeDepartmentId: this.normalizeId(
-        payload?.['active_department'] ??
-        payload?.['activeDepartment'] ??
-        stored.activeDepartmentId
-      ),
-      activeMemberRole: this.pickString(
-        payload?.['active_member_role'] ??
-        payload?.['activeMemberRole'] ??
-        stored.activeMemberRole
-      )
+      token: null,
+      userId: null,
+      activeBusinessProfileId: stored.activeBusinessProfileId,
+      activeDepartmentId: stored.activeDepartmentId,
+      activeMemberRole: stored.activeMemberRole
     };
   }
 
@@ -2354,60 +2330,8 @@ export class BusinessCenterService {
     );
   }
 
-  private getToken(): string | null {
-    if (typeof localStorage === 'undefined') {
-      return null;
-    }
-
-    try {
-      const candidates = [
-        localStorage.getItem('token'),
-        localStorage.getItem('access_token'),
-        localStorage.getItem('directus_token')
-      ].filter((value): value is string => Boolean(value && value.trim()));
-
-      for (const token of candidates) {
-        if (!this.isTokenExpired(token)) {
-          return token;
-        }
-      }
-
-      return null;
-    } catch {
-      return null;
-    }
-  }
-
   private buildAuthHeaders(token: string | null): HttpHeaders | null {
-    if (!token) {
-      return null;
-    }
-    return new HttpHeaders({
-      Authorization: `Bearer ${token}`
-    });
-  }
-
-  private decodeJwtPayload(token: string): Record<string, unknown> | null {
-    const parts = token.split('.');
-    if (parts.length !== 3) {
-      return null;
-    }
-
-    try {
-      const payload = atob(parts[1].replace(/-/g, '+').replace(/_/g, '/'));
-      return JSON.parse(payload) as Record<string, unknown>;
-    } catch {
-      return null;
-    }
-  }
-
-  private isTokenExpired(token: string): boolean {
-    const payload = this.decodeJwtPayload(token);
-    const exp = payload?.['exp'];
-    if (typeof exp !== 'number') {
-      return false;
-    }
-    return Math.floor(Date.now() / 1000) >= exp;
+    return new HttpHeaders();
   }
 
   private resolveAccessErrorReason(err: any, fallback: string): string {
