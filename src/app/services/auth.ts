@@ -278,6 +278,7 @@ export class AuthService {
   }
 
   ensureSessionToken() {
+    if (this.sessionEstablished) return of(true);
     if (this.sessionCheck$) return this.sessionCheck$;
     this.sessionCheck$ = this.refreshUserFromCookie().pipe(
       map((user) => { this.sessionEstablished = Boolean(user); return this.sessionEstablished; }),

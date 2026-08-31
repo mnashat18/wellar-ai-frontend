@@ -107,4 +107,30 @@ describe('AuthService', () => {
       vi.useRealTimers();
     }
   });
+
+  it('coalesces concurrent session restoration and verifies the cookie session once', async () => {
+    const results = [firstValueFrom(service.ensureSession()), firstValueFrom(service.ensureSession()), firstValueFrom(service.ensureSession())];
+
+    const refresh = httpMock.expectOne((req) => req.url.endsWith('/auth/refresh'));
+    expect(refresh.request.method).toBe('POST');
+    expect(refresh.request.body).toEqual({ mode: 'session' });
+    expect(refresh.request.withCredentials).toBe(true);
+    expect(httpMock.match((req) => req.url.endsWith('/auth/refresh'))).toHaveLength(0);
+    refresh.flush({ data: {} });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    const me = httpMock.expectOne((req) => req.url.endsWith('/users/me'));
+    expect(me.request.withCredentials).toBe(true);
+    me.flush({ data: { id: 'user-1' } });
+
+    await expect(Promise.all(results)).resolves.toEqual([true, true, true]);
+  });
+
+  it('uses the established-session fast path without refreshing', async () => {
+    (service as unknown as { sessionEstablished: boolean }).sessionEstablished = true;
+    await expect(firstValueFrom(service.ensureSession())).resolves.toBe(true);
+    expect(httpMock.match((req) => req.url.endsWith('/auth/refresh'))).toHaveLength(0);
+  });
 });
