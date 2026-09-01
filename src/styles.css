@@ -3235,10 +3235,11 @@ body::selection {
     --sidebar-width: 18rem;
   }
 
-  /* The shell itself must not become a hidden scroll container: that prevents
-     the sidebar's sticky positioning from tracking the document viewport. */
+  /* Desktop uses one scroll owner: the routed main region. */
   .app-shell {
-    overflow: visible;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
   }
 
   .app-shell__grid {
@@ -3247,7 +3248,8 @@ body::selection {
     display: grid;
     grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
     grid-template-areas: 'sidebar main';
-    min-height: 100dvh;
+    height: 100%;
+    min-height: 0;
   }
 
   .app-shell .app-main,
@@ -3282,18 +3284,20 @@ body::selection {
     width: auto;
     min-width: 0;
     box-sizing: border-box;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
   }
 
   .app-shell .app-sidebar {
-    position: sticky;
-    top: 0;
-    align-self: start;
+    position: relative;
+    align-self: stretch;
     inset: auto;
     grid-area: sidebar;
     width: var(--sidebar-width);
     min-width: var(--sidebar-width);
     max-width: var(--sidebar-width);
-    height: 100dvh;
+    height: 100%;
     box-sizing: border-box;
     overflow: visible;
     z-index: 40;

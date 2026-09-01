@@ -69,7 +69,8 @@ test('desktop sidebar remains anchored while the document scrolls', async ({ pag
   const footer = page.locator('.app-sidebar__footer');
   const before = await sidebar.boundingBox();
   const beforeParts = await Promise.all([panel.boundingBox(), nav.boundingBox(), footer.boundingBox()]);
-  await page.evaluate(() => window.scrollTo(0, 700));
+  const main = page.locator('.app-main');
+  await main.evaluate((el) => { (el as HTMLElement).scrollTop = 700; });
   const after = await sidebar.boundingBox();
   const afterParts = await Promise.all([panel.boundingBox(), nav.boundingBox(), footer.boundingBox()]);
   expect(before).not.toBeNull();
