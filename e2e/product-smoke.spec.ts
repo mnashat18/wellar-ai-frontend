@@ -64,12 +64,22 @@ test('desktop sidebar remains anchored while the document scrolls', async ({ pag
   await login(page);
   await page.goto('/app/dashboard');
   const sidebar = page.locator('app-dashboard-sidebar.app-sidebar');
+  const panel = page.locator('.app-sidebar__panel');
+  const nav = page.locator('.app-sidebar__nav');
+  const footer = page.locator('.app-sidebar__footer');
   const before = await sidebar.boundingBox();
+  const beforeParts = await Promise.all([panel.boundingBox(), nav.boundingBox(), footer.boundingBox()]);
   await page.evaluate(() => window.scrollTo(0, 700));
   const after = await sidebar.boundingBox();
+  const afterParts = await Promise.all([panel.boundingBox(), nav.boundingBox(), footer.boundingBox()]);
   expect(before).not.toBeNull();
   expect(after).not.toBeNull();
   expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(2);
+  for (let i = 0; i < beforeParts.length; i++) {
+    expect(beforeParts[i]).not.toBeNull();
+    expect(afterParts[i]).not.toBeNull();
+    expect(Math.abs(afterParts[i]!.y - beforeParts[i]!.y)).toBeLessThanOrEqual(2);
+  }
   expect(await sidebar.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

@@ -3235,6 +3235,12 @@ body::selection {
     --sidebar-width: 18rem;
   }
 
+  /* The shell itself must not become a hidden scroll container: that prevents
+     the sidebar's sticky positioning from tracking the document viewport. */
+  .app-shell {
+    overflow: visible;
+  }
+
   .app-shell__grid {
     position: relative;
     z-index: 1;
