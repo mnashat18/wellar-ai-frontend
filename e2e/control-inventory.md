@@ -1,15 +1,18 @@
 # Active control inventory
 
-This inventory records the primary safe controls covered by the smoke suite. Endpoint mappings are intentionally omitted where a control is navigation-only or service-dependent.
+This inventory records primary controls prepared for authenticated browser verification. New entries remain blocked until run with local credentials.
 
-| Route | Control label | Selector | Handler/service | Endpoint | Safe E2E covered? | Mutation? | Permission |
-|---|---|---|---|---|---|---|---|
-| `/app/dashboard` | Refresh | `button` matching `/refresh/i` | `Dashboard.refresh()` | Dashboard read chain | Yes | No | Authenticated workspace |
-| `/app/dashboard` | Scan Requests | `a[href="/app/scan-requests"]` | RouterLink | — | Yes | No | Workspace |
-| `/app/dashboard` | Review Alerts | `a[href="/app/alerts"]` | RouterLink | — | Yes | No | Workspace |
-| `/app/workforce` | Refresh | `button` matching `/refresh/i` | Workforce refresh | Workforce read APIs | Planned | No | Workspace |
-| `/app/compliance` | Refresh / Apply / Clear | `.dashboard-action-button` | Compliance page handlers | Compliance read APIs | Planned | No | Workspace |
-| `/app/reports` | Export | export action | Reports export service | Report read/export APIs | Planned | No | Workspace |
-| `/app/settings` | Tabs | tab buttons | Settings page handlers | Settings read APIs | Planned | No | Owner/HR where applicable |
-| All authenticated routes | Sidebar navigation | `.app-sidebar__nav-item` | RouterLink | — | Yes | No | Route guard |
-| All authenticated routes | Account menu | `.app-sidebar__account-control` | Sidebar account handlers | Profile/logout APIs | Planned | Logout only | Authenticated |
+| Route | Control | Selector/role | Handler/service | Endpoint/navigation | Mutation? | Permission | Runtime status | Issue |
+|---|---|---|---|---|---|---|---|---|
+| `/app/dashboard` | Refresh | button `/refresh/i` | `Dashboard.refresh()` | Dashboard read chain | No | Authenticated workspace | BLOCKED | Credentials unavailable |
+| `/app/dashboard` | Scan Requests | link `/scan requests/i` | RouterLink | `/app/scan-requests` | No | Workspace | BLOCKED | Credentials unavailable |
+| `/app/dashboard` | Review Alerts | link `/review alerts/i` | RouterLink | `/app/alerts` | No | Workspace | BLOCKED | Credentials unavailable |
+| `/app/workforce` | Refresh | button `/refresh/i` | Workforce refresh | Workforce read APIs | No | Workspace | BLOCKED | Credentials unavailable |
+| `/app/workforce` | Invite Member open/close | button `/invite member/i` | Workforce invite modal | Invite workflow (not submitted) | No | Owner/HR | BLOCKED | Credentials unavailable |
+| `/app/invites` | Invitations page readiness | `app-invites-page app-page-action-bar` text `Invitations` | InvitesPageComponent | `/app/invites` | No | Owner/HR | BLOCKED | Credentials unavailable |
+| `/app/compliance` | Refresh / Apply / Clear | buttons `/refresh|apply|clear/i` | Compliance handlers | Compliance read APIs | No | Workspace | BLOCKED | Credentials unavailable |
+| `/app/reports` | Export menu | button `/export/i` | Reports export service | CSV/PDF read/export | No | Workspace | BLOCKED | Credentials unavailable |
+| `/app/company` | Invite Member open/close | button `/invite member/i` | Company invite modal | Invite workflow (not submitted) | No | Owner/HR | BLOCKED | Credentials unavailable |
+| `/app/settings` | Profile/Security tabs | tab buttons `/profile|security/i` | Settings tab handlers | Settings reads | No | Owner/HR where applicable | BLOCKED | Credentials unavailable |
+| All authenticated routes | Sidebar navigation | `.app-sidebar__nav-item` | RouterLink | Route navigation | No | Route guard | BLOCKED | Credentials unavailable |
+| All authenticated routes | Account menu | `.app-sidebar__account-control` | Sidebar account handlers | Profile/logout APIs | Logout only | Authenticated | BLOCKED | Credentials unavailable |

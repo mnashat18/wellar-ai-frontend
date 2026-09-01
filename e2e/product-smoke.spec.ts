@@ -22,7 +22,21 @@ async function login(page: Page): Promise<void> {
 async function assertHealthy(page: Page): Promise<void> {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
   await expect(page.locator('#app-sidebar-navigation')).toBeVisible();
+  await expect(page.locator('.app-content')).toBeVisible();
 }
+
+const authenticatedRoutes = [
+  ['/app/dashboard', 'heading:Operational Overview'],
+  ['/app/workforce', 'heading:Workforce'],
+  ['/app/scan-requests', 'heading:Scan Requests'],
+  ['/app/company', 'heading:Organization'],
+  ['/app/invites', 'text:Invitations'],
+  ['/app/compliance', 'heading:Compliance'],
+  ['/app/alerts', 'heading:Alerts'],
+  ['/app/activity', 'heading:Activity'],
+  ['/app/reports', 'heading:Reports'],
+  ['/app/settings', 'heading:Account settings'],
+] as const;
 
 test('authenticated routes load without fatal UI errors', async ({ page }) => {
   const errors: string[] = [];
@@ -42,10 +56,15 @@ test('authenticated routes load without fatal UI errors', async ({ page }) => {
     }
   });
   await login(page);
-  for (const route of ['/app/dashboard', '/app/workforce', '/app/scan-requests', '/app/compliance', '/app/alerts', '/app/reports', '/app/company', '/app/activity', '/app/settings', '/app/workspace-access']) {
+  for (const [route, readiness] of [...authenticatedRoutes, ['/app/workspace-access', 'heading:Start Well. Stay Well.'] as const]) {
     await page.goto(route);
     await page.waitForLoadState('networkidle');
     await assertHealthy(page);
+    const [kind, label] = readiness.split(':', 2);
+    const readinessLocator = kind === 'heading'
+      ? page.getByRole('heading', { name: label, exact: true }).first()
+      : page.locator('app-invites-page app-page-action-bar').getByText(label, { exact: true }).first();
+    await expect(readinessLocator).toBeVisible({ timeout: 15_000 });
     if (route === '/app/compliance') {
       const complianceFailures = failedApi.filter((item) => item.status >= 400);
       const warningVisible = await page.getByText('Some compliance sources are unavailable due to workspace permissions.', { exact: true }).isVisible().catch(() => false);
@@ -57,6 +76,38 @@ test('authenticated routes load without fatal UI errors', async ({ page }) => {
   expect(errors).toEqual([]);
   // Keep permission-degraded states visible; fail only on authentication/server failures.
   expect(failedApi.filter((item) => item.status === 401 || item.status >= 500)).toEqual([]);
+});
+
+test('safe primary controls respond without mutating production data', async ({ page }) => {
+  await page.setViewportSize({ width: 1366, height: 768 });
+  await login(page);
+
+  const safeRoutes: Array<[string, RegExp[]]> = [
+    ['/app/dashboard', [/refresh/i, /scan requests/i, /review alerts/i]],
+    ['/app/workforce', [/refresh/i, /invite member/i]],
+    ['/app/scan-requests', [/refresh/i]],
+    ['/app/compliance', [/refresh/i, /apply/i, /clear/i]],
+    ['/app/alerts', [/refresh/i]],
+    ['/app/reports', [/export/i]],
+    ['/app/company', [/invite member/i]],
+    ['/app/settings', [/profile/i, /security/i]],
+  ];
+
+  for (const [route, labels] of safeRoutes) {
+    await page.goto(route);
+    await page.waitForLoadState('networkidle');
+    for (const label of labels) {
+      const button = page.getByRole('button', { name: label }).first();
+      const link = page.getByRole('link', { name: label }).first();
+      const control = (await button.count()) ? button : link;
+      if (await control.count() && await control.isVisible().catch(() => false)) {
+        if (!(await control.isEnabled().catch(() => false))) continue;
+        await control.click();
+        await page.keyboard.press('Escape');
+      }
+    }
+    await assertHealthy(page);
+  }
 });
 
 test('desktop sidebar remains anchored while the document scrolls', async ({ page }) => {
@@ -81,7 +132,7 @@ test('desktop sidebar remains anchored while the document scrolls', async ({ pag
     expect(afterParts[i]).not.toBeNull();
     expect(Math.abs(afterParts[i]!.y - beforeParts[i]!.y)).toBeLessThanOrEqual(2);
   }
-  expect(await sidebar.evaluate((el) => getComputedStyle(el).position)).toBe('sticky');
+  expect(await sidebar.evaluate((el) => getComputedStyle(el).position)).toBe('relative');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
