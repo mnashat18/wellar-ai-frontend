@@ -242,10 +242,6 @@ export class NotificationsService implements OnDestroy {
       activeWorkspaceId: workspaceId
     });
 
-    console.log('[Notifications] loading started');
-    console.log(`[Notifications] active workspace ${workspaceId}`);
-    console.log('[Notifications] load reason', reason);
-
     try {
       const schema = await this.resolveSchema(workspaceId);
       const rows = await this.queryNotifications(workspaceId, userId, schema);
@@ -256,9 +252,6 @@ export class NotificationsService implements OnDestroy {
         .slice(0, 20);
 
       const unreadCount = this.countUnread(rows, schema);
-      console.log('[Notifications] API result', rows);
-      console.log('[Notifications] unread count', unreadCount);
-
       if (version !== this.loadVersion) {
         return;
       }

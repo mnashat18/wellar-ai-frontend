@@ -1446,7 +1446,7 @@ export class OperationsWorkflowsService {
     return this.companyContext.ensureLoaded().pipe(
       take(1),
       map((state) => {
-        const token = this.auth.getStoredAccessToken() ?? '';
+        const token = '';
         const businessProfileId = state.context.activeBusinessProfileId;
         const activeRole = state.context.activeMemberRole;
         const activeMembership = this.companyContext.getActiveMembership();
@@ -2363,7 +2363,8 @@ export class OperationsWorkflowsService {
   }
 
   private headers(token: string): HttpHeaders {
-    return this.auth.getAuthHeaders(token);
+    void token;
+    return new HttpHeaders();
   }
 
   private setFilter(params: URLSearchParams, path: string[], operator: string, value: string): void {

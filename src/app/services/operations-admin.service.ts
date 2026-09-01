@@ -1271,15 +1271,12 @@ export class OperationsAdminService {
         return this.companyContext.ensureLoaded().pipe(
           map((state) => {
             const context = state.context;
-            const token = this.auth.getStoredAccessToken() ?? '';
+            const token = '';
             const businessProfileId = context.activeBusinessProfileId;
             const activeRole = context.activeMemberRole;
             const activeDepartmentId = activeRole === 'manager' ? context.activeDepartmentId : null;
             if (!context.authInitialized || !context.isAuthenticated) {
               throw new Error('AUTH_REQUIRED');
-            }
-            if (!token) {
-              throw new Error('AUTH_TOKEN_MISSING');
             }
             if (!businessProfileId || !activeRole || activeRole === 'employee') {
               throw new Error('WORKSPACE_CONTEXT_MISSING');
@@ -2590,7 +2587,8 @@ export class OperationsAdminService {
       );
   }
   private headers(token: string): HttpHeaders {
-    return this.auth.getAuthHeaders(token);
+    void token;
+    return new HttpHeaders();
   }
   private uniqueIds(values: Array<string | null | undefined>): string[] {
     const set = new Set<string>();

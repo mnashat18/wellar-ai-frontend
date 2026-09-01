@@ -292,7 +292,7 @@ export class OperationalDashboardService {
               return throwError(() => new Error('No active company context was found.'));
             }
 
-            const token = this.auth.getStoredAccessToken() ?? '';
+            const token = '';
             return forkJoin({
                   members: this.loadRosterMembersSection(400, 'Active members could not be loaded.'),
                   departments: this.querySection<DepartmentRecord>({
@@ -685,7 +685,7 @@ export class OperationalDashboardService {
     return this.http.get<{ data?: T[] }>(
       `${this.api}/items/${config.collection}?${params.toString()}`,
       {
-        headers: this.auth.getAuthHeaders(token),
+        headers: new HttpHeaders(),
         withCredentials: true
       }
     ).pipe(

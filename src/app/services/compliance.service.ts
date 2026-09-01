@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { firstValueFrom } from 'rxjs';
-import { timeout } from 'rxjs/operators';
+import { firstValueFrom, throwError } from 'rxjs';
+import { catchError, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { formatDepartment } from '../shared/utils/display-formatters';
@@ -284,7 +284,7 @@ export class ComplianceService {
       wellnessScansSucceeded = this.cache?.wellnessScansSucceeded ?? true;
       memberLastRiskById = new Map(this.cache?.memberLastRiskByIdEntries ?? []);
     } else {
-      const token = this.auth.getStoredAccessToken() ?? '';
+      const token = '';
       const activeDepartmentId = role === 'manager'
         ? this.normalizeId(activeContext.activeMembership.department)
         : null;
@@ -418,7 +418,7 @@ export class ComplianceService {
       profileLinkageIssues,
       activityRows,
       departmentOptions: this.buildDepartmentOptions(normalized),
-      partialWarning: this.buildPartialWarning(warnings, scanResultsAccess),
+      partialWarning: this.buildPartialWarning(warnings, scanResultsAccess, forbiddenSources),
       departmentGroupingWarning: this.buildDepartmentGroupingWarning(normalized),
       readinessWarning: scanResultsAccess === 'available' ? null : 'Readiness data unavailable',
       departmentMetadataBlocked,
@@ -977,7 +977,8 @@ export class ComplianceService {
 
   private buildPartialWarning(
     warnings: Set<string>,
-    scanResultsAccess: ScanResultsLoadState
+    scanResultsAccess: ScanResultsLoadState,
+    forbiddenSources: number
   ): string | null {
     if (scanResultsAccess === 'permission_blocked') {
       return 'Readiness data unavailable due to permissions.';
@@ -985,8 +986,11 @@ export class ComplianceService {
     if (scanResultsAccess === 'degraded') {
       return 'Scan result enrichment is partially unavailable.';
     }
-    if (warnings.size) {
+    if (forbiddenSources > 0) {
       return 'Some compliance sources are unavailable due to workspace permissions.';
+    }
+    if (warnings.size) {
+      return 'Some compliance sources are temporarily unavailable.';
     }
     return null;
   }
@@ -1304,21 +1308,35 @@ export class ComplianceService {
       this.setFilter(params, filter.path, filter.operator, filter.value);
     }
 
+    const path = `/items/${collection}`;
     const response = await firstValueFrom(
       this.http.get<{ data?: T[] }>(
-        `${this.api}/items/${collection}?${params.toString()}`,
+        `${this.api}${path}?${params.toString()}`,
         {
           headers: this.headers(token),
           withCredentials: true
         }
-      ).pipe(timeout(25000))
+      ).pipe(
+        timeout(25000),
+        catchError((error) => {
+          const status = this.httpStatus(error);
+          console.warn('[Compliance source unavailable]', {
+            source: collection,
+            path,
+            status,
+            category: status === 401 || status === 403 ? 'permission' : status >= 500 ? 'server' : status >= 400 ? 'request' : 'network'
+          });
+          return throwError(() => error);
+        })
+      )
     );
 
     return response.data ?? [];
   }
 
   private headers(token: string): HttpHeaders {
-    return this.auth.getAuthHeaders(token);
+    void token;
+    return new HttpHeaders();
   }
 
   private setFilter(params: URLSearchParams, path: string[], operator: string, value: string): void {

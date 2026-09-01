@@ -44,6 +44,9 @@ app.routes.backup.ts
 testem.log
 /typings
 __screenshots__/
+test-results/
+playwright-report/
+blob-report/
 
 # System files
 .DS_Store

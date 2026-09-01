@@ -399,7 +399,7 @@ export class ReportsService {
         warnings.add(source);
       }
     } else {
-      const token = this.auth.getStoredAccessToken() ?? '';
+      const token = '';
       const activeDepartmentId =
         role === 'manager' ? this.normalizeId(activeContext?.activeMembership?.department) : null;
       if (role === 'manager' && !activeDepartmentId) {
@@ -1826,7 +1826,8 @@ export class ReportsService {
   }
 
   private headers(token: string): HttpHeaders {
-    return this.auth.getAuthHeaders(token);
+    void token;
+    return new HttpHeaders();
   }
 
   private setFilter(params: URLSearchParams, path: string[], operator: string, value: string): void {

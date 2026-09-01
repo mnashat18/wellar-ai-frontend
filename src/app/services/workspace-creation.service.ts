@@ -80,7 +80,6 @@ export class WorkspaceCreationService {
       this.endpoint,
       input,
       {
-        headers: this.auth.getAuthHeaders(),
         withCredentials: true,
         observe: 'response'
       }

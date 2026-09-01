@@ -50,8 +50,6 @@ describe('OperationsAdminService invite payload', () => {
           provide: AuthService,
           useValue: {
             ensureSessionToken: () => of(true),
-            getStoredAccessToken: () => 'access-token',
-            getAuthHeaders: () => new HttpHeaders({ Authorization: 'Bearer access-token' })
           }
         },
         {
@@ -185,7 +183,6 @@ describe('OperationsAdminService invite payload', () => {
     }).subscribe();
 
     const req = httpMock.expectOne(`${environment.API_URL}/wellar/workspaces/invites`);
-    expect(req.request.headers.get('Authorization')).toBe('Bearer access-token');
     expect(req.request.withCredentials).toBe(true);
     req.flush({ data: { ok: true } });
   });

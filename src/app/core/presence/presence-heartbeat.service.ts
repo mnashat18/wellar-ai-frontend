@@ -64,8 +64,7 @@ export class PresenceHeartbeatService {
       return;
     }
 
-    const token = this.auth.getStoredAccessToken();
-    if (!token) {
+    if (!this.auth.isSessionEstablished()) {
       return;
     }
 
@@ -93,7 +92,6 @@ export class PresenceHeartbeatService {
       `${environment.API_URL}/users/me`,
       payload,
       {
-        headers: this.auth.getAuthHeaders(token),
         withCredentials: true
       }
     ).pipe(

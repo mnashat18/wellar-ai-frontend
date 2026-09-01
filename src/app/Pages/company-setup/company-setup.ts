@@ -247,7 +247,6 @@ export class CompanySetupPageComponent implements OnInit {
   submitting = false;
   statusMessage = '';
   currentUserId: string | null = null;
-  token: string | null = null;
 
   form: CompanySetupForm = {
     companyName: '',
@@ -279,8 +278,7 @@ export class CompanySetupPageComponent implements OnInit {
           return of(null);
         }
 
-        this.token = this.auth.getStoredAccessToken();
-        return this.auth.getCurrentUser(this.token ?? undefined, { hydrateWorkspace: false }).pipe(
+        return this.auth.getVerifiedCurrentUser().pipe(
           catchError(() => of(null))
         );
       })
@@ -305,7 +303,7 @@ export class CompanySetupPageComponent implements OnInit {
   }
 
   submit(): void {
-    if (this.submitting || !this.currentUserId || !this.token) {
+    if (this.submitting || !this.currentUserId) {
       return;
     }
 

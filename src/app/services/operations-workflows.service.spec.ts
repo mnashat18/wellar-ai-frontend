@@ -53,8 +53,6 @@ describe('OperationsWorkflowsService', () => {
           provide: AuthService,
           useValue: {
             ensureSessionToken: () => of(true),
-            getStoredAccessToken: () => 'token',
-            getAuthHeaders: (token: string) => new HttpHeaders({ Authorization: `Bearer ${token}` })
           }
         },
         {
@@ -119,7 +117,7 @@ describe('OperationsWorkflowsService', () => {
       target_member_id: 'member-1',
       request_type: 'manual'
     });
-    expect(req.request.headers.get('Authorization')).toBe('Bearer token');
+    expect(req.request.headers.has('Authorization')).toBe(false);
 
     req.flush({
       data: {

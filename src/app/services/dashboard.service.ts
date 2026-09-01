@@ -398,7 +398,7 @@ export class DashboardService {
         const profileId = state.context.activeBusinessProfileId;
         const role = state.context.activeMemberRole;
         const departmentId = role === 'manager' ? state.context.activeDepartmentId : null;
-        const token = this.auth.getStoredAccessToken() ?? '';
+        const token = '';
 
         if (!profileId || !role) {
           return of([] as ScanResult[]);
@@ -427,7 +427,7 @@ export class DashboardService {
   getOperationalDashboardSummary(): Observable<OperationalDashboardSummary> {
     return this.companyContext.ensureLoaded().pipe(
       switchMap((contextState) => {
-        const token = this.auth.getStoredAccessToken() ?? '';
+        const token = '';
         const context = contextState.context;
         const businessProfileId = context.activeBusinessProfileId;
         const activeRole = context.activeMemberRole;
@@ -1357,7 +1357,8 @@ export class DashboardService {
   }
 
   private buildHeaders(token: string): HttpHeaders {
-    return this.auth.getAuthHeaders(token);
+    void token;
+    return new HttpHeaders();
   }
 
   private setFilter(params: URLSearchParams, path: string[], operator: string, value: string): void {

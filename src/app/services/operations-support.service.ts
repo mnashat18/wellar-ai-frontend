@@ -518,7 +518,7 @@ export class OperationsSupportService {
   private ensureScopedContext(): Observable<ScopedContext> {
     return this.companyContext.ensureLoaded().pipe(
       map((state) => {
-        const token = this.auth.getStoredAccessToken() ?? '';
+        const token = '';
         const businessProfileId = state.context.activeBusinessProfileId;
         const activeRole = state.context.activeMemberRole;
         const activeDepartmentId = activeRole === 'manager' ? state.context.activeDepartmentId : null;
@@ -569,7 +569,8 @@ export class OperationsSupportService {
   }
 
   private headers(token: string): HttpHeaders {
-    return this.auth.getAuthHeaders(token);
+    void token;
+    return new HttpHeaders();
   }
 
   private setFilter(params: URLSearchParams, path: string[], operator: string, value: string): void {

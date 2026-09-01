@@ -183,8 +183,6 @@ export class Profile implements OnInit {
     ).pipe(
       finalize(() => {
         this.loading = false;
-        console.log('profile loading', this.loading);
-        console.log('profile data', this.profile);
         this.cdr.detectChanges();
       })
     ).subscribe({
