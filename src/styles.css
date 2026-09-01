@@ -3279,7 +3279,9 @@ body::selection {
   }
 
   .app-shell .app-sidebar {
-    position: relative;
+    position: sticky;
+    top: 0;
+    align-self: start;
     inset: auto;
     grid-area: sidebar;
     width: var(--sidebar-width);
@@ -3287,7 +3289,7 @@ body::selection {
     max-width: var(--sidebar-width);
     height: 100dvh;
     box-sizing: border-box;
-    overflow: hidden;
+    overflow: visible;
     z-index: 40;
   }
 
@@ -3302,6 +3304,20 @@ body::selection {
     padding: 0.74rem 0.74rem 0.7rem;
     box-sizing: border-box;
     overflow: hidden;
+  }
+
+  /* Keep the shell anchored while allowing long navigation to scroll inside
+     the available sidebar height without displacing the account footer. */
+  .app-shell .app-sidebar__body {
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app-shell .app-sidebar__nav {
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
   }
 
   .app-shell .app-sidebar__panel::before {
