@@ -5,6 +5,28 @@ const PUSH_WEBHOOK_TIMEOUT_MS = 5000;
 const MAX_PERSON_NAME = 80;
 const MAX_PHONE = 30;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function parseSingleRange(value) {
+  if (!value) return undefined;
+  const match = /^bytes=(\d*)-(\d*)$/i.exec(String(value).trim());
+  if (!match || (!match[1] && !match[2])) return null;
+  const start = match[1] ? Number(match[1]) : undefined;
+  const end = match[2] ? Number(match[2]) : undefined;
+  if ((start !== undefined && !Number.isSafeInteger(start)) || (end !== undefined && !Number.isSafeInteger(end)) || (start !== undefined && end !== undefined && start >= end)) return null;
+  return { start, end };
+}
+function isAccessDeniedError(error) {
+  return [error?.code, error?.errors?.[0]?.extensions?.code, error?.errors?.[0]?.code].some((code) => ['FORBIDDEN', 'FORBIDDEN_ACCESS', 'NOT_FOUND'].includes(String(code).toUpperCase())) || [401, 403].includes(Number(error?.status));
+}
+function resolveProtectedFileDelivery(kinds, mime) {
+  const normalized = String(mime ?? '').toLowerCase();
+  const set = new Set(kinds ?? []);
+  const raster = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
+  if ((set.has('avatar') || set.has('scan-image')) && raster.has(normalized)) return { allowed: true, contentType: normalized, attachment: false };
+  if (set.has('scan-audio') && normalized.startsWith('audio/')) return { allowed: true, contentType: normalized, attachment: false };
+  if (set.has('scan-video') && normalized.startsWith('video/')) return { allowed: true, contentType: normalized, attachment: false };
+  if (set.has('report')) return { allowed: true, contentType: 'application/octet-stream', attachment: true };
+  return { allowed: false, contentType: null, attachment: false };
+}
 const FORBIDDEN_INPUT_KEYS = new Set([
   'user',
   'user_id',
@@ -2132,6 +2154,58 @@ export default {
   id: 'wellar',
   handler: (router, context) => {
     const { database, getSchema, logger, services } = context;
+    const { ItemsService, AssetsService } = services;
+    router.get('/files/:fileId', async (req, res) => {
+      const fileId = String(req.params?.fileId ?? '');
+      if (!UUID_PATTERN.test(fileId)) return notFound(res, 'File not found.');
+      const userId = req?.accountability?.user;
+      if (!userId) return unauthorized(res, 'Authentication is required.');
+      if (typeof AssetsService !== 'function' || typeof AssetsService.prototype?.getAsset !== 'function' || typeof ItemsService !== 'function') {
+        return configurationError(res, 'Protected file service is unavailable.');
+      }
+      const schema = await getSchema();
+      const itemOptions = { schema, accountability: req.accountability };
+      const readable = async (collection, query) => {
+        try {
+          const service = new ItemsService(collection, itemOptions);
+          const rows = await service.readByQuery({ ...query, limit: 1, fields: ['id'] });
+          return Array.isArray(rows) && rows.length > 0;
+        } catch (error) {
+          if (isAccessDeniedError(error)) return false;
+          throw error;
+        }
+      };
+      try {
+        const kinds = new Set();
+        if (await readable('directus_users', { filter: { _and: [{ id: { _eq: userId } }, { avatar: { _eq: fileId } }] } })) kinds.add('avatar');
+        if (await readable('business_profile_members', { filter: { user: { avatar: { _eq: fileId } } } })) kinds.add('avatar');
+        if (await readable('reports_exports', { filter: { file: { _eq: fileId } } })) kinds.add('report');
+        for (const [field, kind] of [['thumbnail', 'scan-image'], ['audio_file', 'scan-audio'], ['video_file', 'scan-video']]) if (await readable('scan_media', { filter: { [field]: { _eq: fileId } } })) kinds.add(kind);
+        if (!kinds.size) return notFound(res, 'File not found.');
+        const range = parseSingleRange(req.headers?.range);
+        if (range === null) return res.status(416).end();
+        const assetService = new AssetsService({ schema, accountability: null, knex: database });
+        const { stream, file, stat } = await assetService.getAsset(fileId, undefined, range, true);
+        const mime = String(file?.type ?? '').toLowerCase();
+        const delivery = resolveProtectedFileDelivery(kinds, mime);
+        if (!delivery.allowed) return notFound(res, 'File not found.');
+        res.setHeader('X-Content-Type-Options', 'nosniff');
+        res.setHeader('Cache-Control', 'private, no-store');
+        res.setHeader('Accept-Ranges', 'bytes');
+        res.setHeader('Content-Type', delivery.contentType);
+        if (delivery.attachment) res.setHeader('Content-Disposition', 'attachment');
+        const partial = Boolean(range);
+        if (partial) { const start = range.start ?? 0; const end = range.end ?? stat.size - 1; if (!Number.isSafeInteger(stat?.size) || start < 0 || end < start || end >= stat.size) return res.status(416).end(); res.status(206); res.setHeader('Content-Range', `bytes ${start}-${end}/${stat.size}`); res.setHeader('Content-Length', String(end - start + 1)); }
+        else if (stat?.size != null) res.setHeader('Content-Length', String(stat.size));
+        const source = await stream();
+        source.on('error', () => { if (!res.headersSent) res.status(404).end(); else res.destroy(); });
+        res.on('close', () => { if (!res.writableFinished) source.destroy(); });
+        source.pipe(res);
+      } catch (error) {
+        logger?.error?.(error, '[wellar] protected file delivery failed');
+        return notFound(res, 'File not found.');
+      }
+    });
     router.post('/account-deletion-requests', async (req, res) => {
       const validation = validateAccountDeletionRequestBody(req.body ?? {});
       if (!validation.ok) {
@@ -3753,6 +3827,9 @@ export default {
   },
 };
 export {
+  parseSingleRange,
+  isAccessDeniedError,
+  resolveProtectedFileDelivery,
   buildBusinessProfileInsertPayload,
   buildCompanyPayload,
   buildCreatedWorkspaceResponse,
