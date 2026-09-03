@@ -121,7 +121,10 @@
           aria-haspopup="menu"
           aria-controls="app-sidebar-account-menu"
           (click)="toggleAccountMenu($event)">
-          <span class="app-sidebar__account-avatar" aria-hidden="true">{{ vm.userInitials }}</span>
+          <span class="app-sidebar__account-avatar" aria-hidden="true">
+            <img *ngIf="vm.userAvatarUrl" [src]="vm.userAvatarUrl" alt="" (error)="onAccountAvatarError(vm)" />
+            <span *ngIf="!vm.userAvatarUrl">{{ vm.userInitials }}</span>
+          </span>
 
           <span class="app-sidebar__account-copy">
             <strong>{{ vm.userDisplayName }}</strong>

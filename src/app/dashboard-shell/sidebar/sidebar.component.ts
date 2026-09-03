@@ -14,6 +14,8 @@ import {
 } from '../../ia/wellar-ia';
 import { AuthService } from '../../services/auth';
 import { RoleBadgeComponent } from '../../shared/ui/role-badge/role-badge.component';
+import { protectedFileUrl } from '../../shared/utils/protected-file-url';
+import { environment } from 'src/environments/environment';
 
 type SidebarNavGroupVm = {
   group: SidebarNavGroup['group'];
@@ -30,6 +32,7 @@ type SidebarVm = {
   roleLabel: string;
   userDisplayName: string;
   userInitials: string;
+  userAvatarUrl: string | null;
   userEmail: string | null;
   availableCompanies: CompanyOption[];
   canSwitchOrganizations: boolean;
@@ -69,6 +72,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
       const userDisplayName = this.resolveUserDisplayName(state.context);
       const userEmail = this.resolveUserEmail(state.context);
       const userInitials = this.resolveUserInitials(userDisplayName, userEmail);
+      const userAvatarUrl = protectedFileUrl(environment.API_URL, state.context.currentUser?.avatar) ?? null;
       const navGroups = getSidebarNavForRole(role).map((group) => ({
         group: group.group,
         items: group.items
@@ -94,6 +98,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         roleLabel: this.roleLabel(role),
         userDisplayName,
         userInitials,
+        userAvatarUrl,
         userEmail,
         availableCompanies,
         canSwitchOrganizations: availableCompanies.length > 1,
@@ -270,6 +275,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.closeAccountMenu();
     this.auth.logout();
     void this.router.navigateByUrl('/');
+  }
+
+  onAccountAvatarError(vm: SidebarVm): void {
+    vm.userAvatarUrl = null;
   }
 
   private companyInitial(name: string | null): string {

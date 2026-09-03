@@ -1,5 +1,6 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -8,6 +9,7 @@ import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { protectedFileUrl } from '../../shared/utils/protected-file-url';
 import { AuthService } from '../../services/auth';
+import { CompanyContextService } from '../../core/context/company-context.service';
 
 @Component({
   selector: 'app-profile',
@@ -16,6 +18,7 @@ import { AuthService } from '../../services/auth';
   styleUrl: './profile.css',
 })
 export class Profile implements OnInit {
+  private readonly destroyRef = inject(DestroyRef);
   loading = true;
   errorMessage = '';
   profileSkeletonPanels = [0, 1, 2];
@@ -36,10 +39,23 @@ export class Profile implements OnInit {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private auth: AuthService,
-    private router: Router
+    private router: Router,
+    private companyContext: CompanyContextService
   ) {}
 
   ngOnInit() {
+    this.companyContext.state$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((state) => {
+        const current = state.context.currentUser;
+        if (!current || !this.profile) return;
+        this.profile = {
+          ...this.profile,
+          name: this.buildName(current.first_name ?? undefined, current.last_name ?? undefined) || this.profile.name,
+          avatarUrl: this.buildAvatarUrl(current.avatar ?? '')
+        };
+        this.cdr.detectChanges();
+      });
     this.loadProfile();
   }
 

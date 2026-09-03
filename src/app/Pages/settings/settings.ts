@@ -378,6 +378,12 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       this.accountInitial = { ...this.accountForm };
       this.accountTouched = false;
       this.clearAvatarSelection();
+      this.companyContext.applyCurrentUserPatch({
+        first_name: this.accountForm.firstName.trim() || null,
+        last_name: this.accountForm.lastName.trim() || null,
+        phone: this.accountForm.phone.trim() || null,
+        ...(avatarId ? { avatar: avatarId } : {})
+      });
       this.profileSaveState = 'success';
       this.profileSaveMessage = 'Account settings saved.';
       // The PATCH response is the primary save contract.  Do not keep the

@@ -37,7 +37,8 @@ describe('SettingsPageComponent', () => {
     clearActiveWorkspaceContext: () => undefined,
     ensureActiveContext: () => Promise.resolve(),
     ensureLoaded: () => of(null),
-    activateFromMembership: () => Promise.resolve()
+    activateFromMembership: () => Promise.resolve(),
+    applyCurrentUserPatch: vi.fn()
   });
 
   async function createComponent(tab: string | null = null, role: 'owner' | 'manager' | 'hr' = 'owner'): Promise<void> {

@@ -33,6 +33,8 @@ export type CompanyContext = {
     email: string | null;
     first_name: string | null;
     last_name: string | null;
+    avatar?: string | null;
+    phone?: string | null;
   } | null;
   userId: string | null;
   userDisplayName: string;
@@ -186,6 +188,17 @@ export class CompanyContextService {
   readonly activeMembership$ = this.activeMembershipSubject.asObservable();
   readonly activeBusinessProfile$ = this.activeBusinessProfileSubject.asObservable();
   readonly activeMemberRole$ = this.activeMemberRoleSubject.asObservable();
+
+  applyCurrentUserPatch(patch: Partial<CompanyContext['currentUser']>): void {
+    const current = this.stateSubject.value;
+    const user = current.context.currentUser;
+    if (!user) return;
+    const nextUser = { ...user, ...patch };
+    this.stateSubject.next({
+      ...current,
+      context: { ...current.context, currentUser: nextUser }
+    });
+  }
 
   constructor(
     private http: HttpClient,
