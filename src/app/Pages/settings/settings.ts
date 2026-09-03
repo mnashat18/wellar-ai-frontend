@@ -450,15 +450,6 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       throw new Error('The avatar upload could not be completed.');
     }
 
-    const userId = this.normalizeId(this.user?.id);
-    if (userId) {
-      try {
-        await firstValueFrom(this.assignFileOwner(fileId, userId));
-      } catch {
-        // Keep the uploaded file even if ownership reassignment is blocked.
-      }
-    }
-
     return fileId;
   }
 
@@ -474,16 +465,6 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       }
     ).pipe(
       map((res) => this.pickString(res?.data?.id) ?? null)
-    );
-  }
-
-  private assignFileOwner(fileId: string, userId: string): Observable<unknown> {
-    return this.http.patch(
-      `${this.apiUrl()}/files/${encodeURIComponent(fileId)}`,
-      { uploaded_by: userId },
-      {
-        withCredentials: true
-      }
     );
   }
 
