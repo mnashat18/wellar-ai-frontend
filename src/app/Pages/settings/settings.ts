@@ -1,6 +1,7 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, DestroyRef, OnDestroy, OnInit, inject } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
@@ -135,6 +136,7 @@ type SettingsViewState = 'loading' | 'ready' | 'empty' | 'forbidden' | 'error';
   styleUrl: './settings.css'
 })
 export class SettingsPageComponent implements OnInit, OnDestroy {
+  private readonly destroyRef = inject(DestroyRef);
   readonly tabs: Array<{ id: SettingsTabId; label: string; icon: string }> = [
     { id: 'profile', label: 'Profile', icon: 'user' },
     { id: 'preferences', label: 'Preferences', icon: 'preferences' },
@@ -201,6 +203,13 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
+    this.companyContext.state$
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((state) => {
+        const current = state.context.currentUser;
+        if (!current || !this.user) return;
+        this.user = { ...this.user, ...current };
+      });
     this.loadPreferences();
     const requestedTab = this.normalizeInitialTab(this.route.snapshot.queryParamMap.get('tab'));
     this.activeTab = requestedTab ?? 'profile';

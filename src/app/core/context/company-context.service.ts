@@ -993,6 +993,7 @@ export class CompanyContextService {
       'email',
       'first_name',
       'last_name',
+      'avatar',
       'active_business_profile',
       'active_department',
       'active_member_role'
@@ -1047,6 +1048,7 @@ export class CompanyContextService {
               this.pickString(user?.last_name) ??
               this.pickString(stored.currentUser?.last_name) ??
               this.readStoredValue('user_last_name');
+            const resolvedAvatar = this.pickString(user?.avatar) ?? null;
 
             return ({
               currentUser: userId
@@ -1054,7 +1056,8 @@ export class CompanyContextService {
                     id: userId,
                     email: resolvedEmail,
                     first_name: resolvedFirstName,
-                    last_name: resolvedLastName
+                    last_name: resolvedLastName,
+                    avatar: resolvedAvatar
                   }
                 : null,
               userId,
@@ -1144,7 +1147,8 @@ export class CompanyContextService {
             id: resolvedUserId,
             email: resolvedUserEmail,
             first_name: resolvedFirstName,
-            last_name: resolvedLastName
+            last_name: resolvedLastName,
+            avatar: this.pickString(user.currentUser?.avatar) ?? null
           }
         : null,
       userId: resolvedUserId,

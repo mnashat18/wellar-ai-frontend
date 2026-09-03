@@ -2,7 +2,7 @@
 import { ActivatedRoute, convertToParamMap, provideRouter, Router } from '@angular/router';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting, HttpTestingController } from '@angular/common/http/testing';
-import { of } from 'rxjs';
+import { BehaviorSubject, of } from 'rxjs';
 import { vi } from 'vitest';
 
 import { CompanyContextService } from '../../core/context/company-context.service';
@@ -16,8 +16,8 @@ describe('SettingsPageComponent', () => {
   let router: Router;
   let httpMock: HttpTestingController;
 
-  const createCompanyContextStub = (role: 'owner' | 'manager' | 'hr' = 'owner') => ({
-    snapshot: () => ({
+  const createCompanyContextStub = (role: 'owner' | 'manager' | 'hr' = 'owner') => {
+    const state = {
       context: {
         activeMemberRole: role,
         activeBusinessProfileId: 'profile-1',
@@ -32,14 +32,20 @@ describe('SettingsPageComponent', () => {
         },
         userDisplayName: 'Owner User',
         userEmail: 'owner@example.com'
-      }
-    }),
+      },
+      loading: false,
+      error: null
+    };
+    return {
+    state$: new BehaviorSubject(state),
+    snapshot: () => state,
     clearActiveWorkspaceContext: () => undefined,
     ensureActiveContext: () => Promise.resolve(),
     ensureLoaded: () => of(null),
     activateFromMembership: () => Promise.resolve(),
     applyCurrentUserPatch: vi.fn()
-  });
+    };
+  };
 
   async function createComponent(tab: string | null = null, role: 'owner' | 'manager' | 'hr' = 'owner'): Promise<void> {
     TestBed.resetTestingModule();
