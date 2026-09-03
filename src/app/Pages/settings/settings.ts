@@ -380,11 +380,13 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       this.clearAvatarSelection();
       this.profileSaveState = 'success';
       this.profileSaveMessage = 'Account settings saved.';
-      try {
-        await this.reloadCurrentUser();
-      } catch {
+      // The PATCH response is the primary save contract.  Do not keep the
+      // save action in a pending state while the best-effort session refresh
+      // waits on auth/context lifecycle work.
+      this.savingAccount = false;
+      void this.reloadCurrentUser().catch(() => {
         this.profileSaveMessage = 'Account settings saved. The profile view could not refresh.';
-      }
+      });
       this.pushToast('success', 'Account profile updated successfully.');
     } catch (error) {
       this.profileSaveState = 'error';

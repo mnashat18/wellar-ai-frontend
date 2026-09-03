@@ -243,6 +243,22 @@ describe('SettingsPageComponent', () => {
     expect((component as any).reloadCurrentUser).toHaveBeenCalled();
   });
 
+  it('clears saving state when the secondary user refresh does not settle', async () => {
+    await createComponent();
+    component.accountForm = { firstName: 'Owner', lastName: 'Updated', phone: '555-2000' };
+    vi.spyOn(component as any, 'reloadCurrentUser').mockImplementation(() => new Promise<void>(() => undefined));
+
+    const savePromise = component.saveAccountChanges();
+    await Promise.resolve();
+    const request = httpMock.expectOne((req) => req.url.endsWith('/users/me'));
+    request.flush({ data: { id: 'user-1' } });
+    await savePromise;
+
+    expect(component.savingAccount).toBe(false);
+    expect(component.profileSaveState).toBe('success');
+    expect(component.hasAccountChanges()).toBe(false);
+  });
+
   it('shows the business access role instead of the Directus role identifier', async () => {
     await createComponent('security', 'owner');
     expect(component.activeAccessRoleLabel()).toBe('Owner');
