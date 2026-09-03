@@ -6,6 +6,7 @@ import { Router, RouterModule } from '@angular/router';
 import { of } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { protectedFileUrl } from '../../shared/utils/protected-file-url';
 import { AuthService } from '../../services/auth';
 import { SubscriptionService } from '../../services/subscription.service';
 import { NotificationsComponent } from '../../components/notifications/notifications';
@@ -263,8 +264,7 @@ export class ProfileMobileComponent implements OnInit {
   }
 
   private buildAvatarUrl(avatarId: string): string {
-    const base = `${environment.API_URL}/assets/${avatarId}`;
-    return base;
+    return protectedFileUrl(environment.API_URL, avatarId) ?? '';
   }
 
   private buildInitials(label: string): string {

@@ -4,6 +4,7 @@ import { Observable, forkJoin, of, throwError } from 'rxjs';
 import { catchError, map, switchMap } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
+import { protectedFileUrl } from '../shared/utils/protected-file-url';
 import {
   formatBusinessProfile,
   formatDepartment,
@@ -604,7 +605,7 @@ export class OperationsSupportService {
       status: row.status?.trim() || null,
       file_id: fileId,
       file_name: fileName,
-      file_url: fileId ? `${this.api}/assets/${encodeURIComponent(fileId)}` : null,
+      file_url: protectedFileUrl(this.api, fileId),
       filters: row.filters ?? null,
       completed_at: row.completed_at ?? null,
       date_created: row.date_created ?? null

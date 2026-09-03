@@ -8,6 +8,7 @@ import {
   formatWorkforceIdentity,
   type WorkforceIdentity,
 } from '../shared/utils/display-formatters';
+import { protectedFileUrl } from '../shared/utils/protected-file-url';
 import {
   CompanyContextService,
   type CompanyContext,
@@ -88,7 +89,7 @@ export type CompanyPageData = {
 export type DepartmentOption = { id: string; name: string };
 export type MemberDirectoryRow = {
   id: string;
-  avatar: string | null;
+  avatar?: string | null;
   name: string;
   email: string | null;
   member_role: string | null;
@@ -173,6 +174,7 @@ export type WorkforceRosterRow = {
   identity_state: 'identified' | 'pending_onboarding' | 'identity_unavailable';
   name: string;
   email: string | null;
+  avatar?: string | null;
   member_role: string;
   department_id: string | null;
   department_name: string | null;
@@ -1907,6 +1909,7 @@ export class OperationsAdminService {
             : 'verified_member',
         name: identity.displayName,
         email: resolvedEmail,
+        avatar: protectedFileUrl(this.api, this.pickString(user?.['avatar'])),
         member_role: this.normalizeMemberRole(member.member_role),
         department_id: departmentId,
         department_name: departmentName,

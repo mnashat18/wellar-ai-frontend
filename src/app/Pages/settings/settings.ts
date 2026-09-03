@@ -6,6 +6,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { protectedFileUrl } from '../../shared/utils/protected-file-url';
 
 import { CompanyContextService, type ActiveMembershipContext } from '../../core/context/company-context.service';
 import { AuthService } from '../../services/auth';
@@ -247,8 +248,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       return null;
     }
 
-    const base = `${this.apiUrl()}/assets/${avatar}`;
-    return base;
+    return protectedFileUrl(this.apiUrl(), avatar);
   }
 
   currentWorkspaceName(): string {

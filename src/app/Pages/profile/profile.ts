@@ -6,6 +6,7 @@ import { Router } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
+import { protectedFileUrl } from '../../shared/utils/protected-file-url';
 import { AuthService } from '../../services/auth';
 
 @Component({
@@ -271,8 +272,7 @@ export class Profile implements OnInit {
   }
 
   private buildAvatarUrl(avatarId: string): string {
-    const base = `${environment.API_URL}/assets/${avatarId}`;
-    return base;
+    return protectedFileUrl(environment.API_URL, avatarId) ?? '';
   }
 
 
