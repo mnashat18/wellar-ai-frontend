@@ -885,47 +885,12 @@ export class BusinessCenterService {
         message: 'Request sent successfully.',
         id: this.normalizeId(res?.data?.id)
       })),
-      catchError((err) => {
-        if (!this.shouldRetryWithMinimalPayload(err)) {
-          return of({
-            ok: false,
-            message: this.toFriendlyError(err, 'Failed to send request.')
-          });
-        }
-
-        return this.http.post<{ data?: { id?: unknown } }>(
-          `${this.api}/items/requests`,
-          body,
-          this.requestOptions(token)
-        ).pipe(
-          timeout(this.requestTimeoutMs),
-          map((res) => ({
-            ok: true,
-            message: 'Request sent successfully.',
-            id: this.normalizeId(res?.data?.id)
-          })),
-          catchError(() =>
-            this.http.post<{ data?: { id?: unknown } }>(
-              `${this.api}/items/requests`,
-              body,
-              this.requestOptions(token)
-            ).pipe(
-              timeout(this.requestTimeoutMs),
-              map((res) => ({
-                ok: true,
-                message: 'Request sent successfully.',
-                id: this.normalizeId(res?.data?.id)
-              })),
-              catchError((retryErr) =>
-                of({
-                  ok: false,
-                  message: this.toFriendlyError(retryErr, 'Failed to send request.')
-                })
-              )
-            )
-          )
-        );
-      })
+      catchError((err) =>
+        of({
+          ok: false,
+          message: this.toFriendlyError(err, 'Failed to send request.')
+        })
+      )
     );
   }
 
