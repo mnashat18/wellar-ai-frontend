@@ -237,8 +237,16 @@ describe('SettingsPageComponent', () => {
     await savePromise;
 
     expect(component.profileSaveState).toBe('success');
+    expect(component.savingAccount).toBe(false);
+    expect(component.hasAccountChanges()).toBe(false);
     expect(component.profileSaveMessage).toContain('Account settings saved');
     expect((component as any).reloadCurrentUser).toHaveBeenCalled();
+  });
+
+  it('shows the business access role instead of the Directus role identifier', async () => {
+    await createComponent('security', 'owner');
+    expect(component.activeAccessRoleLabel()).toBe('Owner');
+    expect(fixture.nativeElement.textContent).not.toContain('b2937f48-436b-4957-bab0-c3111fb6a52e');
   });
 
   it('ignores the legacy organization tab and stays on Profile', async () => {

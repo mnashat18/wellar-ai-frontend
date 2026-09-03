@@ -301,18 +301,16 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     return this.resolveAccessRole(this.activeMembership?.memberRoleRaw ?? this.user?.active_member_role) === 'owner';
   }
 
-  activeDirectusRoleLabel(): string {
-    const role = this.user?.role;
-    if (typeof role === 'string' && role.trim()) {
-      return role.trim();
-    }
-    if (role && typeof role === 'object') {
-      const named = this.pickString((role as { name?: string | null }).name);
-      if (named) {
-        return named;
-      }
-    }
-    return 'Not available';
+  activeAccessRoleLabel(): string | null {
+    const contextRole = this.companyContext.snapshot().context.activeMemberRole;
+    const role = this.resolveAccessRole(
+      contextRole ?? this.activeMembership?.memberRoleRaw ?? this.user?.active_member_role
+    );
+    return role ? this.roleBadgeLabel(role) : null;
+  }
+
+  activeDirectusRoleLabel(): string | null {
+    return this.activeAccessRoleLabel();
   }
 
   providerLabel(): string {

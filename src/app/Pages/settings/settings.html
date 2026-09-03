@@ -148,9 +148,9 @@
                 <span>Sign-in provider</span>
                 <strong>{{ providerLabel() }}</strong>
               </div>
-              <div class="settings-detail-row">
-                <span>Directus role</span>
-                <strong>{{ activeDirectusRoleLabel() }}</strong>
+              <div class="settings-detail-row" *ngIf="activeAccessRoleLabel()">
+                <span>Access role</span>
+                <strong>{{ activeAccessRoleLabel() }}</strong>
               </div>
             </div>
           </div>
