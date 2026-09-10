@@ -1,5 +1,11 @@
 import { CommonModule } from '@angular/common';
-import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
+import {
+  ChangeDetectorRef,
+  Component,
+  ElementRef,
+  OnDestroy,
+  ViewChild
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { catchError, defer, finalize, of, timeout } from 'rxjs';
@@ -48,7 +54,8 @@ export class ResetPasswordComponent implements OnDestroy {
   constructor(
     private auth: AuthService,
     private route: ActivatedRoute,
-    private router: Router
+    private router: Router,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnDestroy(): void {
@@ -171,9 +178,11 @@ export class ResetPasswordComponent implements OnDestroy {
       timeout(this.authTimeoutMs),
       finalize(() => {
         this.submitting = false;
+        this.cdr.markForCheck();
       }),
       catchError(() => {
         this.feedback = this.invalidTokenMessage;
+        this.cdr.markForCheck();
         return of('__reset_failed__');
       })
     ).subscribe(async (result) => {
@@ -190,6 +199,7 @@ export class ResetPasswordComponent implements OnDestroy {
       this.showConfirmPassword = false;
       this.resetView = 'success';
       this.auth.setAuthNotice('Password updated. Sign in with your new password.');
+      this.cdr.markForCheck();
     });
   }
 
@@ -234,6 +244,7 @@ export class ResetPasswordComponent implements OnDestroy {
       timeout(this.authTimeoutMs),
       finalize(() => {
         this.submitting = false;
+        this.cdr.markForCheck();
       })
     ).subscribe({
       next: () => this.applyRequestSuccess(normalizedEmail),
@@ -258,12 +269,14 @@ export class ResetPasswordComponent implements OnDestroy {
     this.requestView = 'success';
     this.startResendCooldown();
     this.focusSuccessHeading();
+    this.cdr.markForCheck();
   }
 
   private applyRequestFailure(): void {
     this.submitting = false;
     this.requestView = 'form';
     this.requestError = 'Unable to send a reset link right now. Please try again.';
+    this.cdr.markForCheck();
   }
 
   private maskEmail(value: string): string {
@@ -341,10 +354,12 @@ export class ResetPasswordComponent implements OnDestroy {
       if (this.resendCountdown <= 1) {
         this.resendCountdown = 0;
         this.clearResendTimer();
+        this.cdr.markForCheck();
         return;
       }
 
       this.resendCountdown -= 1;
+      this.cdr.markForCheck();
     }, 1000);
   }
 
