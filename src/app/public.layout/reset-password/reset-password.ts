@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, ElementRef, OnDestroy, ViewChild } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { catchError, of, timeout } from 'rxjs';
+import { catchError, defer, finalize, of, timeout } from 'rxjs';
 
 import { AuthService } from '../../services/auth';
 
@@ -17,7 +17,7 @@ export class ResetPasswordComponent implements OnDestroy {
   private readonly authTimeoutMs = 20000;
   private readonly emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   private readonly passwordPattern = /^(?=.*[A-Za-z])(?=.*\d).{10,128}$/;
-  private readonly resendCooldownSeconds = 60;
+  private readonly resendCooldownSeconds = 240;
 
   private resendEmail = '';
   private resendTimerId: number | null = null;
@@ -33,9 +33,12 @@ export class ResetPasswordComponent implements OnDestroy {
   maskedEmail = '';
   feedback = '';
   requestView: 'form' | 'success' = 'form';
+  resetView: 'form' | 'success' = 'form';
   requestError = '';
   submitting = false;
   resendCountdown = 0;
+  showPassword = false;
+  showConfirmPassword = false;
 
   emailTouched = false;
   passwordTouched = false;
@@ -112,6 +115,14 @@ export class ResetPasswordComponent implements OnDestroy {
     return this.resendCountdown === 0 && !this.submitting;
   }
 
+  get resendLabel(): string {
+    if (this.resendCountdown === 0) {
+      return 'Resend email';
+    }
+
+    return `Resend in ${this.formatCountdown(this.resendCountdown)}`;
+  }
+
   submitRequest(): void {
     this.sendResetRequest(this.email.trim(), true);
   }
@@ -156,16 +167,16 @@ export class ResetPasswordComponent implements OnDestroy {
 
     this.submitting = true;
 
-    this.auth.resetPassword(token, this.password).pipe(
+    defer(() => this.auth.resetPassword(token, this.password)).pipe(
       timeout(this.authTimeoutMs),
-      catchError(() => {
+      finalize(() => {
         this.submitting = false;
+      }),
+      catchError(() => {
         this.feedback = this.invalidTokenMessage;
         return of('__reset_failed__');
       })
     ).subscribe(async (result) => {
-      this.submitting = false;
-
       if (result === '__reset_failed__') {
         return;
       }
@@ -175,11 +186,17 @@ export class ResetPasswordComponent implements OnDestroy {
       this.submitAttempted = false;
       this.passwordTouched = false;
       this.confirmPasswordTouched = false;
+      this.showPassword = false;
+      this.showConfirmPassword = false;
+      this.resetView = 'success';
       this.auth.setAuthNotice('Password updated. Sign in with your new password.');
-      await this.router.navigate(['/'], {
-        queryParams: { auth: 'login' },
-        replaceUrl: true
-      });
+    });
+  }
+
+  async goToSignIn(): Promise<void> {
+    await this.router.navigate(['/'], {
+      queryParams: { auth: 'login' },
+      replaceUrl: true
     });
   }
 
@@ -190,6 +207,9 @@ export class ResetPasswordComponent implements OnDestroy {
     this.submitAttempted = false;
     this.passwordTouched = false;
     this.confirmPasswordTouched = false;
+    this.showPassword = false;
+    this.showConfirmPassword = false;
+    this.resetView = 'form';
     await this.router.navigate(['/reset-password'], { replaceUrl: true });
   }
 
@@ -210,8 +230,11 @@ export class ResetPasswordComponent implements OnDestroy {
 
     this.submitting = true;
 
-    this.auth.requestPasswordReset(normalizedEmail).pipe(
-      timeout(this.authTimeoutMs)
+    defer(() => this.auth.requestPasswordReset(normalizedEmail)).pipe(
+      timeout(this.authTimeoutMs),
+      finalize(() => {
+        this.submitting = false;
+      })
     ).subscribe({
       next: () => this.applyRequestSuccess(normalizedEmail),
       error: (error) => {
@@ -323,6 +346,13 @@ export class ResetPasswordComponent implements OnDestroy {
 
       this.resendCountdown -= 1;
     }, 1000);
+  }
+
+  formatCountdown(totalSeconds: number): string {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   }
 
   private clearResendTimer(): void {

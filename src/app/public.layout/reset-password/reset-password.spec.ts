@@ -181,7 +181,7 @@ describe('ResetPasswordComponent', () => {
     expect(authSpy.requestPasswordReset).toHaveBeenCalledWith('owner@example.com');
     expect(fixture.nativeElement.textContent).toContain('Check your inbox');
     expect(fixture.nativeElement.textContent).toContain(
-      'If an account exists for owne••••••@example.com, you’ll receive a reset link shortly.'
+      'If an account exists for owne••••••@example.com, you’ll receive a password reset link shortly.'
     );
     expect(fixture.nativeElement.querySelector('input[name="resetEmail"]')).toBeNull();
     expect(component.email).toBe('');
@@ -203,7 +203,7 @@ describe('ResetPasswordComponent', () => {
 
     expect(fixture.nativeElement.textContent).toContain('Check your inbox');
     expect(fixture.nativeElement.textContent).toContain(
-      'If an account exists for miss••••••@example.com, you’ll receive a reset link shortly.'
+      'If an account exists for miss••••••@example.com, you’ll receive a password reset link shortly.'
     );
   });
 
@@ -214,7 +214,7 @@ describe('ResetPasswordComponent', () => {
     resolveRequestSuccess();
     flushRequestTransition();
     expect(fixture.nativeElement.textContent).toContain(
-      'If an account exists for mnas••••••@gmail.com, you’ll receive a reset link shortly.'
+      'If an account exists for mnas••••••@gmail.com, you’ll receive a password reset link shortly.'
     );
 
     clickButton('Use a different email');
@@ -225,7 +225,7 @@ describe('ResetPasswordComponent', () => {
     resolveRequestSuccess();
     flushRequestTransition();
     expect(fixture.nativeElement.textContent).toContain(
-      'If an account exists for ab••••••@gmail.com, you’ll receive a reset link shortly.'
+      'If an account exists for ab••••••@gmail.com, you’ll receive a password reset link shortly.'
     );
 
     clickButton('Use a different email');
@@ -236,7 +236,7 @@ describe('ResetPasswordComponent', () => {
     resolveRequestSuccess();
     flushRequestTransition();
     expect(fixture.nativeElement.textContent).toContain(
-      'If an account exists for a••••••@company.com, you’ll receive a reset link shortly.'
+      'If an account exists for a••••••@company.com, you’ll receive a password reset link shortly.'
     );
   });
 
@@ -267,7 +267,7 @@ describe('ResetPasswordComponent', () => {
     expect(component.email).toBe('');
   });
 
-  it('disables resend for 60 seconds, then enables it', async () => {
+  it('disables resend for four minutes, then enables it', async () => {
     vi.useFakeTimers();
     controlCooldownInterval();
     renderRequestScreenSync();
@@ -279,21 +279,21 @@ describe('ResetPasswordComponent', () => {
     vi.advanceTimersByTime(0);
     fixture.detectChanges();
 
-    let resend = findButtonStartsWith('Resend link') as HTMLButtonElement;
+    let resend = findButtonStartsWith('Resend in') as HTMLButtonElement;
     expect(resend.disabled).toBe(true);
-    expect(resend.textContent?.trim()).toBe('Resend link in 60s');
+    expect(resend.textContent?.trim()).toBe('Resend in 4:00');
 
-    advanceCooldownSeconds(59);
+    advanceCooldownSeconds(239);
     renderTimerState();
-    resend = findButtonStartsWith('Resend link') as HTMLButtonElement;
+    resend = findButtonStartsWith('Resend in') as HTMLButtonElement;
     expect(resend.disabled).toBe(true);
-    expect(resend.textContent?.trim()).toBe('Resend link in 1s');
+    expect(resend.textContent?.trim()).toBe('Resend in 0:01');
 
     advanceCooldownSeconds(1);
     renderTimerState();
-    resend = findButtonStartsWith('Resend link') as HTMLButtonElement;
+    resend = findButtonStartsWith('Resend email') as HTMLButtonElement;
     expect(resend.disabled).toBe(false);
-    expect(resend.textContent?.trim()).toBe('Resend link');
+    expect(resend.textContent?.trim()).toBe('Resend email');
   });
 
   it('restarts the cooldown and resends the same trusted request contract', async () => {
@@ -307,12 +307,12 @@ describe('ResetPasswordComponent', () => {
     flushRequestTransition();
     vi.advanceTimersByTime(0);
     fixture.detectChanges();
-    advanceCooldownSeconds(60);
+    advanceCooldownSeconds(240);
     renderTimerState();
 
     requestResetSubject = new Subject<unknown>();
     authSpy.requestPasswordReset.mockImplementation(() => requestResetSubject.asObservable());
-    const resend = findButtonStartsWith('Resend link') as HTMLButtonElement;
+    const resend = findButtonStartsWith('Resend email') as HTMLButtonElement;
     resend.click();
     fixture.detectChanges();
     resolveRequestSuccess();
@@ -321,9 +321,9 @@ describe('ResetPasswordComponent', () => {
     expect(authSpy.requestPasswordReset).toHaveBeenNthCalledWith(1, 'owner@example.com');
     expect(authSpy.requestPasswordReset).toHaveBeenNthCalledWith(2, 'owner@example.com');
 
-    const cooldownButton = findButtonStartsWith('Resend link in') as HTMLButtonElement;
+    const cooldownButton = findButtonStartsWith('Resend in') as HTMLButtonElement;
     expect(cooldownButton.disabled).toBe(true);
-    expect(cooldownButton.textContent?.trim()).toBe('Resend link in 60s');
+    expect(cooldownButton.textContent?.trim()).toBe('Resend in 4:00');
   });
 
   it('does not render raw backend request errors into the DOM', async () => {
@@ -385,10 +385,7 @@ describe('ResetPasswordComponent', () => {
     expect(authSpy.resetPassword).toHaveBeenCalledWith('reset-token', 'ValidPass123');
   });
 
-  it('removes the token from history and redirects to login with the exact notice after a successful reset', async () => {
-    const router = TestBed.inject(Router);
-    const navigateSpy = vi.spyOn(router, 'navigate').mockResolvedValue(true);
-
+  it('shows an explicit success state after a successful reset', async () => {
     await renderResetScreen();
     setInputValue('newPassword', 'ValidPass123');
     setInputValue('confirmPassword', 'ValidPass123');
@@ -397,12 +394,40 @@ describe('ResetPasswordComponent', () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(authSpy.setAuthNotice).toHaveBeenCalledWith('Password updated. Sign in with your new password.');
-    expect(navigateSpy).toHaveBeenCalledWith(['/'], {
-      queryParams: { auth: 'login' },
-      replaceUrl: true
-    });
+    expect(component.resetView).toBe('success');
+    expect(fixture.nativeElement.textContent).toContain('Password updated');
     expect(component.password).toBe('');
     expect(component.confirmPassword).toBe('');
+  });
+
+  it('returns to a friendly error state when the request method throws synchronously', async () => {
+    authSpy.requestPasswordReset.mockImplementation(() => {
+      throw new Error('request setup failed');
+    });
+
+    await renderRequestScreen();
+    setInputValue('resetEmail', 'owner@example.com');
+    await submitVisibleForm();
+
+    expect(component.submitting).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain(
+      'Unable to send a reset link right now. Please try again.'
+    );
+  });
+
+  it('returns to a friendly error state when the request exceeds the timeout', async () => {
+    await renderRequestScreen();
+    vi.useFakeTimers();
+    setInputValue('resetEmail', 'owner@example.com');
+    submitRequestForm();
+    fixture.detectChanges();
+
+    expect(component.submitting).toBe(true);
+    vi.advanceTimersByTime(20000);
+    await Promise.resolve();
+
+    expect(component.submitting).toBe(false);
+    expect(component.requestError).toBe('Unable to send a reset link right now. Please try again.');
   });
 
   it('shows the exact safe invalid-link recovery message and request-new-link action', async () => {
