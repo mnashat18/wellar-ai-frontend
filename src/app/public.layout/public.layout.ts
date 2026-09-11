@@ -2,11 +2,12 @@ import { CommonModule } from '@angular/common';
 import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, ViewChild } from '@angular/core';
 import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
+import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.directive';
 
 @Component({
   selector: 'app-public.layout',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterModule],
+  imports: [CommonModule, RouterOutlet, RouterModule, MotionVisibilityDirective],
   templateUrl: './public.layout.html',
   styleUrl: './public.layout.css'
 })

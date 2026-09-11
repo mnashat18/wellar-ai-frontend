@@ -8,18 +8,19 @@ import { isAuthOnlyRoute } from '../core/guards/dashboard-access.guards';
 import { getWorkspaceRouteByUrlPath } from '../ia/wellar-ia';
 import { SidebarComponent } from './sidebar/sidebar.component';
 import { TopbarComponent } from './topbar/topbar.component';
+import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.directive';
 
 @Component({
   selector: 'app-shell',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, SidebarComponent, TopbarComponent],
+  imports: [CommonModule, RouterOutlet, SidebarComponent, TopbarComponent, MotionVisibilityDirective],
   template: `
     <div
       class="app-shell"
       [class.is-sidebar-open]="mobileSidebarOpen"
       *ngIf="!isAuthOnlyRouteActive">
       <ng-container *ngIf="shellMounted; else workspaceLoading">
-      <div class="app-shell__ambient" aria-hidden="true">
+      <div class="app-shell__ambient" appMotionVisibility aria-hidden="true">
         <span class="app-shell__orb app-shell__orb--a"></span>
         <span class="app-shell__orb app-shell__orb--b"></span>
         <span class="app-shell__orb app-shell__orb--c"></span>

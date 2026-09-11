@@ -20,11 +20,12 @@ import {
   WorkspaceCreationService
 } from '../../services/workspace-creation.service';
 import { WorkspaceActivationService } from '../../services/workspace-activation.service';
+import { MotionVisibilityDirective } from '../../shared/motion/motion-visibility.directive';
 
 @Component({
   selector: 'app-workspace-access-page',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule],
+  imports: [CommonModule, RouterModule, FormsModule, MotionVisibilityDirective],
   templateUrl: './workspace-access.html',
   styleUrl: './workspace-access.css'
 })

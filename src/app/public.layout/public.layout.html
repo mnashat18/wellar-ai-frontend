@@ -1,5 +1,5 @@
 <div class="public-shell">
-  <div class="public-orbits" aria-hidden="true">
+  <div class="public-orbits" appMotionVisibility aria-hidden="true">
     <span class="orbit orbit-a"></span>
     <span class="orbit orbit-b"></span>
     <span class="orbit orbit-c"></span>
@@ -15,7 +15,10 @@
   <header class="public-header">
     <div class="public-header__inner">
       <a routerLink="/" class="public-brand" aria-label="Wellar AI home" (click)="closeMobileMenu()">
-        <img class="public-brand__logo" src="assets/logo/app_icon.png" alt="Wellar app icon" />
+        <picture>
+          <source srcset="assets/logo/wellar-mark-96.webp" type="image/webp" />
+          <img class="public-brand__logo" src="assets/logo/wellar-mark-96.png" alt="Wellar app icon" width="96" height="96" decoding="async" />
+        </picture>
         <span>
           <strong>Wellar AI</strong>
           <small>Workforce operations</small>
@@ -78,7 +81,10 @@
   <footer class="site-footer">
     <div class="footer-grid">
       <div class="footer-brand">
-        <img class="footer-logo" src="assets/logo/app_icon.png" alt="Wellar app icon" />
+        <picture>
+          <source srcset="assets/logo/wellar-mark-96.webp" type="image/webp" />
+          <img class="footer-logo" src="assets/logo/wellar-mark-96.png" alt="Wellar app icon" width="96" height="96" decoding="async" />
+        </picture>
         <p>Pre-shift readiness and compliance control for operational teams.</p>
       </div>
       <div>

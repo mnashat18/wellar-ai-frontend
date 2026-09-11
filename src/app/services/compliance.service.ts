@@ -5,6 +5,7 @@ import { catchError, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
 import { formatDepartment } from '../shared/utils/display-formatters';
+import { isScanEligibleRole } from '../shared/utils/scan-eligibility';
 
 import { CompanyContextService } from '../core/context/company-context.service';
 import { AuthService } from './auth';
@@ -440,6 +441,7 @@ export class ComplianceService {
 
   buildComplianceSummary(data: NormalizedSource): ComplianceSummaryCardData {
     const members = this.eligibleMembers(data.members, data.filters.department);
+    const scanEligibleMembers = members.filter((member) => isScanEligibleRole(member.member_role));
     const range = this.resolveDateRange(data.filters.dateRange);
     const scansInRange = this.applyDepartmentFilterToWellnessScans(data.wellnessScans, data.filters.department).filter((scan) => {
       const happenedAt = this.pickString(scan.completed_at) || this.pickString(scan.date_created);
@@ -459,9 +461,8 @@ export class ComplianceService {
       this.isOverdueRequest(request.status, request.due_at)
     );
 
-    const scanEligibleMembers = members.length;
-    const completedInRange = members.filter((member) => completedMemberIdsInRange.has(member.id)).length;
-    const missingScans = Math.max(scanEligibleMembers - completedInRange, 0);
+    const completedInRange = scanEligibleMembers.filter((member) => completedMemberIdsInRange.has(member.id)).length;
+    const missingScans = Math.max(scanEligibleMembers.length - completedInRange, 0);
     const highAttention = data.scanResultsAccess === 'available'
       ? this.buildComplianceExceptions(data).filter((row) =>
           row.readiness === 'High Risk' ||
@@ -471,13 +472,13 @@ export class ComplianceService {
       : null;
 
     return {
-      complianceRate: scanEligibleMembers > 0 ? Math.round((completedInRange / scanEligibleMembers) * 100) : 0,
+      complianceRate: scanEligibleMembers.length > 0 ? Math.round((completedInRange / scanEligibleMembers.length) * 100) : 0,
       completedScans: completedInRange,
       missingScans,
       openAlerts: openAlerts.length,
       highAttention,
       overdueRequests: overdueRequests.length,
-      scanEligibleMembersToday: scanEligibleMembers
+      scanEligibleMembersToday: scanEligibleMembers.length
     };
   }
 
@@ -490,6 +491,7 @@ export class ComplianceService {
     });
 
     const members = this.eligibleMembers(data.members, data.filters.department);
+    const scanEligibleMembers = members.filter((member) => isScanEligibleRole(member.member_role));
     const alerts = data.alerts.filter((alert) => this.isOpenAlertStatus(alert.status));
     const range = this.resolveDateRange(data.filters.dateRange);
     const scansInRange = this.applyDepartmentFilterToWellnessScans(data.wellnessScans, data.filters.department).filter((scan) => {
@@ -507,7 +509,7 @@ export class ComplianceService {
 
     const rows: DepartmentComplianceRow[] = [];
     for (const department of groups) {
-      const departmentMembers = members.filter((member) =>
+      const departmentMembers = scanEligibleMembers.filter((member) =>
         department.departmentId ? member.department_id === department.departmentId : !member.department_id
       );
 

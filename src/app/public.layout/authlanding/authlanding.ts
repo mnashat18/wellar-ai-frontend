@@ -10,11 +10,12 @@ import { InviteService } from '../../services/invites';
 import { PostAuthWelcomeService } from '../../services/post-auth-welcome.service';
 import { PostLoginRoutingService } from '../../services/post-login-routing.service';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
+import { MotionVisibilityDirective } from '../../shared/motion/motion-visibility.directive';
 
 @Component({
   selector: 'app-authlanding',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, ViewportDialogComponent],
+  imports: [CommonModule, RouterModule, FormsModule, ViewportDialogComponent, MotionVisibilityDirective],
   templateUrl: './authlanding.html',
   styleUrls: ['./authlanding.css']
 })

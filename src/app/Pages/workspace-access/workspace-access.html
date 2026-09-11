@@ -1,5 +1,5 @@
 <section class="workspace-access-page">
-  <div class="workspace-access-page__ambient" aria-hidden="true">
+  <div class="workspace-access-page__ambient" appMotionVisibility aria-hidden="true">
     <span class="workspace-access-page__orb workspace-access-page__orb--a"></span>
     <span class="workspace-access-page__orb workspace-access-page__orb--b"></span>
     <span class="workspace-access-page__orb workspace-access-page__orb--c"></span>
@@ -9,7 +9,10 @@
     <aside class="workspace-access-page__intro app-dashboard-panel">
       <div class="workspace-access-page__brand">
         <div class="workspace-access-page__mark">
-          <img src="assets/logo/app_icon.png" alt="Wellar AI" />
+          <picture>
+            <source srcset="assets/logo/wellar-mark-96.webp" type="image/webp" />
+            <img src="assets/logo/wellar-mark-96.png" alt="Wellar AI" width="96" height="96" decoding="async" />
+          </picture>
         </div>
         <div>
           <p class="workspace-access-page__eyebrow">Wellar AI</p>

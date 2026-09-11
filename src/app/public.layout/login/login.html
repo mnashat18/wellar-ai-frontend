@@ -1,7 +1,10 @@
 <div class="auth-layout">
   <section class="auth-brand">
     <div class="brand-content">
-      <img class="brand-mark" src="assets/logo/waller-ai.png" alt="Wellar AI" />
+      <picture>
+        <source srcset="assets/logo/wellar-wordmark-512.webp" type="image/webp" />
+        <img class="brand-mark" src="assets/logo/wellar-wordmark-512.png" alt="Wellar AI" width="512" height="341" decoding="async" />
+      </picture>
       <p class="brand-kicker">{{ inviteMode ? 'Workspace invite' : 'Enterprise wellness intelligence' }}</p>
       <h1>{{ inviteMode ? 'Log in to join your workspace' : 'Secure AI Healthcare Access' }}</h1>
       <p *ngIf="inviteMode">

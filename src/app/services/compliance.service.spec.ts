@@ -532,13 +532,13 @@ describe('ComplianceService', () => {
     const summary = service.buildComplianceSummary(normalizedSource);
     const departmentRows = service.buildDepartmentCompliance(normalizedSource);
 
-    expect(summary.scanEligibleMembersToday).toBe(4);
+    expect(summary.scanEligibleMembersToday).toBe(2);
     expect(summary.completedScans).toBe(1);
-    expect(summary.missingScans).toBe(3);
-    expect(summary.complianceRate).toBe(25);
-    expect(departmentRows[0].activeMembers).toBe(4);
+    expect(summary.missingScans).toBe(1);
+    expect(summary.complianceRate).toBe(50);
+    expect(departmentRows[0].activeMembers).toBe(2);
     expect(departmentRows[0].completedToday).toBe(1);
-    expect(departmentRows[0].missingScans).toBe(3);
-    expect(departmentRows[0].complianceRate).toBe(25);
+    expect(departmentRows[0].missingScans).toBe(1);
+    expect(departmentRows[0].complianceRate).toBe(50);
   });
 });

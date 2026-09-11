@@ -14,6 +14,7 @@ import {
   isUuid,
   sanitizeDisplayValue
 } from '../shared/utils/display-formatters';
+import { isScanEligibleRole } from '../shared/utils/scan-eligibility';
 
 export type DashboardSectionState<T> = {
   items: T[];
@@ -414,8 +415,10 @@ export class OperationalDashboardService {
     const completedMemberIds = new Set(latestByMember.map((row) => row.memberId).filter((id): id is string => Boolean(id)));
     const eligibleMembers = this.eligibleMembers(sources.members.items, departmentId, role, memberMap);
     const activeMembers = eligibleMembers.filter((row) => row.isActive);
-    const scanEligibleMembers = activeMembers.filter((row) => row.memberRole === 'employee');
-    const scannedEligibleCount = scanEligibleMembers.filter((row) => completedMemberIds.has(row.userId)).length;
+    const scanEligibleMembers = activeMembers.filter((row) => isScanEligibleRole(row.memberRole));
+    const scannedEligibleCount = scanEligibleMembers.filter(
+      (row) => row.memberId !== null && completedMemberIds.has(row.memberId)
+    ).length;
     const missingMembers = scanEligibleMembers.filter((row) => !completedMemberIds.has(row.userId));
     const latestResultsByMember = this.latestResultsByMember(latestByMember, scanResults.items, memberMap, timezone);
     const readinessBuckets = this.buildReadinessBuckets(latestResultsByMember);

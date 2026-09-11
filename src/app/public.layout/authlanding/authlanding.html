@@ -1,6 +1,6 @@
 <section class="landing-shell">
   <section class="hero-section reveal">
-    <div class="hero-ambient" aria-hidden="true">
+    <div class="hero-ambient" appMotionVisibility aria-hidden="true">
       <span class="ambient-strand ambient-strand--a"></span>
       <span class="ambient-strand ambient-strand--b"></span>
       <span class="ambient-strand ambient-strand--c"></span>
@@ -160,7 +160,10 @@
     <button class="auth-close" (click)="closeAuth()" [disabled]="authBusy">&times;</button>
 
     <div class="auth-header">
-      <img class="auth-logo-img" src="assets/logo/app_icon.png" alt="Wellar app icon" />
+      <picture>
+        <source srcset="assets/logo/wellar-mark-96.webp" type="image/webp" />
+        <img class="auth-logo-img" src="assets/logo/wellar-mark-96.png" alt="Wellar app icon" width="96" height="96" decoding="async" />
+      </picture>
       <h2 *ngIf="authMode === 'signup' && !inviteMode">Start your organization</h2>
       <h2 *ngIf="authMode === 'signup' && inviteMode">Create your account to join your organization</h2>
       <h2 *ngIf="authMode === 'login' && !inviteMode">Welcome back</h2>
