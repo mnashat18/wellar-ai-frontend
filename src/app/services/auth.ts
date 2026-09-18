@@ -3,6 +3,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from 'src/environments/environment';
 import { Observable, firstValueFrom, from, of, throwError } from 'rxjs';
 import { catchError, map, shareReplay, switchMap, tap, timeout } from 'rxjs/operators';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 type AuthCaptureResult = {
   stored: boolean;
@@ -128,16 +129,21 @@ export class AuthService {
       }
     ).pipe(
       timeout(this.loginTimeoutMs),
-      tap((res) => {
-        this.sessionEstablished = true;
-        localStorage.setItem('user_email', email);
-      }),
       switchMap((res) =>
         this.getCurrentUser().pipe(
-          switchMap((user) => user ? of(res) : throwError(() => ({ status: 401 })))
+          switchMap((user) => {
+            if (!this.hasRequiredUserIdentity(user)) {
+              return throwError(() => ({ status: 401 }));
+            }
+
+            this.sessionEstablished = true;
+            localStorage.setItem('user_email', email);
+            return of(res);
+          })
         )
       ),
       catchError((err) => {
+        this.clearAuthRecoveryState();
         this.storeAuthError(err);
         return throwError(() => err);
       })
@@ -216,13 +222,20 @@ export class AuthService {
       },
       { withCredentials: true }
     ).pipe(
-      tap((res) => this.storeTokensFromAuthResponse(res)),
       switchMap((res) =>
         this.getCurrentUser().pipe(
-          map(() => res)
+          switchMap((user) => {
+            if (!this.hasRequiredUserIdentity(user)) {
+              return throwError(() => ({ status: 401 }));
+            }
+
+            this.sessionEstablished = true;
+            return of(res);
+          })
         )
       ),
       catchError((err) => {
+        this.clearAuthRecoveryState();
         this.storeAuthError(err);
         return throwError(() => err);
       })
@@ -421,6 +434,7 @@ export class AuthService {
 
   clearAuthRecoveryState(): void {
     this.sessionEstablished = false;
+    this.sessionCheck$ = null;
     localStorage.removeItem('auth_error');
     localStorage.removeItem('user_email');
     localStorage.removeItem('current_user_id');
@@ -582,17 +596,20 @@ export class AuthService {
   }
 
   private storeTokensFromAuthResponse(res: any): StoredTokens {
-    this.sessionEstablished = true;
     localStorage.removeItem('auth_error');
     return { authenticated: true };
   }
 
+  private hasRequiredUserIdentity(user: any): boolean {
+    const userId = user?.id;
+    return (
+      (typeof userId === 'string' && userId.trim().length > 0) ||
+      (typeof userId === 'number' && Number.isFinite(userId))
+    );
+  }
+
   private storeAuthError(err: any) {
-    const detail =
-      err?.error?.errors?.[0]?.extensions?.reason ||
-      err?.error?.errors?.[0]?.message ||
-      err?.message ||
-      'Unable to complete login session.';
+    const detail = mapSafeError(err).userMessage;
 
     try {
       localStorage.setItem('auth_error', String(detail));

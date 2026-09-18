@@ -340,7 +340,7 @@ describe('ResetPasswordComponent', () => {
     flushRequestTransition();
 
     const text = fixture.nativeElement.textContent ?? '';
-    expect(text).toContain('Unable to send a reset link right now. Please try again.');
+    expect(text).toContain('Something went wrong on our end. Please try again later.');
     expect(text).not.toContain('DIRECTUS');
     expect(text).not.toContain('INVALID_PROVIDER');
     expect(text).not.toContain('token=abc');
@@ -411,7 +411,7 @@ describe('ResetPasswordComponent', () => {
 
     expect(component.submitting).toBe(false);
     expect(fixture.nativeElement.textContent).toContain(
-      'Unable to send a reset link right now. Please try again.'
+      'Something went wrong. Please try again.'
     );
   });
 
@@ -427,7 +427,42 @@ describe('ResetPasswordComponent', () => {
     await Promise.resolve();
 
     expect(component.submitting).toBe(false);
-    expect(component.requestError).toBe('Unable to send a reset link right now. Please try again.');
+    expect(component.requestError).toBe('The request took too long. Please try again.');
+  });
+
+  it('shows a safe network message when password reset completion cannot reach the server', async () => {
+    authSpy.resetPassword = vi.fn(() => throwError(() => ({
+      status: 0,
+      error: { message: 'Directus network failure token=secret' }
+    })));
+
+    await renderResetScreen();
+    setInputValue('newPassword', 'ValidPass123');
+    setInputValue('confirmPassword', 'ValidPass123');
+    await submitVisibleForm();
+
+    expect(component.submitting).toBe(false);
+    expect(component.feedback).toBe(
+      'We couldn’t reach the server. Check your connection and try again.'
+    );
+    expect(fixture.nativeElement.textContent).not.toContain('Directus');
+    expect(fixture.nativeElement.textContent).not.toContain('token=secret');
+  });
+
+  it('shows a safe timeout message when password reset completion times out', async () => {
+    authSpy.resetPassword = vi.fn(() => new Subject<unknown>().asObservable());
+
+    await renderResetScreen();
+    vi.useFakeTimers();
+    setInputValue('newPassword', 'ValidPass123');
+    setInputValue('confirmPassword', 'ValidPass123');
+    submitVisibleForm();
+
+    await vi.advanceTimersByTimeAsync(20000);
+    await Promise.resolve();
+
+    expect(component.submitting).toBe(false);
+    expect(component.feedback).toBe('The request took too long. Please try again.');
   });
 
   it('shows the exact safe invalid-link recovery message and request-new-link action', async () => {

@@ -4,6 +4,7 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, map, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 export interface WorkspaceContextWorkspace {
   id: string;
@@ -290,7 +291,7 @@ export class WorkspaceContextApiService {
     const body = this.asRecord(httpError?.error);
     const directusError = this.asRecord(body?.['error']);
     const backendCode = this.pickString(directusError?.['code'])?.toUpperCase() ?? '';
-    const backendMessage = this.pickString(directusError?.['message']);
+    const safeMessage = mapSafeError(error).userMessage;
 
     if (status === 0) {
       return throwError(() => new WorkspaceContextApiError('network_error', status, fallbackMessage, error));
@@ -299,19 +300,19 @@ export class WorkspaceContextApiService {
       return throwError(() => new WorkspaceContextApiError('unauthorized', 401, 'Session expired. Please sign in again.', error));
     }
     if (status === 403 || backendCode === 'FORBIDDEN') {
-      return throwError(() => new WorkspaceContextApiError('forbidden', 403, backendMessage ?? 'You do not have permission to use this organization context.', error));
+      return throwError(() => new WorkspaceContextApiError('forbidden', 403, safeMessage, error));
     }
     if (status === 404 || backendCode === 'NOT_FOUND') {
-      return throwError(() => new WorkspaceContextApiError('not_found', 404, backendMessage ?? 'The requested organization membership was not found.', error));
+      return throwError(() => new WorkspaceContextApiError('not_found', 404, safeMessage, error));
     }
     if (status === 409 || backendCode === 'CONFLICT') {
-      return throwError(() => new WorkspaceContextApiError('conflict', 409, backendMessage ?? 'The organization context is no longer valid.', error));
+      return throwError(() => new WorkspaceContextApiError('conflict', 409, safeMessage, error));
     }
     if (status >= 500 || backendCode === 'SERVER_ERROR') {
-      return throwError(() => new WorkspaceContextApiError('server_error', status || 500, backendMessage ?? fallbackMessage, error));
+      return throwError(() => new WorkspaceContextApiError('server_error', status || 500, safeMessage, error));
     }
 
-    return throwError(() => new WorkspaceContextApiError('unknown', status, backendMessage ?? fallbackMessage, error));
+    return throwError(() => new WorkspaceContextApiError('unknown', status, safeMessage, error));
   }
 
   private asRecord(value: unknown): Record<string, unknown> | null {

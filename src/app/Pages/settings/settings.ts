@@ -8,12 +8,12 @@ import { firstValueFrom, type Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { protectedFileUrl } from '../../shared/utils/protected-file-url';
+import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
 
 import { CompanyContextService, type ActiveMembershipContext } from '../../core/context/company-context.service';
 import { AuthService } from '../../services/auth';
 import {
   WorkspaceContextApiError,
-  WorkspaceContextApiService,
   type WorkspaceContextInvitation,
   type WorkspaceContextMembership,
   type WorkspaceContextPayload
@@ -131,7 +131,7 @@ type SettingsViewState = 'loading' | 'ready' | 'empty' | 'forbidden' | 'error';
 @Component({
   selector: 'app-settings-page',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterModule],
+  imports: [CommonModule, FormsModule, RouterModule, ViewportDialogComponent],
   templateUrl: './settings.html',
   styleUrl: './settings.css'
 })
@@ -154,6 +154,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
   savingAccount = false;
   accountTouched = false;
   clearingWorkspaceCache = false;
+  showClearCacheConfirmation = false;
   loggingOut = false;
   profileSaveState: ProfileSaveState = 'idle';
   profileSaveMessage = 'No unsaved changes.';
@@ -198,8 +199,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private route: ActivatedRoute,
     private router: Router,
-    private companyContext: CompanyContextService,
-    private workspaceContextApi: WorkspaceContextApiService
+    private companyContext: CompanyContextService
   ) {}
 
   ngOnInit(): void {
@@ -547,19 +547,27 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
   }
 
   async clearWorkspaceCache(): Promise<void> {
+    if (this.clearingWorkspaceCache || this.showClearCacheConfirmation) {
+      return;
+    }
+
+    this.showClearCacheConfirmation = true;
+  }
+
+  cancelClearCache(): void {
     if (this.clearingWorkspaceCache) {
       return;
     }
 
-    const confirmed =
-      typeof window === 'undefined' ||
-      window.confirm(
-        'Clear the locally cached organization context from this browser? This does not delete any backend data, and the organization will reload.'
-      );
-    if (!confirmed) {
+    this.showClearCacheConfirmation = false;
+  }
+
+  async confirmClearWorkspaceCache(): Promise<void> {
+    if (this.clearingWorkspaceCache) {
       return;
     }
 
+    this.showClearCacheConfirmation = false;
     this.clearingWorkspaceCache = true;
 
     try {
@@ -625,7 +633,21 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       this.user = await this.loadCurrentUserProfile(sessionUser);
       this.applyAccountForm();
 
-      const workspaceContext = await firstValueFrom(this.workspaceContextApi.getContext());
+      const workspaceContext = (
+        await firstValueFrom(this.companyContext.restoreWorkspaceContext(forceRefresh))
+      ).workspaceContext;
+      if (!workspaceContext) {
+        this.memberships = [];
+        this.invites = [];
+        this.invitesError = '';
+        this.viewState = 'empty';
+        this.companyContext.clearActiveWorkspaceContext();
+        if (allowRedirect) {
+          await this.router.navigateByUrl('/app/workspace-access');
+        }
+        return;
+      }
+
       this.memberships = workspaceContext.memberships.map((membership) => this.normalizeMembership(membership));
       this.invites = workspaceContext.invitations.map((invite) => this.normalizeInvite(invite));
       this.invitesError = '';

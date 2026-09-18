@@ -6,7 +6,7 @@ import { Component, Input } from '@angular/core';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm">
+    <div class="rounded-3xl border border-slate-200 bg-white px-6 py-8 shadow-sm" role="status" aria-live="polite" aria-busy="true">
       <div class="flex items-center gap-3">
         <span class="inline-flex h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-slate-900"></span>
         <div>

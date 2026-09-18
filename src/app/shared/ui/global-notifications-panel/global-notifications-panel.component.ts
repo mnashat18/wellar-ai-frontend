@@ -48,8 +48,11 @@ export class GlobalNotificationsPanelComponent implements OnInit {
     }
   }
 
-  openNotification(item: WorkspaceNotification, event: MouseEvent): void {
+  openNotification(item: WorkspaceNotification, event: Event): void {
     event.stopPropagation();
+    if (event instanceof KeyboardEvent) {
+      event.preventDefault();
+    }
     void this.notifications.markNotificationRead(item.id);
 
     if (this.isAlertNotification(item)) {
@@ -117,7 +120,7 @@ export class GlobalNotificationsPanelComponent implements OnInit {
     return iconKey.charAt(0).toUpperCase();
   }
 
-  stopPropagation(event: MouseEvent): void {
+  stopPropagation(event: Event): void {
     event.stopPropagation();
   }
 

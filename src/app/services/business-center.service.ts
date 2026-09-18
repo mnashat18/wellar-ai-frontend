@@ -4,6 +4,7 @@ import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, finalize, map, shareReplay, switchMap, tap, timeout } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 export type ActionResult = {
   ok: boolean;
@@ -2388,26 +2389,7 @@ export class BusinessCenterService {
   }
 
   private toFriendlyError(err: any, fallback: string): string {
-    const detail = this.readError(err, '');
-    const status = typeof err?.status === 'number' ? err.status : 0;
-    const normalized = detail.toLowerCase();
-
-    if (
-      status === 0 ||
-      normalized.includes('network') ||
-      normalized.includes('failed to fetch') ||
-      normalized.includes('connection refused') ||
-      normalized.includes('timeout')
-    ) {
-      return `Network error: ${detail || fallback}`;
-    }
-    if (status >= 500) {
-      return `Server error (${status}): ${detail || fallback}`;
-    }
-    if (status >= 400) {
-      return `Request error (${status}): ${detail || fallback}`;
-    }
-    return detail || fallback;
+    return mapSafeError(err).userMessage || fallback;
   }
 
   private readError(err: any, fallback: string): string {

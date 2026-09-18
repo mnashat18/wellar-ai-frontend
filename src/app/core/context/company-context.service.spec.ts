@@ -62,23 +62,25 @@ describe('CompanyContextService canonical organization context', () => {
 
   it('refreshCurrentUser preserves auth and workspace refresh for an established session', async () => {
     const auth = TestBed.inject(AuthService) as any;
-    const authInit = vi.spyOn(service, 'initializeAuthContext').mockResolvedValue();
-    const loaded = vi.spyOn(service, 'ensureLoaded').mockReturnValue(of(service.snapshot()));
+    const restored = vi.spyOn(service, 'restoreWorkspaceContext').mockReturnValue(of({
+      state: service.snapshot(),
+      workspaceContext: null,
+      memberships: [],
+      verifiedContext: null
+    }));
     await service.refreshCurrentUser({ force: false });
-    expect(auth.isSessionEstablished).toHaveBeenCalled();
     expect(auth.ensureSession).not.toHaveBeenCalled();
-    expect(authInit).toHaveBeenCalledWith(false);
-    expect(loaded).toHaveBeenCalledWith(false);
+    expect(restored).toHaveBeenCalledWith(false);
   });
 
   it('restores an unavailable session before refreshing current user context', async () => {
     const auth = TestBed.inject(AuthService) as any;
     auth.isSessionEstablished.mockReturnValue(false);
-    auth.ensureSession.mockReturnValue(of(true));
-    vi.spyOn(service, 'initializeAuthContext').mockResolvedValue();
-    vi.spyOn(service, 'ensureLoaded').mockReturnValue(of(service.snapshot()));
+    auth.ensureSession.mockReturnValue(of(false));
+    const restored = vi.spyOn(service, 'restoreWorkspaceContext');
     await service.refreshCurrentUser();
     expect(auth.ensureSession).toHaveBeenCalledTimes(1);
+    expect(restored).toHaveBeenCalledWith(true);
   });
 
   it('fails closed when session restoration is unavailable', async () => {
@@ -90,12 +92,34 @@ describe('CompanyContextService canonical organization context', () => {
     expect(loaded).not.toHaveBeenCalled();
   });
 
+  it('shares one restoration request with concurrent callers', async () => {
+    const first = firstValueFrom(service.restoreWorkspaceContext(true));
+    const second = firstValueFrom(service.restoreWorkspaceContext(true));
+    await settleAsync();
+
+    const contextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
+    contextRequest.flush({ data: { active: null, memberships: [], invitations: [] } });
+    await settleAsync();
+
+    const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
+    userRequest.flush({ data: { id: 'user-1', email: 'owner@example.com', first_name: 'Avery', last_name: 'Owner', active_business_profile: null, active_department: null, active_member_role: null } });
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+
+    expect(firstResult.state.context.userId).toBe('user-1');
+    expect(secondResult).toBe(firstResult);
+    httpMock.expectNone((req) => req.url.includes('/wellar/workspaces/context') && req !== contextRequest.request);
+  });
+
   it('maps two active memberships from the canonical context into availableCompanies and makes no collection read', async () => {
     localStorage.setItem('active_workspace_membership_sync_v1', 'membership-1');
     const statePromise = firstValueFrom(service.ensureLoaded(true));
+    await settleAsync();
 
     const syncRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
-    syncRequest.flush({ data: { active: { workspace: { id: 'profile-1', companyName: 'Waller Demo Company', isActive: true, planCode: null, billingStatus: null }, membership: { id: 'membership-1', status: 'active', memberRole: 'owner' }, department: null }, memberships: [], invitations: [] } });
+    syncRequest.flush({ data: { active: { workspace: { id: 'profile-1', companyName: 'Waller Demo Company', isActive: true, planCode: null, billingStatus: null }, membership: { id: 'membership-1', status: 'active', memberRole: 'owner' }, department: null }, memberships: [
+      { id: 'membership-1', status: 'active', memberRole: 'owner', workspace: { id: 'profile-1', companyName: 'Waller Demo Company', isActive: true, planCode: null, billingStatus: null }, department: { id: 'department-1', name: 'All departments' } },
+      { id: 'membership-2', status: 'active', memberRole: 'manager', workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, department: { id: 'department-2', name: 'Operations' } }
+    ], invitations: [] } });
     await settleAsync();
 
     const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
@@ -128,69 +152,6 @@ describe('CompanyContextService canonical organization context', () => {
       ]
     });
 
-    const contextRequest = httpMock.expectOne((req) =>
-      req.url.includes('/wellar/workspaces/context')
-    );
-    expect(contextRequest.request.method).toBe('GET');
-    expect(contextRequest.request.urlWithParams).toContain('_ts=');
-    contextRequest.flush({
-      data: {
-        active: {
-          workspace: {
-            id: 'profile-1',
-            companyName: 'Waller Demo Company',
-            isActive: true,
-            planCode: null,
-            billingStatus: null
-          },
-          membership: {
-            id: 'membership-1',
-            status: 'active',
-            memberRole: 'owner'
-          },
-          department: {
-            id: 'department-1',
-            name: 'All departments'
-          }
-        },
-        memberships: [
-          {
-            id: 'membership-1',
-            status: 'active',
-            memberRole: 'owner',
-            workspace: {
-              id: 'profile-1',
-              companyName: 'Waller Demo Company',
-              isActive: true,
-              planCode: null,
-              billingStatus: null
-            },
-            department: {
-              id: 'department-1',
-              name: 'All departments'
-            }
-          },
-          {
-            id: 'membership-2',
-            status: 'active',
-            memberRole: 'manager',
-            workspace: {
-              id: 'profile-2',
-              companyName: 'Northline Logistics',
-              isActive: true,
-              planCode: null,
-              billingStatus: null
-            },
-            department: {
-              id: 'department-2',
-              name: 'Operations'
-            }
-          }
-        ],
-        invitations: []
-      }
-    });
-
     const state = await statePromise;
 
     expect(state.context.availableCompanies).toHaveLength(2);
@@ -207,9 +168,13 @@ describe('CompanyContextService canonical organization context', () => {
   it('marks only the canonical active membership as current even when other memberships remain active', async () => {
     localStorage.setItem('active_workspace_membership_sync_v1', 'membership-2');
     const statePromise = firstValueFrom(service.ensureLoaded(true));
+    await settleAsync();
 
     const syncRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
-    syncRequest.flush({ data: { active: { workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, membership: { id: 'membership-2', status: 'active', memberRole: 'manager' }, department: null }, memberships: [], invitations: [] } });
+    syncRequest.flush({ data: { active: { workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, membership: { id: 'membership-2', status: 'active', memberRole: 'manager' }, department: { id: 'department-2', name: 'Operations' } }, memberships: [
+      { id: 'membership-1', status: 'active', memberRole: 'owner', workspace: { id: 'profile-1', companyName: 'Waller Demo Company', isActive: true, planCode: null, billingStatus: null }, department: { id: 'department-1', name: 'All departments' } },
+      { id: 'membership-2', status: 'active', memberRole: 'manager', workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, department: { id: 'department-2', name: 'Operations' } }
+    ], invitations: [] } });
     await settleAsync();
 
     const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
@@ -230,68 +195,6 @@ describe('CompanyContextService canonical organization context', () => {
     expect(profileRequest.request.method).toBe('GET');
     profileRequest.flush({ data: [] });
 
-    const contextRequest = httpMock.expectOne((req) =>
-      req.url.includes('/wellar/workspaces/context')
-    );
-    expect(contextRequest.request.method).toBe('GET');
-    contextRequest.flush({
-      data: {
-        active: {
-          workspace: {
-            id: 'profile-2',
-            companyName: 'Northline Logistics',
-            isActive: true,
-            planCode: null,
-            billingStatus: null
-          },
-          membership: {
-            id: 'membership-2',
-            status: 'active',
-            memberRole: 'manager'
-          },
-          department: {
-            id: 'department-2',
-            name: 'Operations'
-          }
-        },
-        memberships: [
-          {
-            id: 'membership-1',
-            status: 'active',
-            memberRole: 'owner',
-            workspace: {
-              id: 'profile-1',
-              companyName: 'Waller Demo Company',
-              isActive: true,
-              planCode: null,
-              billingStatus: null
-            },
-            department: {
-              id: 'department-1',
-              name: 'All departments'
-            }
-          },
-          {
-            id: 'membership-2',
-            status: 'active',
-            memberRole: 'manager',
-            workspace: {
-              id: 'profile-2',
-              companyName: 'Northline Logistics',
-              isActive: true,
-              planCode: null,
-              billingStatus: null
-            },
-            department: {
-              id: 'department-2',
-              name: 'Operations'
-            }
-          }
-        ],
-        invitations: []
-      }
-    });
-
     const state = await statePromise;
 
     expect(state.context.availableCompanies.find((company) => company.id === 'profile-1')?.isActive).toBe(false);
@@ -303,6 +206,7 @@ describe('CompanyContextService canonical organization context', () => {
 
   it('synchronizes the active membership through switch and token refresh before the first authenticated load', async () => {
     const statePromise = firstValueFrom(service.ensureLoaded(true));
+    await settleAsync();
 
     const syncContextRequest = httpMock.expectOne((req) =>
       req.url.includes('/wellar/workspaces/context')
@@ -385,6 +289,8 @@ describe('CompanyContextService canonical organization context', () => {
 
     await settleAsync();
 
+    await settleAsync();
+
     const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
     userRequest.flush({
       data: {
@@ -411,59 +317,6 @@ describe('CompanyContextService canonical organization context', () => {
           default_language: null
         }
       ]
-    });
-
-    const loadedContextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
-    loadedContextRequest.flush({
-      data: {
-        active: {
-          workspace: {
-            id: 'profile-1',
-            companyName: 'Waller Demo Company',
-            isActive: true,
-            planCode: null,
-            billingStatus: null
-          },
-          membership: {
-            id: 'membership-1',
-            status: 'active',
-            memberRole: 'owner'
-          },
-          department: null
-        },
-        memberships: [
-          {
-            id: 'membership-1',
-            status: 'active',
-            memberRole: 'owner',
-            workspace: {
-              id: 'profile-1',
-              companyName: 'Waller Demo Company',
-              isActive: true,
-              planCode: null,
-              billingStatus: null
-            },
-            department: null
-          },
-          {
-            id: 'membership-2',
-            status: 'active',
-            memberRole: 'manager',
-            workspace: {
-              id: 'profile-2',
-              companyName: 'Northline Logistics',
-              isActive: true,
-              planCode: null,
-              billingStatus: null
-            },
-            department: {
-              id: 'department-2',
-              name: 'Operations'
-            }
-          }
-        ],
-        invitations: []
-      }
     });
 
     const state = await statePromise;
@@ -523,6 +376,7 @@ describe('CompanyContextService canonical organization context', () => {
     });
 
     const statePromise = firstValueFrom(service.switchCompany('profile-2'));
+    await settleAsync();
 
     const switchRequest = httpMock.expectOne(`${environment.API_URL}/wellar/workspaces/switch`);
     expect(switchRequest.request.body).toEqual({ membership_id: 'membership-2' });
@@ -547,6 +401,19 @@ describe('CompanyContextService canonical organization context', () => {
       }
     });
 
+    await settleAsync();
+
+    const contextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
+    contextRequest.flush({
+      data: {
+        active: { workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true }, membership: { id: 'membership-2', status: 'active', memberRole: 'hr' }, department: { id: 'department-2', name: 'Marketing' } },
+        memberships: [
+          { id: 'membership-1', status: 'active', memberRole: 'owner', workspace: { id: 'profile-1', companyName: 'Waller Demo Company', isActive: true }, department: null },
+          { id: 'membership-2', status: 'active', memberRole: 'hr', workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true }, department: { id: 'department-2', name: 'Marketing' } }
+        ],
+        invitations: []
+      }
+    });
     await settleAsync();
 
     const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
@@ -581,68 +448,106 @@ describe('CompanyContextService canonical organization context', () => {
     departmentRequest.flush({ data: [{ id: 'department-2', name: 'Marketing' }] });
 
     await settleAsync();
-    const contextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
-    contextRequest.flush({
-      data: {
-        active: {
-          workspace: {
-            id: 'profile-2',
-            companyName: 'Northline Logistics',
-            isActive: true,
-            planCode: null,
-            billingStatus: null
-          },
-          membership: {
-            id: 'membership-2',
-            status: 'active',
-            memberRole: 'hr'
-          },
-          department: {
-            id: 'department-2',
-            name: 'Marketing'
-          }
-        },
-        memberships: [
-          {
-            id: 'membership-1',
-            status: 'active',
-            memberRole: 'owner',
-            workspace: {
-              id: 'profile-1',
-              companyName: 'Waller Demo Company',
-              isActive: true,
-              planCode: null,
-              billingStatus: null
-            },
-            department: null
-          },
-          {
-            id: 'membership-2',
-            status: 'active',
-            memberRole: 'hr',
-            workspace: {
-              id: 'profile-2',
-              companyName: 'Northline Logistics',
-              isActive: true,
-              planCode: null,
-              billingStatus: null
-            },
-            department: {
-              id: 'department-2',
-              name: 'Marketing'
-            }
-          }
-        ],
-        invitations: []
-      }
-    });
-
-    await settleAsync();
-    const verifiedContextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
-    verifiedContextRequest.flush({ data: { active: { workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, membership: { id: 'membership-2', status: 'active', memberRole: 'hr' }, department: { id: 'department-2', name: 'Marketing' } }, memberships: [{ id: 'membership-2', status: 'active', memberRole: 'hr', workspace: { id: 'profile-2', companyName: 'Northline Logistics', isActive: true, planCode: null, billingStatus: null }, department: { id: 'department-2', name: 'Marketing' } }], invitations: [] } });
     const state = await statePromise;
     expect(state.context.activeBusinessProfileId).toBe('profile-2');
     expect(state.context.activeMemberRole).toBe('hr');
     expect(state.context.availableCompanies.map((company) => company.id)).toEqual(['profile-2', 'profile-1']);
+  });
+
+  it('serializes rapid switches and commits only the latest selection', async () => {
+    (service as any).stateSubject.next({
+      ...service.snapshot(),
+      context: {
+        ...service.snapshot().context,
+        availableCompanies: [
+          { id: 'profile-a', membershipId: 'membership-a', name: 'A', role: 'owner', membershipStatus: 'active', isActive: true },
+          { id: 'profile-b', membershipId: 'membership-b', name: 'B', role: 'owner', membershipStatus: 'active', isActive: false },
+          { id: 'profile-c', membershipId: 'membership-c', name: 'C', role: 'owner', membershipStatus: 'active', isActive: false }
+        ]
+      }
+    });
+
+    let releaseA!: () => void;
+    let releaseC!: () => void;
+    const switchA = new Promise<void>((resolve) => (releaseA = resolve));
+    const switchC = new Promise<void>((resolve) => (releaseC = resolve));
+    const execute = vi.spyOn(service as any, 'executeMembershipSwitch').mockImplementation(
+      async (...args: any[]) => {
+        const [membershipId, _label, isCurrent] = args as [string, string, () => boolean];
+        if (membershipId === 'membership-a') {
+          await switchA;
+        }
+        if (membershipId === 'membership-c') {
+          await switchC;
+        }
+        if (isCurrent()) {
+          (service as any).stateSubject.next({
+            ...service.snapshot(),
+            context: {
+              ...service.snapshot().context,
+              activeBusinessProfileId: membershipId.replace('membership-', 'profile-')
+            }
+          });
+        }
+        return service.snapshot();
+      }
+    );
+
+    const first = firstValueFrom(service.switchCompany('profile-a')).catch(() => null);
+    await settleAsync();
+    const second = firstValueFrom(service.switchCompany('profile-b')).catch(() => null);
+    const third = firstValueFrom(service.switchCompany('profile-c')).catch(() => null);
+
+    await settleAsync();
+    expect(execute).toHaveBeenCalledTimes(1);
+    expect(execute).toHaveBeenCalledWith('membership-a', 'Workspace switch', expect.any(Function));
+
+    releaseA();
+    for (let i = 0; i < 10; i += 1) {
+      await settleAsync();
+    }
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(execute).toHaveBeenLastCalledWith('membership-c', 'Workspace switch', expect.any(Function));
+
+    releaseC();
+    await Promise.all([first, second, third]);
+
+    expect(service.snapshot().context.activeBusinessProfileId).toBe('profile-c');
+  });
+
+  it('propagates a rejected switch instead of emitting a failed state as success', async () => {
+    (service as any).stateSubject.next({
+      ...service.snapshot(),
+      context: {
+        ...service.snapshot().context,
+        availableCompanies: [
+          { id: 'profile-fail', membershipId: 'membership-fail', name: 'Failed', role: 'owner', membershipStatus: 'active', isActive: false }
+        ]
+      }
+    });
+
+    const switchPromise = firstValueFrom(service.switchCompany('profile-fail'));
+    await settleAsync();
+
+    const request = httpMock.expectOne(`${environment.API_URL}/wellar/workspaces/switch`);
+    request.flush({ error: { code: 'FORBIDDEN', message: 'Switch rejected.' } }, { status: 403, statusText: 'Forbidden' });
+
+    await expect(switchPromise).rejects.toMatchObject({ code: 'forbidden', status: 403 });
+    expect(localStorage.getItem('active_business_profile_id')).toBeNull();
+  });
+
+  it('sanitizes mutation failures before publishing them in shared context state', async () => {
+    const result = await firstValueFrom((service as any).handleMutationError(
+      {
+        status: 500,
+        error: { message: 'SQL connection string leaked' },
+        message: 'DirectusException: database unavailable'
+      },
+      'Unable to update organization context.'
+    )) as { error: string | null };
+
+    expect(result.error).toBe('Something went wrong on our end. Please try again later.');
+    expect(result.error).not.toContain('SQL');
+    expect(result.error).not.toContain('Directus');
   });
 });

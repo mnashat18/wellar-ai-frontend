@@ -9,6 +9,7 @@ import {
   type WorkforceIdentity,
 } from '../shared/utils/display-formatters';
 import { protectedFileUrl } from '../shared/utils/protected-file-url';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 import {
   CompanyContextService,
   type CompanyContext,
@@ -531,6 +532,7 @@ type InviteErrorCode =
   | 'ALREADY_MEMBER'
   | 'PERMISSION_DENIED'
   | 'NETWORK_ERROR'
+  | 'TIMEOUT_ERROR'
   | 'SERVER_ERROR';
 @Injectable({ providedIn: 'root' })
 export class OperationsAdminService {
@@ -2136,12 +2138,7 @@ export class OperationsAdminService {
     };
   }
   private buildSectionIssue(error: unknown, fallback: string): CompanyPageIssue {
-    const message =
-      (error as HttpErrorResponse | null)?.error?.errors?.[0]?.extensions?.reason ||
-      (error as HttpErrorResponse | null)?.error?.errors?.[0]?.message ||
-      (error as HttpErrorResponse | null)?.error?.message ||
-      (error as HttpErrorResponse | null)?.message ||
-      fallback;
+    const message = mapSafeError(error).userMessage || fallback;
     return {
       unavailable: true,
       permissionDenied: this.isRelationPermissionError(error),
@@ -2531,7 +2528,7 @@ export class OperationsAdminService {
     }
     const url = `${this.api}/items/${collection}?${params.toString()}`;
     if (collection === 'scan_requests') {
-      console.log('[ScanRequestsDebug] final scan_requests query URL', url);
+      console.log('[ScanRequestsDebug] final scan_requests query prepared');
     }
     return this.http
       .get<{ data?: T[] }>(url, { headers: this.headers(token), withCredentials: true })
@@ -2848,27 +2845,24 @@ export class OperationsAdminService {
   private toCreateInviteError(error: unknown): Error {
     const existing = this.inviteErrorCode(error);
     if (existing) {
-      return error as Error;
+      return this.createInviteError(existing, this.safeInviteErrorMessage(existing));
+    }
+    const safeError = mapSafeError(error);
+    if (safeError.kind === 'timeout') {
+      return this.createInviteError('TIMEOUT_ERROR', 'The invitation request took too long. Please try again.');
+    }
+    if (safeError.kind === 'network') {
+      return this.createInviteError('NETWORK_ERROR', safeError.userMessage);
     }
     if (error instanceof HttpErrorResponse) {
-      const detail = this.directusErrorText(error);
-      if (error.status === 0) {
-        return this.createInviteError('NETWORK_ERROR', 'Network error while sending invite.');
-      }
       if (error.status === 401 || error.status === 403) {
-        return this.createInviteError(
-          'PERMISSION_DENIED',
-          detail || 'You do not have permission to send invites.',
-        );
+        return this.createInviteError('PERMISSION_DENIED', 'You do not have permission to send invites.');
       }
       if (error.status === 409) {
-        return this.createInviteError(
-          'DUPLICATE_INVITE',
-          detail || 'An active invite already exists for this person.',
-        );
+        return this.createInviteError('DUPLICATE_INVITE', 'An active invite already exists for this person.');
       }
-      if (error.status === 400) {
-        return this.createInviteError('INVALID_EMAIL', detail || 'Enter a valid email address.');
+      if (error.status === 400 || error.status === 422) {
+        return this.createInviteError('INVALID_EMAIL', 'Enter a valid email address.');
       }
     }
     const message = error instanceof Error ? error.message : '';
@@ -2882,7 +2876,30 @@ export class OperationsAdminService {
         'Active workspace context is missing.',
       );
     }
-    return this.createInviteError('SERVER_ERROR', 'Failed to send invite.');
+    return this.createInviteError(
+      safeError.kind === 'server' ? 'SERVER_ERROR' : 'SERVER_ERROR',
+      safeError.userMessage,
+    );
+  }
+  private safeInviteErrorMessage(code: InviteErrorCode): string {
+    switch (code) {
+      case 'MISSING_COMPANY_CONTEXT':
+        return 'Active workspace context is missing.';
+      case 'INVALID_EMAIL':
+        return 'Enter a valid email address.';
+      case 'DUPLICATE_INVITE':
+        return 'An active invite already exists for this person.';
+      case 'ALREADY_MEMBER':
+        return 'This person is already a member of the workspace.';
+      case 'PERMISSION_DENIED':
+        return 'You do not have permission to send invites.';
+      case 'NETWORK_ERROR':
+        return 'We could not reach the server. Check your connection and try again.';
+      case 'TIMEOUT_ERROR':
+        return 'The invitation request took too long. Please try again.';
+      case 'SERVER_ERROR':
+        return 'Something went wrong while sending the invite. Please try again.';
+    }
   }
   private createInviteError(code: InviteErrorCode, message: string): Error {
     const error = new Error(message) as Error & { code: InviteErrorCode };
@@ -2901,26 +2918,12 @@ export class OperationsAdminService {
       code === 'ALREADY_MEMBER' ||
       code === 'PERMISSION_DENIED' ||
       code === 'NETWORK_ERROR' ||
+      code === 'TIMEOUT_ERROR' ||
       code === 'SERVER_ERROR'
     ) {
       return code;
     }
     return null;
-  }
-  private directusErrorText(error: HttpErrorResponse): string {
-    const parts = [
-      error.error?.error?.errors?.[0]?.extensions?.reason,
-      error.error?.error?.errors?.[0]?.message,
-      error.error?.error?.message,
-      error.error?.errors?.[0]?.extensions?.reason,
-      error.error?.errors?.[0]?.message,
-      error.error?.message,
-      error.message,
-    ];
-    return parts
-      .map((part) => this.pickString(part))
-      .filter((part): part is string => Boolean(part))
-      .join(' ');
   }
   private inviteManagementFlowPrerequisiteMessage(): string {
     return 'Invitation management requires a server-side invitation flow.';

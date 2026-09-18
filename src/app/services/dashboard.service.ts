@@ -11,6 +11,7 @@ import {
   isUuid,
   sanitizeDisplayValue
 } from '../shared/utils/display-formatters';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 import { type ActiveMemberRole } from '../ia/wellar-ia';
 import { CompanyContextService } from '../core/context/company-context.service';
@@ -410,7 +411,7 @@ export class DashboardService {
         );
       }),
       catchError((error) => {
-        console.warn('[dashboard] recent scans failed', error);
+        console.warn('[dashboard] recent scans failed', mapSafeError(error).kind);
         return of([]);
       })
     );
@@ -889,7 +890,7 @@ export class DashboardService {
       map((response) => response.data ?? []),
       timeout(15000),
       catchError((error) => {
-        console.warn(`[dashboard] ${config.collection} query failed`, error);
+        console.warn(`[dashboard] ${config.collection} query failed`, mapSafeError(error).kind);
         return of([] as T[]);
       })
     );
@@ -1223,20 +1224,7 @@ export class DashboardService {
   }
 
   private describeHttpError(error: unknown, fallback: string): string {
-    const response = error as { status?: number; message?: string; error?: { message?: string; errors?: Array<{ message?: string }> } };
-    const status = typeof response?.status === 'number' ? response.status : null;
-    const nestedMessage = response?.error?.errors?.[0]?.message ?? response?.error?.message ?? response?.message ?? '';
-
-    if (status === 403) {
-      return nestedMessage || 'Forbidden while loading dashboard data.';
-    }
-    if (status === 404) {
-      return nestedMessage || 'Dashboard data collection was not found.';
-    }
-    if (status && status >= 500) {
-      return nestedMessage || `Server error (${status}) while loading dashboard data.`;
-    }
-    return nestedMessage || fallback;
+    return mapSafeError(error).userMessage || fallback;
   }
 
   private httpStatus(error: unknown): number {

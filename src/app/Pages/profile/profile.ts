@@ -8,6 +8,7 @@ import { Observable, of, throwError } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { protectedFileUrl } from '../../shared/utils/protected-file-url';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 import { AuthService } from '../../services/auth';
 import { CompanyContextService } from '../../core/context/company-context.service';
 
@@ -151,15 +152,11 @@ export class Profile implements OnInit {
         this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error('[profile] save error:', err);
-        const apiMessage =
-          err?.error?.errors?.[0]?.message ||
-          err?.error?.errors?.[0]?.extensions?.reason ||
-          err?.message;
+        console.error('[profile] save error:', mapSafeError(err).kind);
         this.saving = false;
         this.saveFeedback = {
           type: 'error',
-          message: apiMessage ? `Failed to update profile: ${apiMessage}` : 'Failed to update profile.'
+          message: mapSafeError(err).userMessage
         };
         this.cdr.detectChanges();
       }
@@ -218,7 +215,7 @@ export class Profile implements OnInit {
         this.cdr.detectChanges();
       },
       error: (err) => {
-        console.error('[profile] load error:', err);
+        console.error('[profile] load error:', mapSafeError(err).kind);
         this.errorMessage = 'Failed to load profile.';
         this.loading = false;
         this.cdr.detectChanges();

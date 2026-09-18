@@ -23,8 +23,8 @@ type SessionReadinessResult = {
 
         <p class="claim-shell__note" *ngIf="loading">{{ statusMessage }}</p>
         <p class="claim-shell__note" *ngIf="loading && statusSubtext">{{ statusSubtext }}</p>
-        <p class="claim-shell__success" *ngIf="!loading && successMessage">{{ successMessage }}</p>
-        <p class="claim-shell__error" *ngIf="!loading && errorMessage">{{ errorMessage }}</p>
+        <p class="claim-shell__success" *ngIf="!loading && successMessage" role="status" aria-live="polite">{{ successMessage }}</p>
+        <p class="claim-shell__error" *ngIf="!loading && errorMessage" role="alert" aria-live="assertive">{{ errorMessage }}</p>
 
         <div class="claim-shell__actions" *ngIf="!loading">
           <button
@@ -153,6 +153,7 @@ export class InviteClaimPageComponent implements OnInit {
   currentInviteToken = '';
   showRetryAction = false;
   showCancelAction = false;
+  private operationGeneration = 0;
   signupQueryParams: Record<string, string> = { invite: '1', auth: 'signup' };
   loginQueryParams: Record<string, string> = { invite: '1', auth: 'login' };
 
@@ -165,10 +166,15 @@ export class InviteClaimPageComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    void this.startClaimFlow();
+    void this.startClaimFlow(this.nextOperationGeneration());
   }
 
   retryClaim(): void {
+    if (this.loading) {
+      return;
+    }
+
+    const generation = this.nextOperationGeneration();
     const token = this.currentInviteToken || this.resolveInviteTokenFromRoute();
     if (token) {
       this.invites.clearClaimAttemptedForToken(token);
@@ -183,23 +189,35 @@ export class InviteClaimPageComponent implements OnInit {
     this.errorMessage = '';
     this.showRetryAction = false;
     this.showCancelAction = false;
-    void this.startClaimFlow();
+    void this.startClaimFlow(generation);
   }
 
   cancelInvitation(): void {
+    const generation = this.nextOperationGeneration();
+    this.postLoginRouting.cancelPendingInviteClaim();
     this.invites.clearPendingInviteToken();
     if (this.currentInviteToken) {
       this.invites.clearClaimAttemptedForToken(this.currentInviteToken);
       this.invites.clearClaimInProgressForToken(this.currentInviteToken);
     }
     this.auth.consumePostAuthRedirect('');
-    void this.router.navigate(['/'], { replaceUrl: true });
+    this.loading = false;
+    void this.router.navigate(['/'], { replaceUrl: true }).then((navigated) => {
+      if (this.isCurrentOperation(generation) && !navigated) {
+        this.errorMessage = 'We could not leave the invitation page. Please try again.';
+        this.showRetryAction = false;
+        this.showCancelAction = true;
+      }
+    });
   }
 
-  private async startClaimFlow(): Promise<void> {
+  private async startClaimFlow(generation: number): Promise<void> {
     this.logInviteClaim('route loaded');
 
     const token = this.resolveInviteTokenFromRoute();
+    if (!this.isCurrentOperation(generation)) {
+      return;
+    }
     this.currentInviteToken = token ?? '';
     if (!token) {
       this.loading = false;
@@ -216,7 +234,10 @@ export class InviteClaimPageComponent implements OnInit {
     this.showRetryAction = false;
     this.showCancelAction = false;
 
-    const authState = await this.resolveAuthStateWithTimeout(this.sessionReadyTimeoutMs);
+    const authState = await this.resolveAuthStateWithTimeout(this.sessionReadyTimeoutMs, generation);
+    if (!this.isCurrentOperation(generation)) {
+      return;
+    }
     this.logInviteClaim('session readiness verification result', {
       status: authState.status,
       hasUser: Boolean(this.currentUser?.['id'])
@@ -228,9 +249,15 @@ export class InviteClaimPageComponent implements OnInit {
 
     try {
       this.logInviteClaim('verified cookie session found, accepting invite');
+      if (!this.isCurrentOperation(generation)) {
+        return;
+      }
       this.statusMessage = 'Joining your workspace...';
       this.statusSubtext = 'We are connecting your account to the organization.';
       const nextRoute = await this.postLoginRouting.resolveDestination();
+      if (!this.isCurrentOperation(generation)) {
+        return;
+      }
       if (nextRoute.startsWith('/invites/claim')) {
         this.loading = false;
         this.statusSubtext = '';
@@ -243,8 +270,22 @@ export class InviteClaimPageComponent implements OnInit {
           : 'Could not accept invitation. Please verify the invitation link and account, then retry.';
         return;
       }
-      await this.router.navigateByUrl(nextRoute, { replaceUrl: true });
+      this.successMessage = 'Invitation accepted. Opening your workspace...';
+      const navigated = await this.router.navigateByUrl(nextRoute, { replaceUrl: true });
+      if (!this.isCurrentOperation(generation)) {
+        return;
+      }
+      if (!navigated) {
+        this.loading = false;
+        this.successMessage = '';
+        this.errorMessage = 'Your invitation was accepted, but we could not open the workspace. Please retry.';
+        this.showRetryAction = true;
+        this.showCancelAction = true;
+      }
     } catch (error) {
+      if (!this.isCurrentOperation(generation)) {
+        return;
+      }
       this.loading = false;
       this.statusSubtext = '';
       const storedError = this.invites.consumeInviteClaimError();
@@ -258,7 +299,8 @@ export class InviteClaimPageComponent implements OnInit {
   }
 
   private async resolveAuthStateWithTimeout(
-    timeoutMs = this.sessionReadyTimeoutMs
+    timeoutMs = this.sessionReadyTimeoutMs,
+    generation = this.operationGeneration
   ): Promise<SessionReadinessResult> {
     this.authLoading = true;
     this.authResolved = false;
@@ -266,6 +308,9 @@ export class InviteClaimPageComponent implements OnInit {
 
     try {
       const currentUserCheck: Promise<SessionReadinessResult> = this.auth.getCurrentUserAfterRestore().then((user) => {
+        if (!this.isCurrentOperation(generation)) {
+          return { status: 'failed' } as SessionReadinessResult;
+        }
         if (user?.id) {
           this.currentUser = user as Record<string, unknown>;
           return { status: 'authenticated' } as SessionReadinessResult;
@@ -280,12 +325,16 @@ export class InviteClaimPageComponent implements OnInit {
         timeoutCheck
       ]);
 
-      this.authLoading = false;
-      this.authResolved = true;
+      if (this.isCurrentOperation(generation)) {
+        this.authLoading = false;
+        this.authResolved = true;
+      }
       return resolved;
     } catch {
-      this.authLoading = false;
-      this.authResolved = true;
+      if (this.isCurrentOperation(generation)) {
+        this.authLoading = false;
+        this.authResolved = true;
+      }
       return { status: 'failed' };
     }
   }
@@ -338,6 +387,15 @@ export class InviteClaimPageComponent implements OnInit {
     this.invites.clearPendingInviteToken();
     this.invites.clearClaimAttemptedForToken(token);
     this.invites.clearClaimInProgressForToken(token);
+  }
+
+  private nextOperationGeneration(): number {
+    this.operationGeneration += 1;
+    return this.operationGeneration;
+  }
+
+  private isCurrentOperation(generation: number): boolean {
+    return generation === this.operationGeneration;
   }
 
   private logInviteClaim(message: string, details?: Record<string, unknown>): void {

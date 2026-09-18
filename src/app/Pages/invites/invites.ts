@@ -10,6 +10,7 @@ import {
   type InviteRow,
   type InvitesPageData
 } from '../../services/operations-admin.service';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 import { DashboardSectionComponent } from '../../shared/ui/dashboard-section/dashboard-section.component';
 import { EmptyStateCtaComponent } from '../../shared/ui/empty-state-cta/empty-state-cta.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
@@ -27,6 +28,11 @@ type InviteForm = {
   email: string;
   member_role: string;
   department: string;
+};
+
+type InviteConfirmation = {
+  action: 'expire' | 'revoke';
+  row: InviteRow;
 };
 
 @Component({
@@ -50,15 +56,20 @@ type InviteForm = {
     EmptyStateCtaComponent,
     ErrorStateComponent
   ],
-  templateUrl: './invites.html'
+  templateUrl: './invites.html',
+  styleUrls: ['./invites.css']
 })
 export class InvitesPageComponent implements OnInit {
   loading = true;
   saving = false;
+  readonly lifecycleActionsAvailable = false;
+  private loadInFlight = false;
+  private readonly busyActionIds = new Set<string>();
   errorMessage = '';
   feedbackMessage = '';
   pageData: InvitesPageData | null = null;
   showCreateModal = false;
+  pendingConfirmation: InviteConfirmation | null = null;
 
   filters = {
     search: '',
@@ -114,6 +125,9 @@ export class InvitesPageComponent implements OnInit {
   }
 
   closeCreateModal(): void {
+    if (this.saving) {
+      return;
+    }
     this.showCreateModal = false;
   }
 
@@ -142,56 +156,85 @@ export class InvitesPageComponent implements OnInit {
       },
       error: (error) => {
         this.saving = false;
-        this.feedbackMessage = error?.message || 'Failed to send invite.';
+        this.feedbackMessage = mapSafeError(error).userMessage;
       }
     });
   }
 
   resendInvite(row: InviteRow): void {
+    if (!this.lifecycleActionsAvailable || this.busyActionIds.has(row.id)) {
+      return;
+    }
+
+    this.busyActionIds.add(row.id);
     this.feedbackMessage = '';
     this.operationsAdmin.resendInvite(row.id).subscribe({
       next: () => {
+        this.busyActionIds.delete(row.id);
         this.feedbackMessage = 'Invite resent.';
         this.loadPage();
       },
       error: (error) => {
-        this.feedbackMessage = error?.message || 'Failed to resend invite.';
+        this.busyActionIds.delete(row.id);
+        this.feedbackMessage = mapSafeError(error).userMessage;
       }
     });
   }
 
   expireInvite(row: InviteRow): void {
-    if (typeof window !== 'undefined' && !window.confirm(`Expire invite for ${row.email || row.phone || 'this invite'}?`)) {
+    if (!this.lifecycleActionsAvailable || this.busyActionIds.has(row.id)) {
       return;
     }
 
+    this.pendingConfirmation = { action: 'expire', row };
+  }
+
+  revokeInvite(row: InviteRow): void {
+    if (!this.lifecycleActionsAvailable || this.busyActionIds.has(row.id)) {
+      return;
+    }
+
+    this.pendingConfirmation = { action: 'revoke', row };
+  }
+
+  cancelConfirmation(): void {
+    if (!this.pendingConfirmation || this.busyActionIds.has(this.pendingConfirmation.row.id)) {
+      return;
+    }
+
+    this.pendingConfirmation = null;
+  }
+
+  confirmInviteAction(): void {
+    const confirmation = this.pendingConfirmation;
+    if (!confirmation || this.busyActionIds.has(confirmation.row.id)) {
+      return;
+    }
+
+    const { action, row } = confirmation;
+    this.busyActionIds.add(row.id);
     this.feedbackMessage = '';
-    this.operationsAdmin.expireInvite(row.id).subscribe({
+    const request$ = action === 'expire'
+      ? this.operationsAdmin.expireInvite(row.id)
+      : this.operationsAdmin.revokeInvite(row.id);
+
+    request$.subscribe({
       next: () => {
-        this.feedbackMessage = 'Invite expired.';
+        this.busyActionIds.delete(row.id);
+        this.pendingConfirmation = null;
+        this.feedbackMessage = action === 'expire' ? 'Invitation expired.' : 'Invitation revoked.';
         this.loadPage();
       },
       error: (error) => {
-        this.feedbackMessage = error?.message || 'Failed to expire invite.';
+        this.busyActionIds.delete(row.id);
+        this.pendingConfirmation = null;
+        this.feedbackMessage = mapSafeError(error).userMessage;
       }
     });
   }
 
-  revokeInvite(row: InviteRow): void {
-    if (typeof window !== 'undefined' && !window.confirm(`Revoke invite for ${row.email || row.phone || 'this invite'}?`)) {
-      return;
-    }
-
-    this.feedbackMessage = '';
-    this.operationsAdmin.revokeInvite(row.id).subscribe({
-      next: () => {
-        this.feedbackMessage = 'Invite revoked.';
-        this.loadPage();
-      },
-      error: (error) => {
-        this.feedbackMessage = error?.message || 'Failed to revoke invite.';
-      }
-    });
+  isActionBusy(row: InviteRow): boolean {
+    return this.busyActionIds.has(row.id);
   }
 
   openClaimedMember(row: InviteRow): void {
@@ -224,14 +267,18 @@ export class InvitesPageComponent implements OnInit {
   }
 
   private loadPage(): void {
+    if (this.loadInFlight) {
+      return;
+    }
+
+    this.loadInFlight = true;
     this.loading = true;
     this.errorMessage = '';
 
     this.operationsAdmin.getInvitesPageData().pipe(
       finalize(() => {
+        this.loadInFlight = false;
         this.loading = false;
-        console.log('invites loading', this.loading);
-        console.log('invites data', this.pageData);
       })
     ).subscribe({
       next: (pageData) => {
@@ -239,7 +286,7 @@ export class InvitesPageComponent implements OnInit {
       },
       error: (error) => {
         this.pageData = null;
-        this.errorMessage = error?.message || 'Failed to load invites.';
+        this.errorMessage = mapSafeError(error).userMessage;
       }
     });
   }

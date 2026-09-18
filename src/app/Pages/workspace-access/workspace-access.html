@@ -141,11 +141,11 @@
             </button>
           </form>
 
-          <p class="workspace-access-page__invite-error" *ngIf="inviteClaimMessage">
+          <p class="workspace-access-page__invite-error" *ngIf="inviteClaimMessage" role="alert" aria-live="assertive" aria-atomic="true">
             {{ inviteClaimMessage }}
           </p>
 
-          <p class="workspace-access-page__invite-error" *ngIf="inviteCodeError">
+          <p class="workspace-access-page__invite-error" *ngIf="inviteCodeError" role="alert" aria-live="assertive" aria-atomic="true">
             {{ inviteCodeError }}
           </p>
 
@@ -253,9 +253,6 @@
 
                 <p class="workspace-access-page__invite-error" *ngIf="createCompanyError">
                   {{ createCompanyError }}
-                  <span class="workspace-access-page__error-code" *ngIf="createCompanyErrorCode">
-                    [{{ createCompanyErrorCode }}]
-                  </span>
                 </p>
 
                 <p class="workspace-access-page__success" *ngIf="createCompanySuccessMessage">

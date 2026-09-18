@@ -8,6 +8,7 @@ import { InviteService } from '../../services/invites';
 import { PostAuthWelcomeService } from '../../services/post-auth-welcome.service';
 import { PostLoginRoutingService } from '../../services/post-login-routing.service';
 import { switchMap } from 'rxjs/operators';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   selector: 'app-signup',
@@ -26,6 +27,7 @@ export class SignupComponent implements OnInit {
   loading = false;
   inviteMode = false;
   authNotice = '';
+  errorMessage = '';
 
   private pendingInviteToken: string | null = null;
 
@@ -62,12 +64,13 @@ export class SignupComponent implements OnInit {
   }
 
   signup(form: NgForm) {
-    if (form.invalid || this.passwordMismatch) {
+    if (this.loading || form.invalid || this.passwordMismatch) {
       return;
     }
 
     this.syncInviteContext();
     this.loading = true;
+    this.errorMessage = '';
     const normalizedEmail = this.email.trim();
 
     this.auth.signup({
@@ -98,23 +101,29 @@ export class SignupComponent implements OnInit {
           }
           await this.router.navigateByUrl(nextRoute || '/app/workspace-access', { replaceUrl: true });
         } catch {
-          this.authNotice = 'Unable to continue after signup. Please sign in again.';
+          this.errorMessage = 'Unable to continue after signup. Please sign in again.';
         }
       },
       error: (err: any) => {
         this.loading = false;
         if (err?.status === 409) {
-          alert('This email is already registered.');
+          this.errorMessage = 'This email is already registered.';
           return;
         }
-        alert('Signup failed');
-        console.error(err);
+        this.errorMessage = mapSafeError(err).userMessage;
+        console.error('[Signup] submit failed', mapSafeError(err).kind);
       }
     });
   }
 
   continueWithGoogle() {
+    if (this.loading) {
+      return;
+    }
+
     this.syncInviteContext();
+    this.loading = true;
+    this.errorMessage = '';
     if (this.pendingInviteToken) {
       this.invites.setPendingInviteToken(this.pendingInviteToken);
       this.auth.setPostAuthRedirect(

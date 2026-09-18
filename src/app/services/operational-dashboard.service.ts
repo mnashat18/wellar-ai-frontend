@@ -15,6 +15,7 @@ import {
   sanitizeDisplayValue
 } from '../shared/utils/display-formatters';
 import { isScanEligibleRole } from '../shared/utils/scan-eligibility';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 export type DashboardSectionState<T> = {
   items: T[];
@@ -750,7 +751,7 @@ export class OperationalDashboardService {
     if (environment.production) {
       return;
     }
-    console.warn(`[dashboard] ${collection} query failed`, error);
+    console.warn(`[dashboard] ${collection} query failed`, mapSafeError(error).kind);
   }
 
   private isFieldOrPermissionError(error: unknown): boolean {

@@ -1,8 +1,10 @@
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, catchError, defer, map, switchMap, throwError } from 'rxjs';
+import { timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 import { AuthService } from './auth';
 
 export type ClaimInviteResponse = {
@@ -60,6 +62,7 @@ export type ClaimInviteErrorKind =
   | 'wrong-email'
   | 'already-member'
   | 'network'
+  | 'timeout'
   | 'invalid-response'
   | 'flow-failed'
   | 'unknown';
@@ -85,6 +88,7 @@ const INVITE_CLAIM_ERROR_KEY = 'invite_claim_error';
 const INVITE_CLAIM_COMPLETED_KEY = 'invite_claim_completed';
 const INVITE_CLAIM_SUCCESS_PREFIX = 'invite_claim_success_';
 const INVITE_CLAIM_IN_PROGRESS_PREFIX = 'invite_claim_in_progress_';
+const INVITE_REQUEST_TIMEOUT_MS = 15000;
 
 @Injectable({ providedIn: 'root' })
 export class InviteService {
@@ -122,6 +126,7 @@ export class InviteService {
           withCredentials: true
         }
       ).pipe(
+        timeout(INVITE_REQUEST_TIMEOUT_MS),
         map((response) => {
           const normalized = this.normalizeClaimResponse(response);
           this.debugFlow('claim success', { memberRole: normalized.memberRole });
@@ -147,6 +152,7 @@ export class InviteService {
           withCredentials: true
         }
       ).pipe(
+        timeout(INVITE_REQUEST_TIMEOUT_MS),
         map((response) => this.normalizeInviteDetail(response))
       );
     }).pipe(
@@ -179,26 +185,19 @@ export class InviteService {
     }
 
     const status = this.extractStatus(error);
-    const detail = this.extractInviteErrorDetail(error);
-    const readableMessage = this.getReadableInviteError(error);
+    const detail = this.extractRawInviteErrorDetail(error);
     const kind = this.classifyClaimError(error, status, detail);
+    const readableMessage = this.getSafeInviteErrorMessage(kind, error);
 
-    // Build on top of the original error so that downstream helpers reading
-    // `error.error.errors[0]...`, `error.status`, or `error.message` still work.
     const typed = new Error(readableMessage) as ClaimInviteError;
     typed.name = 'ClaimInviteError';
     typed.isClaimInviteError = true;
     typed.kind = kind;
     typed.status = status;
-    typed.detail = detail;
+    typed.detail = readableMessage;
     typed.readableMessage = readableMessage;
     typed.original = error;
 
-    // Preserve the raw Directus/HTTP shape for the existing detail extractors.
-    const rawErrorBody = (error as { error?: unknown })?.error;
-    if (rawErrorBody !== undefined) {
-      (typed as unknown as { error: unknown }).error = rawErrorBody;
-    }
     if (status) {
       (typed as unknown as { status: number }).status = status;
     }
@@ -231,6 +230,13 @@ export class InviteService {
     if (this.isAlreadyClaimedError(error)) {
       return 'already-claimed';
     }
+    const safeKind = mapSafeError(error).kind;
+    if (safeKind === 'timeout') {
+      return 'timeout';
+    }
+    if (safeKind === 'network') {
+      return 'network';
+    }
     if (status === 401 || status === 403) {
       return 'permission';
     }
@@ -253,6 +259,9 @@ export class InviteService {
     }
     if (normalizedDetail.includes('already a member')) {
       return 'already-member';
+    }
+    if (status === 404) {
+      return 'not-found';
     }
     // Reached when normalizeClaimResponse rejected an unexpected/non-ok payload.
     if (!status && (message.includes('could not accept invite') || normalizedDetail)) {
@@ -587,7 +596,11 @@ export class InviteService {
   }
 
   isAlreadyClaimedError(error: unknown): boolean {
-    const normalized = (this.extractInviteErrorDetail(error) ?? '').toLowerCase();
+    if (this.isClaimInviteError(error)) {
+      return error.kind === 'already-claimed';
+    }
+
+    const normalized = (this.extractRawInviteErrorDetail(error) ?? '').toLowerCase();
     return (
       (normalized.includes('not pending') && normalized.includes('claimed')) ||
       (normalized.includes('already') &&
@@ -596,6 +609,10 @@ export class InviteService {
   }
 
   extractInviteErrorDetail(error: unknown): string | null {
+    return this.getReadableInviteError(error);
+  }
+
+  private extractRawInviteErrorDetail(error: unknown): string | null {
     return this.pickString(
       (error as { error?: { errors?: Array<{ message?: unknown; extensions?: { reason?: unknown } }>; message?: unknown }; message?: unknown })?.error?.errors?.[0]?.extensions?.reason
     ) ??
@@ -608,40 +625,44 @@ export class InviteService {
   }
 
   getReadableInviteError(error: unknown): string {
+    if (this.isClaimInviteError(error)) {
+      return error.readableMessage;
+    }
+
     const status = typeof (error as { status?: unknown })?.status === 'number'
       ? (error as { status: number }).status
       : 0;
-    const detail = this.extractInviteErrorDetail(error);
+    const detail = this.extractRawInviteErrorDetail(error);
+    const kind = this.classifyClaimError(error, status, detail);
+    return this.getSafeInviteErrorMessage(kind, error);
+  }
 
-    if (status === 401 || status === 403) {
-      return 'This invite was sent to another email.';
+  private getSafeInviteErrorMessage(kind: ClaimInviteErrorKind, error: unknown): string {
+    switch (kind) {
+      case 'missing-token':
+        return 'Invite token is missing.';
+      case 'not-authenticated':
+        return 'Please sign in first.';
+      case 'permission':
+      case 'wrong-email':
+        return 'This invite was sent to another email.';
+      case 'not-found':
+        return 'Invite not found.';
+      case 'expired':
+        return 'Invite expired.';
+      case 'already-claimed':
+        return 'Invite already used.';
+      case 'already-member':
+        return 'You are already a member of this workspace.';
+      case 'configuration':
+        return 'We could not process this invitation right now.';
+      case 'network':
+      case 'timeout':
+      case 'unknown':
+      case 'invalid-response':
+      case 'flow-failed':
+        return mapSafeError(error).userMessage;
     }
-
-    const normalized = (detail ?? '').toLowerCase();
-    if (normalized.includes('missing') && normalized.includes('token')) {
-      return 'Invite token is missing.';
-    }
-    if (normalized.includes('not found') || normalized.includes('invalid')) {
-      return 'Invite not found.';
-    }
-    if (normalized.includes('expired')) {
-      return 'Invite expired.';
-    }
-    if (this.isAlreadyClaimedError(error)) {
-      return 'Invite already used.';
-    }
-    if (
-      normalized.includes('another email') ||
-      normalized.includes('different email') ||
-      normalized.includes('sent to another email')
-    ) {
-      return 'This invite was sent to another email.';
-    }
-    if (normalized.includes('already a member')) {
-      return 'You are already a member of this workspace.';
-    }
-
-    return detail ?? 'Could not accept invite.';
   }
 
   private resolveClaimInviteEndpoint(): string {
@@ -691,6 +712,7 @@ export class InviteService {
         }
         );
       })).pipe(
+        timeout(INVITE_REQUEST_TIMEOUT_MS),
         map((response) => this.normalizeInviteActionResponse(response))
       );
     }).pipe(

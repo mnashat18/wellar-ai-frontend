@@ -14,6 +14,7 @@ function createFakeRouter() {
   const handlers = new Map();
   return {
     handlers,
+    use() {},
     get(path, handler) {
       handlers.set(`GET ${path}`, handler);
     },
@@ -338,10 +339,12 @@ function createFakeDatabase(scenario) {
   return database;
 }
 
-function mountEndpoint(database, routeErrors = []) {
+function mountEndpoint(database, routeErrors = [], services = {}) {
   const router = createFakeRouter();
   wellarEndpoint.handler(router, {
     database,
+    getSchema: async () => ({ version: 'test-schema' }),
+    services,
     logger: {
       error(meta, message) {
         routeErrors.push({ meta, message });
@@ -729,55 +732,154 @@ await withRoleEnv(async () => {
     },
   });
 
-  const fetchCalls = [];
-  const originalFetch = globalThis.fetch;
-  globalThis.fetch = async (url, options) => {
-    fetchCalls.push({ url, options });
-    const payload = JSON.parse(options.body);
-    const invite = {
-      id: 'invite-external',
-      ...payload,
-      company_name: 'Northwind Logistics',
-    };
-    database.state.invitesById[invite.id] = invite;
-    database.state.pendingInvites.push(invite);
-    return {
-      ok: true,
-      status: 201,
-      json: async () => ({ data: { id: invite.id } }),
-    };
+  const serviceCalls = [];
+  const inviteService = class {
+    constructor(collection, options) {
+      serviceCalls.push({ type: 'constructor', collection, options });
+    }
+
+    async createOne(payload) {
+      serviceCalls.push({ type: 'createOne', payload });
+      const invite = {
+        id: 'invite-external',
+        ...payload,
+        company_name: 'Northwind Logistics',
+      };
+      database.state.invitesById[invite.id] = invite;
+      database.state.pendingInvites.push(invite);
+      return invite.id;
+    }
   };
 
-  try {
-    const handlers = mountEndpoint(database);
-    const createInvite = handlers.get('POST /workspaces/invites');
-    const response = createFakeResponse();
-    await createInvite(routePayload(null, 'user-owner', 'external@example.com'), response);
+  const handlers = mountEndpoint(database, [], { ItemsService: inviteService });
+  const createInvite = handlers.get('POST /workspaces/invites');
+  const response = createFakeResponse();
+  await createInvite(
+    {
+      ...routePayload(null, 'user-owner', 'external@example.com'),
+      accountability: { user: 'user-owner', role: 'owner' },
+    },
+    response,
+  );
 
-    assert.equal(response.statusCode, 201);
-    assert.equal(response.body.data.deliveryChannel, 'email');
-    assert.equal(response.body.data.message, 'Email invitation sent.');
-    assert.equal(fetchCalls.length, 1);
-    assert.equal(
-      database.state.calls.filter(
-        (call) => call.table === 'notifications' && call.type === 'insert',
-      ).length,
-      0,
-    );
-    assert.equal(
-      database.state.calls.filter(
-        (call) => call.table === 'request_invites' && call.type === 'insert',
-      ).length,
-      0,
-    );
+  assert.equal(response.statusCode, 201);
+  assert.equal(response.body.data.deliveryChannel, 'email');
+  assert.equal(response.body.data.message, 'Email invitation sent.');
+  assert.equal(serviceCalls.length, 2);
+  assert.deepEqual(serviceCalls[0], {
+    type: 'constructor',
+    collection: 'request_invites',
+    options: { schema: { version: 'test-schema' }, accountability: { user: 'user-owner', role: 'owner' } },
+  });
+  assert.equal(serviceCalls[1].type, 'createOne');
+  assert.deepEqual(serviceCalls[1].payload, {
+    email: 'external@example.com',
+    member_role: 'manager',
+    business_profile: 'profile-1',
+    requested_by_user: 'user-owner',
+    invite_type: 'email',
+    status: 'pending',
+    department: 'department-1',
+  });
+  assert.equal(
+    database.state.calls.filter(
+      (call) => call.table === 'notifications' && call.type === 'insert',
+    ).length,
+    0,
+  );
+  assert.equal(
+    database.state.calls.filter(
+      (call) => call.table === 'request_invites' && call.type === 'insert',
+    ).length,
+    0,
+  );
 
-    const duplicateExternal = createFakeResponse();
-    await createInvite(routePayload(null, 'user-owner', 'external@example.com'), duplicateExternal);
-    assert.equal(duplicateExternal.statusCode, 200);
-    assert.equal(fetchCalls.length, 1);
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
+  const duplicateExternal = createFakeResponse();
+  await createInvite(routePayload(null, 'user-owner', 'external@example.com'), duplicateExternal);
+  assert.equal(duplicateExternal.statusCode, 200);
+  assert.equal(serviceCalls.length, 2);
+});
+
+await withRoleEnv(async () => {
+  const database = createFakeDatabase({
+    activeMemberships: [],
+  });
+  const handlers = mountEndpoint(database, [], { ItemsService: class {} });
+  const createInvite = handlers.get('POST /workspaces/invites');
+  const response = createFakeResponse();
+  await createInvite(routePayload(null, null, 'unauthenticated@example.com'), response);
+  assert.equal(response.statusCode, 401);
+});
+
+await withRoleEnv(async () => {
+  const database = createFakeDatabase({
+    usersById: {
+      'user-manager': {
+        id: 'user-manager',
+        email: 'manager@example.com',
+      },
+    },
+    activeMemberships: [
+      {
+        id: 'membership-manager',
+        user: 'user-manager',
+        status: 'active',
+        member_role: 'manager',
+        workspace_id: 'profile-1',
+        department_id: 'department-1',
+        department_match_id: 'department-1',
+        department_business_profile: 'profile-1',
+        department_is_active: true,
+        company_name: 'Northwind Logistics',
+        workspace_is_active: true,
+      },
+    ],
+    departments: {
+      'department-1': {
+        id: 'department-1',
+        name: 'Operations',
+        is_active: true,
+        business_profile: 'profile-1',
+      },
+    },
+  });
+  const handlers = mountEndpoint(database, [], { ItemsService: class {} });
+  const createInvite = handlers.get('POST /workspaces/invites');
+  const response = createFakeResponse();
+  await createInvite(routePayload(null, 'user-manager', 'unauthorized@example.com'), response);
+  assert.equal(response.statusCode, 403);
+});
+
+await withRoleEnv(async () => {
+  const database = createFakeDatabase({
+    activeMemberships: [
+      {
+        id: 'membership-owner',
+        user: 'user-owner',
+        status: 'active',
+        member_role: 'owner',
+        workspace_id: 'profile-1',
+        department_id: null,
+        company_name: 'Northwind Logistics',
+        workspace_is_active: true,
+      },
+    ],
+  });
+  const handlers = mountEndpoint(database, [], { ItemsService: class {} });
+  const createInvite = handlers.get('POST /workspaces/invites');
+  const response = createFakeResponse();
+  await createInvite(
+    {
+      accountability: { user: 'user-owner' },
+      body: {
+        email: 'cross-workspace@example.com',
+        member_role: 'employee',
+        business_profile: 'profile-2',
+      },
+    },
+    response,
+  );
+  assert.equal(response.statusCode, 400);
 });
 
 await withRoleEnv(async () => {

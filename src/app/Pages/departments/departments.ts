@@ -19,6 +19,7 @@ import { PageActionBarComponent } from '../../shared/ui/page-action-bar/page-act
 import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge.component';
 import { CardSkeletonLoaderComponent } from '../../shared/ui/card-skeleton-loader/card-skeleton-loader.component';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 type DepartmentForm = {
   name: string;
@@ -245,7 +246,7 @@ export class DepartmentsPageComponent implements OnInit {
       },
       error: (error) => {
         this.pageData = null;
-        this.errorMessage = error?.message || 'Failed to load departments.';
+        this.errorMessage = mapSafeError(error).userMessage;
       }
     });
   }
@@ -287,30 +288,7 @@ export class DepartmentsPageComponent implements OnInit {
   }
 
   private toDepartmentErrorMessage(error: unknown, fallback: string): string {
-    const anyError = error as {
-      error?: {
-        errors?: Array<{ extensions?: { reason?: string }; message?: string }>;
-        message?: string;
-      };
-      message?: string;
-    };
-    const message =
-      anyError?.error?.errors?.[0]?.extensions?.reason ||
-      anyError?.error?.errors?.[0]?.message ||
-      anyError?.error?.message ||
-      anyError?.message ||
-      fallback;
-    const normalized = String(message || '').toLowerCase();
-    if (normalized.includes('departments') && normalized.includes('business_profile') && normalized.includes('unique')) {
-      return 'Remove unique constraint from departments.business_profile because a company must have many departments.';
-    }
-    const normalizedFallback = fallback || 'Department change could not be completed.';
-    if (normalized.includes('selected manager is not eligible')) {
-      return 'Selected manager is not eligible for this department.';
-    }
-    if (normalized.includes('owner or hr') || normalized.includes('permission') || normalized.includes('forbidden')) {
-      return 'Only Owner or HR can manage departments.';
-    }
-    return normalizedFallback;
+    const mapped = mapSafeError(error);
+    return mapped.userMessage || fallback || 'Department change could not be completed.';
   }
 }

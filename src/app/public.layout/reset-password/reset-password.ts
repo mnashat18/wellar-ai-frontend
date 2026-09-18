@@ -11,6 +11,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { catchError, defer, finalize, of, timeout } from 'rxjs';
 
 import { AuthService } from '../../services/auth';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   selector: 'app-reset-password',
@@ -180,8 +181,11 @@ export class ResetPasswordComponent implements OnDestroy {
         this.submitting = false;
         this.cdr.markForCheck();
       }),
-      catchError(() => {
-        this.feedback = this.invalidTokenMessage;
+      catchError((error) => {
+        const mapped = mapSafeError(error);
+        this.feedback = this.isInvalidResetTokenFailure(mapped.kind)
+          ? this.invalidTokenMessage
+          : mapped.userMessage;
         this.cdr.markForCheck();
         return of('__reset_failed__');
       })
@@ -252,7 +256,7 @@ export class ResetPasswordComponent implements OnDestroy {
         if (this.isEnumerationSafeRequestError(error)) {
           this.applyRequestSuccess(normalizedEmail);
         } else {
-          this.applyRequestFailure();
+          this.applyRequestFailure(mapSafeError(error).userMessage);
         }
       }
     });
@@ -272,11 +276,15 @@ export class ResetPasswordComponent implements OnDestroy {
     this.cdr.markForCheck();
   }
 
-  private applyRequestFailure(): void {
+  private applyRequestFailure(message = 'Unable to send a reset link right now. Please try again.'): void {
     this.submitting = false;
     this.requestView = 'form';
-    this.requestError = 'Unable to send a reset link right now. Please try again.';
+    this.requestError = message;
     this.cdr.markForCheck();
+  }
+
+  private isInvalidResetTokenFailure(kind: string): boolean {
+    return kind === 'authentication' || kind === 'validation' || kind === 'not_found';
   }
 
   private maskEmail(value: string): string {
@@ -293,7 +301,8 @@ export class ResetPasswordComponent implements OnDestroy {
   }
 
   private isEnumerationSafeRequestError(error: any): boolean {
-    const status = typeof error?.status === 'number' ? error.status : 0;
+    const mapped = mapSafeError(error);
+    const status = mapped.status ?? 0;
     const message = (
       error?.error?.errors?.[0]?.extensions?.reason ||
       error?.error?.errors?.[0]?.message ||

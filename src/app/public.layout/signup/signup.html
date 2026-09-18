@@ -27,12 +27,14 @@
       <h2>Sign up</h2>
       <p class="auth-subtitle" *ngIf="!inviteMode">Start your workspace and move into the command center.</p>
       <p class="auth-subtitle" *ngIf="inviteMode">You were invited to join a Wellar AI workspace. Sign in or create an account to continue.</p>
-      <p class="auth-subtitle" *ngIf="authNotice">{{ authNotice }}</p>
+      <p class="auth-subtitle" *ngIf="authNotice" role="status" aria-live="polite">{{ authNotice }}</p>
+      <p class="auth-subtitle error" *ngIf="errorMessage" role="alert" aria-live="assertive" aria-atomic="true">{{ errorMessage }}</p>
 
       <form #signupForm="ngForm" (ngSubmit)="signup(signupForm)" novalidate class="auth-form-grid">
         <div class="field">
-          <label class="label">First Name</label>
+          <label class="label" for="signup-first-name">First Name</label>
           <input
+            id="signup-first-name"
             name="firstName"
             type="text"
             minlength="2"
@@ -47,8 +49,9 @@
         </div>
 
         <div class="field">
-          <label class="label">Last Name</label>
+          <label class="label" for="signup-last-name">Last Name</label>
           <input
+            id="signup-last-name"
             name="lastName"
             type="text"
             minlength="2"
@@ -63,8 +66,9 @@
         </div>
 
         <div class="field">
-          <label class="label">Email</label>
+          <label class="label" for="signup-email">Email</label>
           <input
+            id="signup-email"
             name="email"
             type="email"
             required
@@ -79,8 +83,9 @@
         </div>
 
         <div class="field">
-          <label class="label">Password</label>
+          <label class="label" for="signup-password">Password</label>
           <input
+            id="signup-password"
             name="password"
             type="password"
             minlength="6"
@@ -95,8 +100,9 @@
         </div>
 
         <div class="field">
-          <label class="label">Confirm Password</label>
+          <label class="label" for="signup-confirm-password">Confirm Password</label>
           <input
+            id="signup-confirm-password"
             name="confirmPassword"
             type="password"
             required
@@ -117,14 +123,14 @@
         <span>OR</span>
       </div>
 
-      <button type="button" class="google-btn" (click)="continueWithGoogle()">
+      <button type="button" class="google-btn" (click)="continueWithGoogle()" [disabled]="loading">
         <svg class="google-icon" viewBox="0 0 48 48" aria-hidden="true">
           <path fill="#EA4335" d="M24 9.5c3.3 0 6.2 1.1 8.5 3.1l6.3-6.3C34.7 2.5 29.7.5 24 .5 14.6.5 6.4 6.1 2.6 14.1l7.3 5.7C11.7 13.5 17.4 9.5 24 9.5z"/>
           <path fill="#34A853" d="M46.5 24.5c0-1.7-.2-3.3-.6-4.8H24v9.2h12.6c-.5 2.8-2.1 5.1-4.4 6.6l7 5.4c4.1-3.8 6.3-9.3 6.3-16.4z"/>
           <path fill="#4A90E2" d="M9.9 28.8c-.5-1.5-.8-3-.8-4.8s.3-3.3.8-4.8l-7.3-5.7C.8 17.3 0 20.5 0 24c0 3.5.8 6.7 2.6 9.5l7.3-4.7z"/>
           <path fill="#FBBC05" d="M24 47.5c5.7 0 10.6-1.9 14.1-5.1l-7-5.4c-2 1.3-4.5 2.1-7.1 2.1-6.6 0-12.3-4-14.1-9.7l-7.3 4.7c3.8 8 12 13.4 21.4 13.4z"/>
         </svg>
-        Continue with Google
+        {{ loading ? 'Continuing...' : 'Continue with Google' }}
       </button>
 
       <p class="auth-note">

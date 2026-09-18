@@ -2,10 +2,11 @@ import { CommonModule } from '@angular/common';
 import { Component, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterModule } from '@angular/router';
-import { catchError, of, switchMap, take } from 'rxjs';
+import { EMPTY, catchError, finalize, of, switchMap, take } from 'rxjs';
 
 import { AuthService } from '../../services/auth';
 import { WorkspaceApplicationsService } from '../../services/workspace-applications.service';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 type CompanySetupForm = {
   companyName: string;
@@ -337,24 +338,25 @@ export class CompanySetupPageComponent implements OnInit {
       this.currentUserId
     ).pipe(
       catchError((error) => {
-        this.statusMessage = this.normalizeError(error, 'We could not submit the workspace request.');
-        return of(null);
+        this.statusMessage = mapSafeError(error).userMessage;
+        return EMPTY;
+      }),
+      finalize(() => {
+        this.submitting = false;
       })
     ).subscribe({
       next: (result) => {
-        this.submitting = false;
-        if (!result) {
-          if (!this.statusMessage) {
-            this.statusMessage = 'We could not submit the workspace request.';
-          }
+        if (!result?.id) {
+          this.statusMessage = 'We could not confirm the workspace request. Please try again.';
           return;
         }
 
+        this.statusMessage = 'Workspace request submitted. Redirecting...';
         this.router.navigateByUrl('/app/workspace-access');
       },
       error: (error) => {
         this.submitting = false;
-        this.statusMessage = this.normalizeError(error, 'We could not submit the workspace request.');
+        this.statusMessage = mapSafeError(error).userMessage;
       }
     });
   }
@@ -377,13 +379,4 @@ export class CompanySetupPageComponent implements OnInit {
     return trimmed ? trimmed : null;
   }
 
-  private normalizeError(error: any, fallback: string): string {
-    return (
-      error?.error?.errors?.[0]?.extensions?.reason ||
-      error?.error?.errors?.[0]?.message ||
-      error?.error?.message ||
-      error?.message ||
-      fallback
-    );
-  }
 }

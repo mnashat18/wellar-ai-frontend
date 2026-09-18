@@ -123,14 +123,16 @@ describe('WorkforcePageComponent', () => {
   });
 
   it('exits loading and shows a retryable error when the roster request fails', async () => {
-    rosterResponse$ = throwError(() => ({ status: 503, error: { message: 'Unavailable' } }));
+    rosterResponse$ = throwError(() => ({ status: 503, error: { message: 'SQL connection string leaked' } }));
 
     fixture.detectChanges();
     await fixture.whenStable();
     fixture.detectChanges();
 
     expect(component.viewState).toBe('error');
-    expect(component.errorMessage).toBeTruthy();
+    expect(component.errorMessage).toBe('Something went wrong on our end. Please try again later.');
+    expect(component.errorMessage).not.toContain('SQL connection string leaked');
+    expect(component.errorDetails).toBe('');
   });
 
   it('keeps the workforce shell horizontally contained while the roster can scroll locally', async () => {

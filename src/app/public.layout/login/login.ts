@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth';
 import { InviteService } from '../../services/invites';
 import { PostAuthWelcomeService } from '../../services/post-auth-welcome.service';
 import { PostLoginRoutingService } from '../../services/post-login-routing.service';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   selector: 'app-login',
@@ -21,6 +22,7 @@ export class LoginComponent implements OnInit {
   loading = false;
   inviteMode = false;
   authNotice = '';
+  errorMessage = '';
 
   private pendingInviteToken: string | null = null;
 
@@ -62,12 +64,13 @@ export class LoginComponent implements OnInit {
   }
 
   login() {
-    if (!this.email || !this.password) {
+    if (this.loading || !this.email || !this.password) {
       return;
     }
 
     this.syncInviteContext();
     this.loading = true;
+    this.errorMessage = '';
 
     this.auth.login(this.email, this.password).subscribe({
       next: async () => {
@@ -90,24 +93,30 @@ export class LoginComponent implements OnInit {
           }
           await this.router.navigateByUrl(nextRoute || '/app/workspace-access', { replaceUrl: true });
         } catch {
-          this.authNotice = 'Unable to continue after login. Please try again.';
+          this.errorMessage = 'Unable to continue after login. Please try again.';
         }
       },
       error: (err) => {
         this.loading = false;
 
         if (err?.status === 401) {
-          alert('Please verify your email before logging in.');
+          this.errorMessage = 'Please verify your email before logging in.';
           return;
         }
 
-        alert('Login failed');
+        this.errorMessage = mapSafeError(err).userMessage;
       }
     });
   }
 
   continueWithGoogle() {
+    if (this.loading) {
+      return;
+    }
+
     this.syncInviteContext();
+    this.loading = true;
+    this.errorMessage = '';
     if (this.pendingInviteToken) {
       this.invites.setPendingInviteToken(this.pendingInviteToken);
       this.auth.setPostAuthRedirect(

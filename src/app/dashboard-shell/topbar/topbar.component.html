@@ -1,5 +1,21 @@
-<header class="app-header__panel" style="width: 100%; justify-content: flex-end;">
+<header class="app-header__panel" style="width: 100%; justify-content: flex-end;" aria-label="Workspace header">
+  <div class="app-header__context">
+    <div class="app-header__context-mark" aria-hidden="true"></div>
+    <div class="app-header__context-copy">
+      <p class="app-header__eyebrow">Current workspace</p>
+      <p class="app-header__page-title">{{ pageTitle }}</p>
+      <p class="app-header__description" *ngIf="pageDescription">{{ pageDescription }}</p>
+    </div>
+  </div>
+
   <div class="app-header__actions app-header__actions--compact">
+    <div *ngIf="state$ | async as state" class="app-header__workspace-context">
+      <span class="app-header__workspace-label">Workspace</span>
+      <strong aria-live="polite">{{ state.context.activeBusinessProfileName || 'Loading workspace...' }}</strong>
+    </div>
+    <a class="app-header__account-link" routerLink="/app/settings" aria-label="Open account settings">
+      Account
+    </a>
     <app-global-notifications-panel></app-global-notifications-panel>
   </div>
 </header>

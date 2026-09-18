@@ -65,6 +65,23 @@ describe('AuthService', () => {
       'We couldn’t complete sign-in. Please try again.'
     );
   });
+
+  it('persists only a safe message for technical login failures', async () => {
+    const loginPromise = firstValueFrom(service.login('owner@example.com', 'WrongPassword123'));
+
+    httpMock.expectOne((req) => req.url.endsWith('/auth/login')).flush(
+      { error: { message: 'DirectusException SQLSTATE[28000] token=secret' } },
+      { status: 500, statusText: 'Server Error' }
+    );
+
+    await expect(loginPromise).rejects.toMatchObject({ status: 500 });
+    expect(localStorage.getItem('auth_error')).toBe(
+      'Something went wrong on our end. Please try again later.'
+    );
+    expect(localStorage.getItem('auth_error')).not.toContain('DirectusException');
+    expect(localStorage.getItem('auth_error')).not.toContain('token=secret');
+  });
+
   it('fails login when the current user cannot be resolved after auth/login succeeds', async () => {
     const loginPromise = firstValueFrom(service.login('owner@example.com', 'WrongPassword123'));
 
@@ -80,6 +97,35 @@ describe('AuthService', () => {
     );
 
     await expect(loginPromise).rejects.toMatchObject({ status: 401 });
+    expect(service.isSessionEstablished()).toBe(false);
+    expect(sessionStorage.getItem('is_logged_in')).toBeNull();
+  });
+
+  it('clears authentication state when /users/me returns an incomplete identity', async () => {
+    const loginPromise = firstValueFrom(service.login('owner@example.com', 'CorrectPassword123'));
+
+    httpMock.expectOne((req) => req.url.endsWith('/auth/login')).flush({ data: {} });
+    httpMock.expectOne((req) => req.url.endsWith('/users/me')).flush({ data: {} });
+
+    await expect(loginPromise).rejects.toMatchObject({ status: 401 });
+    expect(service.isSessionEstablished()).toBe(false);
+    expect(sessionStorage.getItem('is_logged_in')).toBeNull();
+  });
+
+  it('clears a previously established session when login verification fails', async () => {
+    (service as unknown as { sessionEstablished: boolean }).sessionEstablished = true;
+    localStorage.setItem('user_email', 'stale@example.com');
+    sessionStorage.setItem('is_logged_in', '1');
+
+    const loginPromise = firstValueFrom(service.login('owner@example.com', 'CorrectPassword123'));
+
+    httpMock.expectOne((req) => req.url.endsWith('/auth/login')).flush({ data: {} });
+    httpMock.expectOne((req) => req.url.endsWith('/users/me')).error(new ProgressEvent('error'));
+
+    await expect(loginPromise).rejects.toBeTruthy();
+    expect(service.isSessionEstablished()).toBe(false);
+    expect(localStorage.getItem('user_email')).toBeNull();
+    expect(sessionStorage.getItem('is_logged_in')).toBeNull();
   });
 
   it('times out login requests after the bounded auth timeout', async () => {

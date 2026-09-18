@@ -21,6 +21,7 @@ import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.com
 import { TableShellComponent } from '../../shared/ui/table-shell/table-shell.component';
 import { TableSkeletonLoaderComponent } from '../../shared/ui/table-skeleton-loader/table-skeleton-loader.component';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 type PageState = 'loading' | 'ready' | 'error' | 'scopeUnavailable';
 type FeedbackType = 'success' | 'error' | 'info';
 type QueueStatus = 'pending' | 'completed' | 'overdue' | 'expired' | 'cancelled' | 'failed';
@@ -652,19 +653,19 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
     return 'scan-request-status scan-request-status--pending';
   }
   private resolveLoadErrorMessage(error: unknown): string {
-    const status = (error as { status?: number } | null)?.status ?? 0;
-    const message = (error as { message?: string } | null)?.message ?? '';
-    if (message.toLowerCase().includes('manager account has no active department')) {
+    const mapped = mapSafeError(error);
+    const context = this.companyContext.snapshot().context;
+    if (this.isManager && !context.activeDepartmentId) {
       this.pageState = 'scopeUnavailable';
       return '';
     }
-    if (status === 403) {
+    if (mapped.kind === 'authorization') {
       return 'Scan requests are unavailable for the current workspace scope.';
     }
-    if (message.toLowerCase().includes('workspace')) {
+    if (!context.activeBusinessProfileId) {
       return 'Select an active workspace before opening Scan Requests.';
     }
-    return 'Scan requests could not be loaded.';
+    return mapped.userMessage || 'Scan requests could not be loaded.';
   }
   private computeHasActiveFilters(): boolean {
     return Boolean(
@@ -750,28 +751,11 @@ export class RequestsPageComponent implements OnInit, OnDestroy {
     return this.safeText(value, 'Unknown');
   }
   private toServerSafeError(error: unknown, fallback: string): string {
-    const errorRecord = error as {
-      error?: {
-        error?: {
-          message?: string;
-          errors?: Array<{ message?: string; extensions?: { reason?: string } }>;
-        };
-        message?: string;
-        errors?: Array<{ message?: string; extensions?: { reason?: string } }>;
-      };
-      message?: string;
-    } | null;
-    const message =
-      errorRecord?.error?.errors?.[0]?.extensions?.reason ??
-      errorRecord?.error?.errors?.[0]?.message ??
-      errorRecord?.error?.error?.errors?.[0]?.extensions?.reason ??
-      errorRecord?.error?.error?.errors?.[0]?.message ??
-      errorRecord?.error?.error?.message ??
-      errorRecord?.error?.message ??
-      errorRecord?.message ??
-      '';
-    const safeMessage = String(message).trim();
-    return safeMessage || fallback;
+    const mapped = mapSafeError(error);
+    if (mapped.kind === 'conflict') {
+      return this.openScanRequestConflictMessage;
+    }
+    return mapped.userMessage || fallback;
   }
   private toDisplayLabel(value: string | null | undefined, fallback: string): string {
     const clean = this.safeText(value, '');

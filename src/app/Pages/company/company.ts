@@ -14,6 +14,7 @@ import {
   type OrganizationProfile,
   type OrganizationProfileUpdateInput
 } from '../../services/organization-api.service';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 import { CardSkeletonLoaderComponent } from '../../shared/ui/card-skeleton-loader/card-skeleton-loader.component';
 import { ErrorStateComponent } from '../../shared/ui/error-state/error-state.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
@@ -219,9 +220,12 @@ export class CompanyPageComponent implements OnInit {
       return;
     }
 
+    this.feedback = null;
     const payload = this.buildProfilePayload();
     if (!payload) {
-      this.feedback = { type: 'info', text: 'No editable organization fields were changed.' };
+      if (!this.feedback) {
+        this.feedback = { type: 'info', text: 'No editable organization fields were changed.' };
+      }
       this.cdr.markForCheck();
       return;
     }
@@ -491,6 +495,10 @@ export class CompanyPageComponent implements OnInit {
     if (industry) payload.industry = industry;
 
     const teamSize = this.normalizePositiveInteger(this.profileDraft.team_size);
+    if (this.normalizeText(this.profileDraft.team_size) && teamSize === null) {
+      this.feedback = { type: 'error', text: 'Team size must be a positive whole number.' };
+      return null;
+    }
     if (teamSize !== null) payload.team_size = teamSize;
 
     const country = this.normalizeText(this.profileDraft.country);
@@ -637,14 +645,13 @@ export class CompanyPageComponent implements OnInit {
       if (error.code === 'unauthorized') {
         return 'Session expired. Please sign in again.';
       }
-      return error.userMessage || fallback;
+      if (error.code === 'validation' && !error.details && error.userMessage) {
+        return error.userMessage;
+      }
+      return mapSafeError(error).userMessage || fallback;
     }
 
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
-
-    return fallback;
+    return mapSafeError(error).userMessage || fallback;
   }
 
   private toDeactivateDepartmentMessage(error: unknown, fallback: string): string {
@@ -656,27 +663,13 @@ export class CompanyPageComponent implements OnInit {
         return 'This organization action is not available for your access level.';
       }
 
-      const message = this.normalizeText(error.userMessage).toLowerCase();
-      if (message.includes('active members')) {
+      if (error.code === 'conflict' && error.userMessage === 'Deactivate the department after reassigning its active members.') {
         return 'Deactivate the department after reassigning its active members.';
       }
 
-      return fallback;
+      return mapSafeError(error).userMessage || fallback;
     }
 
-    if (error instanceof Error && error.message) {
-      const message = error.message.toLowerCase();
-      if (message.includes('active members')) {
-        return 'Deactivate the department after reassigning its active members.';
-      }
-      if (message.includes('unauthorized') || message.includes('session expired')) {
-        return 'Session expired. Please sign in again.';
-      }
-      if (message.includes('forbidden') || message.includes('permission')) {
-        return 'This organization action is not available for your access level.';
-      }
-    }
-
-    return fallback;
+    return mapSafeError(error).userMessage || fallback;
   }
 }

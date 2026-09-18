@@ -1,5 +1,6 @@
 <div class="workforce-page app-page-shell">
   <app-page-header
+    class="workforce-hero"
     title="Workforce"
     [description]="workforceDescription"
     [breadcrumbs]="[{ label: 'Dashboard', url: '/app/dashboard' }, { label: 'Workforce' }]"
@@ -13,6 +14,13 @@
     >
       Invite Member
     </button>
+    <a
+      pageActions
+      routerLink="/app/scan-requests"
+      class="dashboard-action-button"
+    >
+      Create Request
+    </a>
     <button
       pageActions
       type="button"
@@ -27,6 +35,9 @@
   <section
     *ngIf="feedback"
     class="workforce-feedback"
+    role="status"
+    aria-live="polite"
+    aria-atomic="true"
     [class.workforce-feedback--success]="feedback.type === 'success'"
     [class.workforce-feedback--error]="feedback.type === 'error'"
     [class.workforce-feedback--info]="feedback.type === 'info'"
@@ -35,7 +46,14 @@
   </section>
 
   <ng-container *ngIf="viewState === 'loading'">
-    <app-card-skeleton-loader [count]="4"></app-card-skeleton-loader>
+    <section class="workforce-loading-state" role="status" aria-live="polite" aria-busy="true">
+      <div>
+        <p class="workforce-loading-state__eyebrow">Workforce command center</p>
+        <h2>Loading your workforce overview</h2>
+        <p>Preparing roster, invitation, and readiness signals.</p>
+      </div>
+      <app-card-skeleton-loader [count]="4"></app-card-skeleton-loader>
+    </section>
   </ng-container>
 
   <app-error-state
@@ -82,7 +100,7 @@
           : 'Real organization roster signals from the current data.'
       "
     >
-      <div class="workforce-summary-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div class="workforce-summary-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Workforce overview metrics">
         <app-kpi-card
           label="Active Members"
           [value]="summary.activeMembers.toString()"
@@ -127,7 +145,7 @@
       title="Today's Scan Activity"
       description="Current scan participation signals for eligible workforce members."
     >
-      <div class="workforce-summary-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div class="workforce-summary-grid grid gap-4 md:grid-cols-2 xl:grid-cols-4" aria-label="Workforce scan metrics">
         <app-kpi-card
           label="Eligible Members"
           [value]="summary.eligibleMembers.toString()"
@@ -182,9 +200,10 @@
             isManager ? 'Search member or department' : 'Search member, email, department'
           "
           class="app-form-control workforce-search-control"
+          aria-label="Search workforce"
         />
 
-        <select [(ngModel)]="filters.role" name="workforceRole" class="app-form-control">
+        <select [(ngModel)]="filters.role" name="workforceRole" class="app-form-control" aria-label="Filter by role">
           <option value="">All roles</option>
           <option *ngFor="let role of roleOptions" [value]="role">{{ roleLabel(role) }}</option>
         </select>
@@ -194,6 +213,7 @@
           [(ngModel)]="filters.department"
           name="workforceDepartment"
           class="app-form-control"
+          aria-label="Filter by department"
         >
           <option value="">All departments</option>
           <option *ngFor="let department of departmentOptions" [value]="department.id">
@@ -206,6 +226,7 @@
           [(ngModel)]="filters.eligibility"
           name="workforceEligibility"
           class="app-form-control"
+          aria-label="Filter by eligibility"
         >
           <option *ngFor="let option of eligibilityFilterOptions" [value]="option.value">
             {{ option.label }}
@@ -217,6 +238,7 @@
           [(ngModel)]="filters.todayScan"
           name="workforceTodayScan"
           class="app-form-control"
+          aria-label="Filter by today's scan state"
         >
           <option *ngFor="let option of todayScanFilterOptions" [value]="option.value">
             {{ option.label }}
@@ -282,6 +304,7 @@
           <table
             *ngIf="activeTab === 'ACTIVE_MEMBER' || activeTab === 'INACTIVE_MEMBER'"
             class="workforce-table min-w-[74rem] w-full text-left"
+            aria-label="Workforce member directory"
           >
             <thead>
               <tr>
@@ -326,10 +349,10 @@
                   }}</span>
                 </td>
                 <td>
-                  <span [class]="rowBadgeClass(row)">{{ employmentLabel(row) }}</span>
+                  <span [class]="rowBadgeClass(row)" [attr.aria-label]="employmentLabel(row)">{{ employmentLabel(row) }}</span>
                 </td>
                 <td>
-                  <span [class]="scanBadgeClass(row)">{{ scanBadgeLabel(row) }}</span>
+                  <span [class]="scanBadgeClass(row)" [attr.aria-label]="scanBadgeLabel(row)">{{ scanBadgeLabel(row) }}</span>
                 </td>
                 <td>{{ detailUnavailableLabel(row.presence_label, lastScanLabel(row)) }}</td>
                 <td>
@@ -355,6 +378,7 @@
           <table
             *ngIf="activeTab === 'PENDING_INVITATION'"
             class="workforce-table min-w-[72rem] w-full text-left"
+            aria-label="Pending workforce invitations"
           >
             <thead>
               <tr>
@@ -383,7 +407,7 @@
                 <td>Unavailable</td>
                 <td>{{ dateOrDash(row.expires_at) }}</td>
                 <td>
-                  <span [class]="rowBadgeClass(row)">{{ rowBadgeLabel(row) }}</span>
+                  <span [class]="rowBadgeClass(row)" [attr.aria-label]="rowBadgeLabel(row)">{{ rowBadgeLabel(row) }}</span>
                 </td>
                 <td>
                   <div class="workforce-table-actions" (click)="$event.stopPropagation()">

@@ -1,0 +1,225 @@
+:host {
+  display: block;
+}
+
+.invites-page {
+  position: relative;
+  isolation: isolate;
+}
+
+.invites-page :is(input, select, button, a):focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.95);
+  outline-offset: 3px;
+}
+
+.invites-page :is(input, select) {
+  min-height: 2.85rem;
+  border-color: rgba(71, 85, 105, 0.72);
+  background: rgba(2, 6, 23, 0.72);
+  color: rgb(226 232 240);
+}
+
+.invites-page input::placeholder {
+  color: rgba(148, 163, 184, 0.72);
+}
+
+.invites-page input:focus,
+.invites-page select:focus {
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.13);
+}
+
+.invites-page__meta {
+  max-width: 42rem;
+}
+
+.invites-page__meta-title {
+  color: rgb(248 250 252);
+  font-family: var(--font-space-grotesk);
+  font-size: clamp(1.5rem, 2vw, 2rem);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+}
+
+.invites-page__meta-copy {
+  color: rgba(203, 213, 225, 0.78);
+}
+
+.invites-action {
+  min-height: 2.7rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(226, 232, 240, 0.94);
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.invites-action:hover:not(:disabled) {
+  border-color: rgba(125, 211, 252, 0.44);
+  background: rgba(56, 189, 248, 0.12);
+  transform: translateY(-1px);
+}
+
+.invites-action--primary {
+  border-color: rgba(56, 189, 248, 0.4);
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.78), rgba(37, 99, 235, 0.82));
+  color: white;
+  box-shadow: 0 10px 28px rgba(14, 116, 144, 0.2);
+}
+
+.invites-action--danger {
+  border-color: rgba(248, 113, 113, 0.24);
+  background: rgba(127, 29, 29, 0.42);
+  color: rgb(254 202 202);
+}
+
+.invites-action:disabled {
+  cursor: not-allowed;
+  opacity: 0.52;
+  transform: none;
+}
+
+.invites-feedback {
+  border: 1px solid rgba(56, 189, 248, 0.24);
+  background: rgba(14, 116, 144, 0.13);
+  color: rgb(186 230 253);
+  animation: invites-feedback-in 220ms ease-out both;
+}
+
+.invites-table {
+  min-width: 82rem;
+}
+
+.invites-table thead {
+  background: rgba(2, 6, 23, 0.78);
+  color: rgba(186, 230, 253, 0.78);
+}
+
+.invites-table__row {
+  border-color: rgba(51, 65, 85, 0.68);
+  color: rgba(203, 213, 225, 0.88);
+  transition: background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.invites-table__row:hover {
+  background: rgba(56, 189, 248, 0.05);
+  box-shadow: inset 3px 0 rgba(56, 189, 248, 0.56);
+}
+
+.invites-table__recipient {
+  color: rgb(248 250 252);
+  font-weight: 650;
+}
+
+.invites-table__muted {
+  color: rgba(148, 163, 184, 0.82);
+}
+
+.invites-table__action {
+  min-height: 2.45rem;
+  border-radius: 999px;
+  padding: 0.4rem 0.72rem;
+  transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.invites-table__action:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.invites-table__action:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.invites-empty {
+  border: 1px dashed rgba(148, 163, 184, 0.24);
+  background:
+    radial-gradient(420px at top left, rgba(56, 189, 248, 0.09), transparent 55%),
+    rgba(8, 12, 24, 0.8);
+}
+
+:host ::ng-deep .invites-page .app-empty-state-cta,
+:host ::ng-deep .invites-page .app-error-state {
+  border-color: rgba(148, 163, 184, 0.24);
+  background:
+    radial-gradient(420px at top left, rgba(56, 189, 248, 0.09), transparent 55%),
+    rgba(8, 12, 24, 0.8);
+  color: rgb(226 232 240);
+}
+
+:host ::ng-deep .invites-page .app-empty-state-cta p,
+:host ::ng-deep .invites-page .app-error-state p {
+  color: rgb(226 232 240);
+}
+
+:host ::ng-deep .invites-page .app-table-shell {
+  border-color: rgba(71, 85, 105, 0.68);
+  background: rgba(8, 12, 24, 0.88);
+  box-shadow: 0 20px 55px rgba(2, 6, 23, 0.24);
+}
+
+:host ::ng-deep .invites-page .app-table-shell > div:first-child {
+  border-color: rgba(51, 65, 85, 0.68);
+}
+
+:host ::ng-deep .invites-page .app-table-shell p {
+  color: rgba(203, 213, 225, 0.82);
+}
+
+.invites-dialog {
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  background:
+    radial-gradient(480px at top left, rgba(14, 165, 233, 0.12), transparent 58%),
+    rgba(8, 12, 24, 0.98);
+  color: rgb(226 232 240);
+  box-shadow: 0 30px 90px rgba(2, 6, 23, 0.55);
+}
+
+.invites-dialog input,
+.invites-dialog select {
+  border-color: rgba(71, 85, 105, 0.72);
+  background: rgba(2, 6, 23, 0.76);
+  color: rgb(226 232 240);
+}
+
+.invites-dialog__label {
+  color: rgba(226, 232, 240, 0.9);
+}
+
+@keyframes invites-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .invites-feedback,
+  .invites-action,
+  .invites-table__row,
+  .invites-table__action {
+    animation: none;
+    transition: none;
+  }
+
+  .invites-action:hover:not(:disabled),
+  .invites-table__action:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (max-width: 639px) {
+  .invites-page__meta-title {
+    font-size: 1.55rem;
+  }
+
+  .invites-action {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

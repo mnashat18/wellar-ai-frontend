@@ -18,6 +18,7 @@ import { type ActiveMemberRole } from '../ia/wellar-ia';
 import { AuthService } from './auth';
 import { SecurityMessages } from '../shared/utils/security-error';
 import { WorkforceRosterApiService, type WorkforceRosterPayload } from './workforce-roster-api.service';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 export type WorkflowDepartmentOption = {
   id: string;
@@ -555,7 +556,7 @@ export class OperationsWorkflowsService {
               if (context.activeRole === 'manager') {
                 return throwError(() => error);
               }
-              console.warn('[ScanRequests] workforce roster failed, using fallback scan-target list', error);
+              console.warn('[ScanRequests] workforce roster failed, using fallback scan-target list', mapSafeError(error).kind);
               return of(null);
             })
           ),
@@ -570,7 +571,7 @@ export class OperationsWorkflowsService {
               if (context.activeRole === 'manager') {
                 return throwError(() => error);
               }
-              console.warn('[ScanRequests] optional departments failed, using []', error);
+              console.warn('[ScanRequests] optional departments failed, using []', mapSafeError(error).kind);
               return of([] as DepartmentRecord[]);
             })
           ),
@@ -582,7 +583,7 @@ export class OperationsWorkflowsService {
           ).pipe(
             timeout(12000),
             catchError((error) => {
-              console.warn('[ScanRequests] optional scans failed, using []', error);
+              console.warn('[ScanRequests] optional scans failed, using []', mapSafeError(error).kind);
               return of([] as WellnessScanRecord[]);
             })
           ),
@@ -594,7 +595,7 @@ export class OperationsWorkflowsService {
           ).pipe(
             timeout(12000),
             catchError((error) => {
-              console.warn('[ScanRequests] optional notifications failed, using []', error);
+              console.warn('[ScanRequests] optional notifications failed, using []', mapSafeError(error).kind);
               return of([] as NotificationRecord[]);
             })
           )
@@ -630,7 +631,7 @@ export class OperationsWorkflowsService {
       requests = queue.rows ?? [];
 
     } catch (error) {
-      console.error('[OperationsWorkflows] requests failed', error);
+      console.error('[OperationsWorkflows] requests failed', mapSafeError(error).kind);
       requests = [];
       warning = 'requests_load_failed';
     }
@@ -654,16 +655,16 @@ export class OperationsWorkflowsService {
 
     const roster = rosterResult.status === 'fulfilled'
       ? rosterResult.value
-      : (console.warn('[ScanRequests] workforce roster failed, using []', rosterResult.reason), null);
+      : (console.warn('[ScanRequests] workforce roster failed, using []', mapSafeError(rosterResult.reason).kind), null);
     const departments = departmentsResult.status === 'fulfilled'
       ? (departmentsResult.value ?? [])
-      : (console.warn('[ScanRequests] optional departments failed, using []', departmentsResult.reason), [] as DepartmentRecord[]);
+      : (console.warn('[ScanRequests] optional departments failed, using []', mapSafeError(departmentsResult.reason).kind), [] as DepartmentRecord[]);
     const scans = scansResult.status === 'fulfilled'
       ? (scansResult.value ?? [])
-      : (console.warn('[ScanRequests] optional scans failed, using []', scansResult.reason), [] as WellnessScanRecord[]);
+      : (console.warn('[ScanRequests] optional scans failed, using []', mapSafeError(scansResult.reason).kind), [] as WellnessScanRecord[]);
     const notifications = notificationsResult.status === 'fulfilled'
       ? (notificationsResult.value ?? [])
-      : (console.warn('[ScanRequests] optional notifications failed, using []', notificationsResult.reason), [] as NotificationRecord[]);
+      : (console.warn('[ScanRequests] optional notifications failed, using []', mapSafeError(notificationsResult.reason).kind), [] as NotificationRecord[]);
 
     const pageData = this.buildRequestsPageData(
       departments,
@@ -780,7 +781,7 @@ export class OperationsWorkflowsService {
               departments: this.loadDepartmentsForRequests(context).pipe(
                 timeout(12000),
                 catchError((error) => {
-                  console.warn('[OperationsWorkflows] alerts departments fallback []', error);
+                  console.warn('[OperationsWorkflows] alerts departments fallback []', mapSafeError(error).kind);
                   return of([] as DepartmentRecord[]);
                 })
               ),
@@ -792,7 +793,7 @@ export class OperationsWorkflowsService {
               ).pipe(
                 timeout(12000),
                 catchError((error) => {
-                  console.warn('[OperationsWorkflows] alerts notifications fallback []', error);
+                  console.warn('[OperationsWorkflows] alerts notifications fallback []', mapSafeError(error).kind);
                   return of([] as NotificationRecord[]);
                 })
               )
@@ -1078,6 +1079,9 @@ export class OperationsWorkflowsService {
     const directusError = this.objectRecord(body?.['error']);
     const backendCode = this.pickString(directusError?.['code'])?.toUpperCase() ?? '';
     const backendMessage = this.pickString(directusError?.['message']);
+    const safeMessage = backendMessage === 'Workspace access denied'
+      ? backendMessage
+      : mapSafeError(error).userMessage;
 
     if (status === 0) {
       return throwError(() => new ScanRequestApiError('network_error', status, 'Scan request creation could not reach the server.', error));
@@ -1086,19 +1090,19 @@ export class OperationsWorkflowsService {
       return throwError(() => new ScanRequestApiError('unauthorized', 401, 'Session expired. Please sign in again.', error));
     }
     if (status === 403 || backendCode === 'FORBIDDEN') {
-      return throwError(() => new ScanRequestApiError('forbidden', 403, backendMessage ?? 'You do not have permission to create scan requests.', error));
+      return throwError(() => new ScanRequestApiError('forbidden', 403, safeMessage, error));
     }
     if (status === 404 || backendCode === 'NOT_FOUND') {
-      return throwError(() => new ScanRequestApiError('not_found', 404, backendMessage ?? 'The selected workforce member was not found.', error));
+      return throwError(() => new ScanRequestApiError('not_found', 404, safeMessage, error));
     }
     if (status === 409 || backendCode === 'CONFLICT') {
-      return throwError(() => new ScanRequestApiError('conflict', 409, backendMessage ?? 'A conflicting scan request already exists.', error));
+      return throwError(() => new ScanRequestApiError('conflict', 409, safeMessage, error));
     }
     if (status >= 500 || backendCode === 'SERVER_ERROR') {
-      return throwError(() => new ScanRequestApiError('server_error', status || 500, backendMessage ?? 'Scan request creation failed.', error));
+      return throwError(() => new ScanRequestApiError('server_error', status || 500, safeMessage, error));
     }
 
-    return throwError(() => new ScanRequestApiError('unknown', status, backendMessage ?? 'Scan request creation failed.', error));
+    return throwError(() => new ScanRequestApiError('unknown', status, safeMessage, error));
   }
 
   alertReviewFlowPrerequisiteMessage(): string {
@@ -1141,7 +1145,7 @@ export class OperationsWorkflowsService {
         if (this.isFieldCompatibilityError(error)) {
           return this.queryItemsStrict<DepartmentRecord>('departments', fallbackFields, context.token, options);
         }
-        console.error('[OperationsWorkflows] departments query failed', error);
+        console.error('[OperationsWorkflows] departments query failed', mapSafeError(error).kind);
         return throwError(() => error);
       })
     );
@@ -1217,12 +1221,7 @@ export class OperationsWorkflowsService {
           console.error('[OperationsWorkflows] requests queue failed', {
             url,
             status,
-            message:
-              (error as { error?: { errors?: Array<{ message?: string; extensions?: { reason?: string } }>; message?: string }; message?: string } | null)?.error?.errors?.[0]?.extensions?.reason ??
-              (error as { error?: { errors?: Array<{ message?: string }>; message?: string }; message?: string } | null)?.error?.errors?.[0]?.message ??
-              (error as { error?: { message?: string }; message?: string } | null)?.error?.message ??
-              (error as { message?: string } | null)?.message ??
-              'unknown'
+            message: mapSafeError(error).kind
           });
         }
         return throwError(() => error);
@@ -1377,12 +1376,7 @@ export class OperationsWorkflowsService {
               filters,
               sort,
               status,
-              message:
-                (error as { error?: { errors?: Array<{ message?: string; extensions?: { reason?: string } }>; message?: string }; message?: string } | null)?.error?.errors?.[0]?.extensions?.reason ??
-                (error as { error?: { errors?: Array<{ message?: string }>; message?: string }; message?: string } | null)?.error?.errors?.[0]?.message ??
-                (error as { error?: { message?: string }; message?: string } | null)?.error?.message ??
-                (error as { message?: string } | null)?.message ??
-                'unknown'
+              message: mapSafeError(error).kind
             });
           }
           return throwError(() => error);
@@ -1984,7 +1978,7 @@ export class OperationsWorkflowsService {
     const status = (error as { status?: number } | null)?.status ?? 0;
     const directusError = this.objectRecord((error as { error?: unknown } | null)?.error);
     const backendCode = this.pickString(directusError?.['code'])?.toUpperCase() ?? '';
-    const backendMessage = this.pickString(directusError?.['message']);
+    const safeMessage = mapSafeError(error).userMessage;
 
     if (status === 0) {
       return throwError(() => new AlertWorkflowApiError('network_error', status, 'Alert workflow update could not reach the server.', error));
@@ -1993,19 +1987,19 @@ export class OperationsWorkflowsService {
       return throwError(() => new AlertWorkflowApiError('unauthorized', 401, 'Session expired. Please sign in again.', error));
     }
     if (status === 403 || backendCode === 'FORBIDDEN') {
-      return throwError(() => new AlertWorkflowApiError('forbidden', 403, backendMessage ?? 'You do not have permission to change this alert.', error));
+      return throwError(() => new AlertWorkflowApiError('forbidden', 403, safeMessage, error));
     }
     if (status === 404 || backendCode === 'NOT_FOUND') {
-      return throwError(() => new AlertWorkflowApiError('not_found', 404, backendMessage ?? 'The selected alert was not found.', error));
+      return throwError(() => new AlertWorkflowApiError('not_found', 404, safeMessage, error));
     }
     if (status === 409 || backendCode === 'CONFLICT') {
-      return throwError(() => new AlertWorkflowApiError('conflict', 409, backendMessage ?? 'The alert workflow state changed before the action could be applied.', error));
+      return throwError(() => new AlertWorkflowApiError('conflict', 409, safeMessage, error));
     }
     if (status >= 500 || backendCode === 'SERVER_ERROR') {
-      return throwError(() => new AlertWorkflowApiError('server_error', status || 500, backendMessage ?? 'Alert workflow update failed.', error));
+      return throwError(() => new AlertWorkflowApiError('server_error', status || 500, safeMessage, error));
     }
 
-    return throwError(() => new AlertWorkflowApiError('unknown', status, backendMessage ?? 'Alert workflow update failed.', error));
+    return throwError(() => new AlertWorkflowApiError('unknown', status, safeMessage, error));
   }
 
   private queryItems<T>(
@@ -2305,7 +2299,7 @@ export class OperationsWorkflowsService {
     return source$.pipe(
       timeout(12000),
       catchError((error) => {
-        console.warn(`[OperationsWorkflows] optional ${label} load skipped`, error);
+        console.warn(`[OperationsWorkflows] optional ${label} load skipped`, mapSafeError(error).kind);
         return of([] as T[]);
       })
     );
@@ -2614,7 +2608,7 @@ export class OperationsWorkflowsService {
         });
       }),
       catchError((error) => {
-        console.warn('[OperationsWorkflows] duplicate request guard skipped', error);
+        console.warn('[OperationsWorkflows] duplicate request guard skipped', mapSafeError(error).kind);
         return of(members);
       })
     );

@@ -136,4 +136,66 @@ describe('InviteService invitation actions', () => {
       }
     });
   });
+
+  it.each([
+    [{ status: 404, error: { message: 'SQL invite lookup failed' } }, 'Invite not found.'],
+    [{ status: 410, error: { message: 'invite expired because of internal rule' } }, 'Invite expired.'],
+    [{ status: 409, error: { message: 'invite already claimed by another transaction' } }, 'Invite already used.'],
+    [{ status: 409, error: { message: 'user is already a member of workspace' } }, 'You are already a member of this workspace.'],
+    [{ status: 401, error: { message: 'Directus authentication exception' } }, 'This invite was sent to another email.'],
+    [{ status: 403, error: { message: 'permission denied by database policy' } }, 'This invite was sent to another email.'],
+    [{ status: 500, error: { message: 'SQLSTATE backend exception' } }, 'Something went wrong on our end. Please try again later.'],
+    [{ status: 0 }, 'We couldn’t reach the server. Check your connection and try again.'],
+    [{ name: 'TimeoutError', message: 'Timeout has occurred' }, 'The request took too long. Please try again.']
+  ])('maps invite failure safely: %j', (error, expected) => {
+    const message = service.getReadableInviteError(error);
+    expect(message).toBe(expected);
+    expect(message).not.toContain('SQL');
+    expect(message).not.toContain('Directus');
+    expect(message).not.toContain('database');
+  });
+
+  it('keeps invalid and missing invite messages safe', () => {
+    expect(service.getReadableInviteError(new Error('Invite token is missing.'))).toBe('Invite token is missing.');
+    expect(service.getReadableInviteError(new Error('invalid invitation token'))).toBe('Invite not found.');
+  });
+
+  it('does not expose raw backend details through the public detail helper', () => {
+    const detail = service.extractInviteErrorDetail({
+      status: 500,
+      error: { message: 'SQLSTATE 23505: internal Directus exception' }
+    });
+
+    expect(detail).toBe('Something went wrong on our end. Please try again later.');
+    expect(detail).not.toContain('SQLSTATE');
+    expect(detail).not.toContain('Directus');
+  });
+
+  it('returns a typed safe failure from invite actions', async () => {
+    let capturedError: unknown = null;
+
+    service.acceptInvite('invite-failure').subscribe({ error: (error) => { capturedError = error; } });
+    const req = httpMock.expectOne(`${environment.API_URL}/wellar/workspaces/invites/invite-failure/accept`);
+    req.flush({ error: { message: 'SQLSTATE internal Directus exception' } }, { status: 500, statusText: 'Server Error' });
+    await Promise.resolve();
+
+    expect((capturedError as { isClaimInviteError: boolean }).isClaimInviteError).toBe(true);
+    expect((capturedError as Error).message).toBe('Something went wrong on our end. Please try again later.');
+    expect((capturedError as { detail: string }).detail).toBe('Something went wrong on our end. Please try again later.');
+    expect((capturedError as { error?: unknown }).error).toBeUndefined();
+  });
+
+  it('times out a pending invite detail request', async () => {
+    let capturedError: unknown = null;
+    vi.useFakeTimers();
+
+    try {
+      service.getInvite('invite-timeout').subscribe({ error: (error) => { capturedError = error; } });
+      httpMock.expectOne((request) => request.urlWithParams.startsWith(`${environment.API_URL}/wellar/workspaces/invites/invite-timeout?_ts=`));
+      await vi.advanceTimersByTimeAsync(15001);
+      expect((capturedError as Error).message).toBe('The request took too long. Please try again.');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

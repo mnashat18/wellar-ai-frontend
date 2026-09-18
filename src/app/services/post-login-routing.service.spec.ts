@@ -32,6 +32,12 @@ describe('PostLoginRoutingService invite welcome handoff', () => {
       refreshCurrentUser: vi.fn(() => Promise.resolve()),
       refreshWorkspaceContext: vi.fn(() => Promise.resolve()),
       refreshMemberships: vi.fn(() => Promise.resolve([])),
+      restoreWorkspaceContext: vi.fn(() => of({
+        state: companyContextSpy.snapshot(),
+        workspaceContext: null,
+        memberships: [],
+        verifiedContext: null
+      })),
       activateClaimedMembershipForCurrentUser: vi.fn(() => Promise.resolve({
         id: 'member-1',
         status: 'active',
@@ -112,6 +118,8 @@ describe('PostLoginRoutingService invite welcome handoff', () => {
     expect(route).toBe('/app/welcome');
     expect(welcomeSpy.queueInviteWelcome).toHaveBeenCalledTimes(1);
     expect(welcomeSpy.queueInviteWelcome).toHaveBeenCalledWith('Northwind Logistics', '/app/dashboard');
+    expect(inviteSpy.markClaimSucceededForToken).toHaveBeenCalledWith('wlr-invite-token');
+    expect(inviteSpy.markClaimCompleted).toHaveBeenCalledWith('wlr-invite-token');
   });
 
   it('does not queue the invite welcome when the claim fails', async () => {
@@ -121,5 +129,36 @@ describe('PostLoginRoutingService invite welcome handoff', () => {
 
     expect(route).toContain('/invites/claim');
     expect(welcomeSpy.queueInviteWelcome).not.toHaveBeenCalled();
+    expect(inviteSpy.markClaimSucceededForToken).not.toHaveBeenCalled();
+    expect(inviteSpy.markClaimCompleted).not.toHaveBeenCalled();
+  });
+
+  it('does not route to the welcome flow when claimed workspace activation is superseded', async () => {
+    companyContextSpy.activateClaimedMembershipForCurrentUser.mockResolvedValueOnce(null);
+
+    const route = await service.resolveDestination();
+
+    expect(route).toContain('/invites/claim');
+    expect(welcomeSpy.queueInviteWelcome).not.toHaveBeenCalled();
+    expect(inviteSpy.markClaimSucceededForToken).not.toHaveBeenCalled();
+    expect(inviteSpy.markClaimCompleted).not.toHaveBeenCalled();
+  });
+
+  it('delegates authentication and workspace restoration to the shared coordinator', async () => {
+    const memberships = [{ id: 'membership-1' }];
+    companyContextSpy.restoreWorkspaceContext.mockReturnValueOnce(of({
+      state: companyContextSpy.snapshot(),
+      workspaceContext: null,
+      memberships,
+      verifiedContext: null
+    }));
+
+    const result = await service.refreshAuthAndWorkspaceContext({ force: false });
+
+    expect(result).toEqual(memberships);
+    expect(companyContextSpy.restoreWorkspaceContext).toHaveBeenCalledWith(false);
+    expect(companyContextSpy.refreshCurrentUser).not.toHaveBeenCalled();
+    expect(companyContextSpy.refreshWorkspaceContext).not.toHaveBeenCalled();
+    expect(companyContextSpy.refreshMemberships).not.toHaveBeenCalled();
   });
 });

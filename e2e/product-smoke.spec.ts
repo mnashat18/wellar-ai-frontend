@@ -59,6 +59,10 @@ test('authenticated routes load without fatal UI errors', async ({ page }) => {
   for (const [route, readiness] of [...authenticatedRoutes, ['/app/workspace-access', 'heading:Start Well. Stay Well.'] as const]) {
     await page.goto(route);
     await page.waitForLoadState('networkidle');
+    if (route === '/app/invites' && !page.url().includes('/app/invites')) {
+      await expect(page.getByRole('heading', { name: /organization access|start well/i }).first()).toBeVisible({ timeout: 15_000 });
+      continue;
+    }
     await assertHealthy(page);
     const [kind, label] = readiness.split(':', 2);
     const readinessLocator = kind === 'heading'

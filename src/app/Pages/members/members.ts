@@ -13,6 +13,7 @@ import {
   type MemberUpdateInput,
   type MembersPageData
 } from '../../services/operations-admin.service';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 import { CompanyContextChipComponent } from '../../shared/ui/company-context-chip/company-context-chip.component';
 import { CardSkeletonLoaderComponent } from '../../shared/ui/card-skeleton-loader/card-skeleton-loader.component';
 import { DashboardSectionComponent } from '../../shared/ui/dashboard-section/dashboard-section.component';
@@ -73,11 +74,16 @@ export class MembersPageComponent implements OnInit {
   loading = true;
   savingMember = false;
   savingInvite = false;
+  readonly inviteResendAvailable = false;
+  private loadInFlight = false;
+  private readonly busyInviteIds = new Set<string>();
   errorMessage = '';
   feedbackMessage = '';
   pageData: MembersPageData | null = null;
   selectedMember: MemberDirectoryRow | null = null;
   editingMember: MemberDirectoryRow | null = null;
+  pendingDeactivation: MemberDirectoryRow | null = null;
+  deactivatingMemberId: string | null = null;
   showInviteModal = false;
   showEditModal = false;
   showMobileFilters = false;
@@ -196,6 +202,9 @@ export class MembersPageComponent implements OnInit {
   }
 
   closeInviteModal(): void {
+    if (this.savingInvite) {
+      return;
+    }
     this.showInviteModal = false;
   }
 
@@ -232,8 +241,7 @@ export class MembersPageComponent implements OnInit {
       },
       error: (error) => {
         this.savingInvite = false;
-        console.error('[members] invite create failed', error);
-        this.feedbackMessage = this.toFriendlyError(error, 'Failed to send invite.');
+        this.feedbackMessage = mapSafeError(error).userMessage;
       }
     });
   }
@@ -284,8 +292,7 @@ export class MembersPageComponent implements OnInit {
       },
       error: (error) => {
         this.savingMember = false;
-        console.error('[members] update member failed', error);
-        this.feedbackMessage = this.toFriendlyError(error, 'Failed to update member.');
+        this.feedbackMessage = mapSafeError(error).userMessage;
       }
     });
   }
@@ -323,42 +330,67 @@ export class MembersPageComponent implements OnInit {
   }
 
   resendInvite(row: MemberDirectoryRow): void {
-    if (!this.canManageRoster || !row.pending_invite_id) {
+    if (!this.inviteResendAvailable || !this.canManageRoster || !row.pending_invite_id || this.busyInviteIds.has(row.pending_invite_id)) {
       return;
     }
 
+    this.busyInviteIds.add(row.pending_invite_id);
     this.feedbackMessage = '';
     this.operationsAdmin.resendInvite(row.pending_invite_id).subscribe({
       next: () => {
+        this.busyInviteIds.delete(row.pending_invite_id!);
         this.feedbackMessage = 'Invite resent.';
         this.loadPage();
       },
       error: (error) => {
-        console.error('[members] resend invite failed', error);
-        this.feedbackMessage = this.toFriendlyError(error, 'Failed to resend invite.');
+        this.busyInviteIds.delete(row.pending_invite_id!);
+        this.feedbackMessage = mapSafeError(error).userMessage;
       }
     });
   }
 
+  isInviteActionBusy(row: MemberDirectoryRow): boolean {
+    return Boolean(row.pending_invite_id && this.busyInviteIds.has(row.pending_invite_id));
+  }
+
   deactivateMember(row: MemberDirectoryRow): void {
-    if (!this.canManageRoster || !row.id || typeof window === 'undefined') {
+    if (!this.canManageRoster || !row.id || this.deactivatingMemberId) {
+      return;
+    }
+
+    this.pendingDeactivation = row;
+  }
+
+  cancelDeactivation(): void {
+    if (this.deactivatingMemberId) {
+      return;
+    }
+
+    this.pendingDeactivation = null;
+  }
+
+  confirmDeactivation(): void {
+    const row = this.pendingDeactivation;
+    if (!row?.id || this.deactivatingMemberId) {
       return;
     }
 
     const nextStatus = this.normalizeValue(row.status) === 'invited' ? 'suspended' : 'inactive';
-    if (!window.confirm(`Deactivate ${row.name}?`)) {
-      return;
-    }
-
+    this.deactivatingMemberId = row.id;
     this.feedbackMessage = '';
-    this.operationsAdmin.updateMember(row.id, { status: nextStatus }).subscribe({
+    this.operationsAdmin.updateMember(row.id, { status: nextStatus }).pipe(
+      finalize(() => {
+        this.deactivatingMemberId = null;
+      })
+    ).subscribe({
       next: () => {
+        this.pendingDeactivation = null;
         this.feedbackMessage = 'Member deactivated.';
         this.loadPage();
       },
       error: (error) => {
-        console.error('[members] deactivate failed', error);
-        this.feedbackMessage = this.toFriendlyError(error, 'Failed to deactivate member.');
+        this.pendingDeactivation = null;
+        this.feedbackMessage = mapSafeError(error).userMessage;
       }
     });
   }
@@ -511,6 +543,11 @@ export class MembersPageComponent implements OnInit {
       return;
     }
 
+    if (this.loadInFlight) {
+      return;
+    }
+
+    this.loadInFlight = true;
     this.loading = true;
     this.errorMessage = '';
 
@@ -518,6 +555,7 @@ export class MembersPageComponent implements OnInit {
       .getMembersPageData()
       .pipe(
         finalize(() => {
+          this.loadInFlight = false;
           queueMicrotask(() => {
             this.loading = false;
             this.cdr.detectChanges();
@@ -532,8 +570,7 @@ export class MembersPageComponent implements OnInit {
         },
         error: (error) => {
           this.pageData = null;
-          console.error('[members] page load failed', error);
-          this.errorMessage = 'We could not load the workforce roster.';
+          this.errorMessage = mapSafeError(error).userMessage;
         }
       });
   }
@@ -655,30 +692,4 @@ export class MembersPageComponent implements OnInit {
     return value && value.trim() ? value.trim() : null;
   }
 
-  private toFriendlyError(error: unknown, fallback: string): string {
-    const anyError = error as {
-      error?: {
-        errors?: Array<{ extensions?: { reason?: string }; message?: string }>;
-        message?: string;
-      };
-      message?: string;
-    };
-    const backendMessage =
-      anyError?.error?.errors?.[0]?.extensions?.reason ||
-      anyError?.error?.errors?.[0]?.message ||
-      anyError?.error?.message;
-    if (typeof backendMessage === 'string' && backendMessage.trim()) {
-      return backendMessage.trim();
-    }
-
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
-
-    if (typeof error === 'string' && error.trim()) {
-      return error.trim();
-    }
-
-    return fallback;
-  }
 }

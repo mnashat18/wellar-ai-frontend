@@ -16,6 +16,7 @@ import { CompanyContextChipComponent } from '../../shared/ui/company-context-chi
 import { CardSkeletonLoaderComponent } from '../../shared/ui/card-skeleton-loader/card-skeleton-loader.component';
 import { TableSkeletonLoaderComponent } from '../../shared/ui/table-skeleton-loader/table-skeleton-loader.component';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 type ActivityFilters = {
   actor: string;
@@ -186,7 +187,7 @@ export class ActivityPageComponent implements OnInit {
       },
       error: (error) => {
         this.pageData = null;
-        this.errorMessage = error?.message || 'Failed to load activity events.';
+        this.errorMessage = mapSafeError(error).userMessage;
       }
     });
   }

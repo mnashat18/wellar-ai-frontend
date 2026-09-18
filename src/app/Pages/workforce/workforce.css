@@ -6,6 +6,49 @@
   box-sizing: border-box;
 }
 
+.workforce-hero {
+  margin-bottom: 0.35rem;
+}
+
+.workforce-loading-state {
+  display: grid;
+  gap: 1rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 1.6rem;
+  background:
+    radial-gradient(520px at 0% 0%, rgba(56, 189, 248, 0.1), transparent 58%),
+    rgba(9, 14, 28, 0.8);
+}
+
+.workforce-loading-state > div:first-child {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.workforce-loading-state__eyebrow {
+  margin: 0;
+  color: rgba(125, 211, 252, 0.82);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.workforce-loading-state h2 {
+  margin: 0;
+  color: #f8fafc;
+  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-size: 1.08rem;
+  letter-spacing: -0.03em;
+}
+
+.workforce-loading-state p:last-child {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.66);
+  line-height: 1.5;
+}
+
 .workforce-feedback {
   border-radius: 0.85rem;
   border: 1px solid rgba(148, 163, 184, 0.24);
@@ -40,10 +83,45 @@
 .workforce-summary-grid .app-kpi-card {
   height: 100%;
   min-height: 8.5rem;
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
+}
+
+.workforce-summary-grid .app-kpi-card::before {
+  content: '✦';
+  position: absolute;
+  top: 1.05rem;
+  right: 1.05rem;
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  border: 1px solid rgba(125, 211, 252, 0.24);
+  border-radius: 0.7rem;
+  background: rgba(56, 189, 248, 0.1);
+  color: #7dd3fc;
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.workforce-summary-grid .app-kpi-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(125, 211, 252, 0.3);
+  box-shadow: 0 26px 56px rgba(2, 6, 23, 0.32);
 }
 
 .workforce-search-control {
   min-width: min(100%, 18rem);
+}
+
+.workforce-page input:focus-visible,
+.workforce-page select:focus-visible,
+.workforce-page button:focus-visible,
+.workforce-page a:focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.9);
+  outline-offset: 2px;
 }
 
 .workforce-tabs {
@@ -156,6 +234,10 @@
 .workforce-table-row:focus {
   background: rgba(56, 189, 248, 0.08);
   outline: none;
+}
+
+.workforce-table-row:focus-visible {
+  box-shadow: inset 3px 0 0 #38bdf8;
 }
 
 .workforce-member-cell {
@@ -327,6 +409,10 @@
   box-shadow: 0 8px 18px rgba(20, 184, 166, 0.18);
 }
 
+.workforce-table td {
+  line-height: 1.4;
+}
+
 .workforce-row-action {
   border: 1px solid rgba(148, 163, 184, 0.45);
   border-radius: 999px;
@@ -440,5 +526,20 @@
 
   .workforce-table-actions {
     min-width: 5rem;
+  }
+
+  .workforce-loading-state {
+    padding: 1rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workforce-summary-grid .app-kpi-card,
+  .workforce-table-row {
+    transition: none;
+  }
+
+  .workforce-summary-grid .app-kpi-card:hover {
+    transform: none;
   }
 }
