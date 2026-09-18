@@ -48,12 +48,11 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
           </button>
 
           <app-dashboard-topbar
-            class="app-header"
-            >
+            class="app-header">
           </app-dashboard-topbar>
 
           <div class="app-breadcrumbs" *ngIf="breadcrumbs.length > 1">
-            <nav>
+            <nav aria-label="Breadcrumb">
               <ng-container *ngFor="let crumb of breadcrumbs; let last = last">
                 <span [class.is-current]="last">{{ crumb }}</span>
                 <span *ngIf="!last">/</span>
@@ -61,7 +60,7 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
             </nav>
           </div>
 
-          <main class="app-content">
+          <main class="app-content" id="main-content" tabindex="-1">
             <div class="app-content-frame">
               <router-outlet></router-outlet>
             </div>

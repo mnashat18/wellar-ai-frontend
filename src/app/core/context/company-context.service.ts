@@ -1,12 +1,13 @@
 import { DestroyRef, Injectable, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, firstValueFrom, forkJoin, from, of } from 'rxjs';
+import { BehaviorSubject, Observable, firstValueFrom, forkJoin, from, of, throwError } from 'rxjs';
 import { catchError, finalize, map, shareReplay, switchMap, tap, timeout } from 'rxjs/operators';
 
 import { environment } from '../../../environments/environment';
 
 import { type ActiveMemberRole } from '../../ia/wellar-ia';
 import { AuthService } from '../../services/auth';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 import {
   WorkspaceContextApiError,
   WorkspaceContextApiService,
@@ -160,13 +161,25 @@ const INITIAL_STATE: CompanyContextState = {
 const ACTIVE_MEMBERSHIP_STORAGE_KEY = 'active_workspace_membership_v1';
 const ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY = 'active_workspace_membership_sync_v1';
 type RefreshOptions = { force?: boolean; failOnError?: boolean };
-type EnsureLoadedOptions = { skipMembershipSync?: boolean };
+type EnsureLoadedOptions = {
+  skipMembershipSync?: boolean;
+  commitGuard?: () => boolean;
+};
 
 type VerifiedWorkspaceContext = {
   activeMembership: ActiveMembershipContext;
   activeBusinessProfile: BusinessProfileRecord;
   activeDepartment: WorkspaceContextDepartment | null;
   activeMemberRole: ActiveMemberRole;
+};
+
+export type WorkspaceRestorationStatus = 'idle' | 'restoring' | 'success' | 'failed';
+
+export type WorkspaceRestorationResult = {
+  state: CompanyContextState;
+  workspaceContext: WorkspaceContextPayload | null;
+  memberships: ActiveMembershipContext[];
+  verifiedContext: VerifiedWorkspaceContext | null;
 };
 
 @Injectable({ providedIn: 'root' })
@@ -179,9 +192,12 @@ export class CompanyContextService {
   private readonly activeMemberRoleSubject = new BehaviorSubject<ActiveMemberRole | null>(
     this.normalizeUiRole(this.readStoredValue('active_member_role'))
   );
-  private inFlight$: Observable<CompanyContextState> | null = null;
+  private restorationInFlight$: Observable<WorkspaceRestorationResult> | null = null;
+  private restorationResult: WorkspaceRestorationResult | null = null;
+  private restorationStatus: WorkspaceRestorationStatus = 'idle';
   private verifiedWorkspaceContext: VerifiedWorkspaceContext | null = null;
-  private verifiedWorkspaceContextInFlight: Promise<VerifiedWorkspaceContext | null> | null = null;
+  private switchGeneration = 0;
+  private switchPipeline: Promise<void> = Promise.resolve();
 
   readonly state$ = this.stateSubject.asObservable();
   readonly context$ = this.state$.pipe(map((state) => state.context));
@@ -214,18 +230,12 @@ export class CompanyContextService {
   }
 
   async initializeAppContext(forceRefresh = false): Promise<CompanyContextState> {
-    await this.initializeAuthContext(forceRefresh);
-    await this.initializeWorkspaceContext(forceRefresh);
-    return this.snapshot();
+    return await firstValueFrom(this.ensureLoaded(forceRefresh));
   }
 
   async refreshCurrentUser(options: RefreshOptions = {}): Promise<void> {
     const forceRefresh = options.force ?? true;
-    if (!(await this.ensureSessionEstablished())) {
-      return;
-    }
-    await this.initializeAuthContext(forceRefresh);
-    await firstValueFrom(this.ensureLoaded(forceRefresh));
+    await firstValueFrom(this.restoreWorkspaceContext(forceRefresh));
   }
 
   private async ensureSessionEstablished(): Promise<boolean> {
@@ -237,145 +247,100 @@ export class CompanyContextService {
 
   async refreshWorkspaceContext(options: RefreshOptions = {}): Promise<void> {
     const forceRefresh = options.force ?? true;
-    await this.ensureVerifiedWorkspaceContext(forceRefresh, options.failOnError ?? false);
+    try {
+      await firstValueFrom(this.restoreWorkspaceContext(forceRefresh));
+    } catch (error) {
+      if (options.failOnError) {
+        throw error;
+      }
+    }
   }
 
   async ensureVerifiedWorkspaceContext(forceRefresh = false, failOnError = false): Promise<VerifiedWorkspaceContext | null> {
-    const current = this.verifiedWorkspaceContext;
-    if (!forceRefresh && current) {
-      return current;
-    }
-
-    if (!forceRefresh && this.verifiedWorkspaceContextInFlight) {
-      return this.verifiedWorkspaceContextInFlight;
-    }
-
-    const run = async (): Promise<VerifiedWorkspaceContext | null> => {
-      if (!(await this.ensureSessionEstablished())) {
-        this.verifiedWorkspaceContext = null;
+    try {
+      const result = await firstValueFrom(this.restoreWorkspaceContext(forceRefresh));
+      return result.verifiedContext;
+    } catch (error) {
+      if (error instanceof WorkspaceContextApiError && error.code === 'unauthorized') {
+        this.auth.clearAuthState();
         this.clearActiveWorkspaceContext();
+        this.stateSubject.next(this.buildSignedOutState(true, true));
         return null;
       }
 
-      try {
-        const response = await firstValueFrom(this.workspaceContextApi.getContext().pipe(timeout(10000)));
-        const active = response.active;
-        if (!active?.workspace?.id || !active?.membership?.id || !active.membership.memberRole) {
-          this.verifiedWorkspaceContext = null;
-          this.clearActiveWorkspaceContext();
-          return null;
-        }
-
-        const workspace = this.normalizeBusinessProfileFromWorkspace(active.workspace);
-        const membership = this.normalizeVerifiedMembership(active, workspace);
-        this.applyVerifiedWorkspaceContext(membership, workspace, active.department ?? null);
-        return this.verifiedWorkspaceContext;
-      } catch (error) {
-        if (error instanceof WorkspaceContextApiError) {
-          if (error.code === 'unauthorized') {
-            this.auth.clearAuthState();
-            this.clearActiveWorkspaceContext();
-            this.stateSubject.next(this.buildSignedOutState(true, true));
-            return null;
-          }
-          if (error.code === 'forbidden' || error.code === 'not_found' || error.code === 'conflict') {
-            this.verifiedWorkspaceContext = null;
-            this.clearActiveWorkspaceContext();
-            if (failOnError) {
-              throw error;
-            }
-            return null;
-          }
-        }
-
-        if (failOnError) {
-          throw error;
-        }
-
-        this.verifiedWorkspaceContext = null;
-        this.clearActiveWorkspaceContext();
-        return null;
+      this.verifiedWorkspaceContext = null;
+      this.clearActiveWorkspaceContext();
+      if (failOnError) {
+        throw error;
       }
-    };
-
-    const promise = run().finally(() => {
-      this.verifiedWorkspaceContextInFlight = null;
-    });
-
-    this.verifiedWorkspaceContextInFlight = promise;
-    return promise;
+      return null;
+    }
   }
 
   async refreshMemberships(options: RefreshOptions = {}): Promise<ActiveMembershipContext[]> {
     const forceRefresh = options.force ?? true;
-    await this.initializeAuthContext(forceRefresh);
-
-    const user = await this.auth.getCurrentUserAfterRestore();
-    const userId = this.normalizeId(user?.id);
-    if (!userId || !(await this.ensureSessionEstablished())) {
-      this.clearActiveWorkspaceContext();
-      return [];
-    }
-
-    let memberships: ActiveMembershipContext[] = [];
     try {
-      memberships = await this.fetchActiveMembershipsForUser(userId);
+      const result = await firstValueFrom(this.restoreWorkspaceContext(forceRefresh));
+      return result.memberships;
     } catch (error) {
       if (options.failOnError) {
         throw error;
       }
       return [];
     }
-
-    if (!memberships.length) {
-      this.clearActiveWorkspaceContext();
-      return [];
-    }
-
-    const preferredMembership = this.pickPreferredActiveMembership(memberships);
-    if (preferredMembership) {
-      await this.activateFromMembership(preferredMembership as ActiveMembershipInput);
-    }
-
-    return memberships;
   }
 
   async activateClaimedMembershipForCurrentUser(businessProfileId: string | null): Promise<ActiveMembershipContext | null> {
     const profileId = this.normalizeId(businessProfileId);
-    const user = await this.auth.getCurrentUserAfterRestore();
-    const userId = this.normalizeId(user?.id);
-    if (!profileId || !userId || !(await this.ensureSessionEstablished())) {
+    const generation = ++this.switchGeneration;
+    return await this.coordinateSwitch(generation, async (isCurrent) => {
+      const restored = await firstValueFrom(this.restoreWorkspaceContext(false));
+      const userId = this.normalizeId(restored.state.context.userId);
+      if (!profileId || !userId || !isCurrent()) {
+        return null;
+      }
+
+      const claimedMembership = restored.memberships.find((membership) =>
+          this.normalizeId(membership.business_profile) === profileId &&
+          this.normalizeId(membership.user) === userId &&
+          String(membership.status ?? '').trim().toLowerCase() === 'active'
+        ) ?? null;
+
+      if (!claimedMembership) {
+        return null;
+      }
+
+      await firstValueFrom(this.workspaceContextApi.switchMembership(String(claimedMembership.id)));
+      if (!isCurrent()) {
+        return null;
+      }
+
+      await this.activateFromMembership(claimedMembership as ActiveMembershipInput, isCurrent);
+      if (!isCurrent()) {
+        return null;
+      }
+
+      const restoredAfterSwitch = await firstValueFrom(
+        this.restoreWorkspaceContextInternal(true, {
+          skipMembershipSync: true,
+          commitGuard: isCurrent
+        })
+      );
+      if (!isCurrent()) {
+        return null;
+      }
+
+      const activeMembership = restoredAfterSwitch.verifiedContext?.activeMembership ?? null;
+      if (
+        activeMembership?.id &&
+        this.normalizeId(activeMembership.business_profile) === profileId &&
+        this.normalizeId(activeMembership.user) === userId
+      ) {
+        return activeMembership;
+      }
+
       return null;
-    }
-
-    const memberships = await this.fetchActiveMembershipsForUser(userId);
-    const claimedMembership =
-      memberships.find((membership) =>
-        this.normalizeId(membership.business_profile) === profileId &&
-        this.normalizeId(membership.user) === userId &&
-        String(membership.status ?? '').trim().toLowerCase() === 'active'
-      ) ?? null;
-
-    if (!claimedMembership) {
-      return null;
-    }
-
-    await firstValueFrom(this.workspaceContextApi.switchMembership(String(claimedMembership.id)));
-    await this.activateFromMembership(claimedMembership as ActiveMembershipInput);
-    await firstValueFrom(this.ensureLoaded(true));
-    await this.ensureVerifiedWorkspaceContext(true, true);
-
-    const activeMembership = this.activeMembershipSubject.value;
-    if (
-      activeMembership?.id &&
-      this.normalizeId(activeMembership.business_profile) === profileId &&
-      this.normalizeId(activeMembership.user) === userId
-    ) {
-      return activeMembership;
-    }
-
-    await this.activateFromMembership(claimedMembership as ActiveMembershipInput);
-    return this.activeMembershipSubject.value;
+    });
   }
 
   async initializeAuthContext(forceRefresh = false): Promise<void> {
@@ -479,67 +444,7 @@ export class CompanyContextService {
   }
 
   async initializeWorkspaceContext(forceRefresh = false): Promise<void> {
-    await this.initializeAuthContext(forceRefresh);
-    const state = this.snapshot();
-    if (state.context.workspaceInitialized && !forceRefresh) {
-      return;
-    }
-
-    if (!state.context.isAuthenticated || !state.context.currentUser?.id) {
-      this.stateSubject.next({
-        ...state,
-        loading: false,
-        error: null,
-        context: {
-          ...state.context,
-          workspaceInitialized: true
-        }
-      });
-      return;
-    }
-
-    this.stateSubject.next({
-      ...state,
-      loading: true,
-      error: null,
-      context: {
-        ...state.context,
-        workspaceInitialized: false
-      }
-    });
-
-    try {
-      await this.ensureActiveContext();
-      await firstValueFrom(this.ensureLoaded(forceRefresh));
-    } catch (error) {
-      if (this.isUnauthorizedError(error)) {
-        this.auth.clearAuthState();
-        this.clearActiveWorkspaceContext();
-        this.stateSubject.next(this.buildSignedOutState(true, true));
-        return;
-      }
-
-      this.stateSubject.next({
-        ...this.snapshot(),
-        loading: false,
-        error: this.describeError(error, 'Failed to initialize workspace context.'),
-        context: {
-          ...this.snapshot().context,
-          workspaceInitialized: true
-        }
-      });
-      return;
-    }
-
-    this.stateSubject.next({
-      ...this.snapshot(),
-      loading: false,
-      error: null,
-      context: {
-        ...this.snapshot().context,
-        workspaceInitialized: true
-      }
-    });
+    await firstValueFrom(this.ensureLoaded(forceRefresh));
   }
 
   clearActiveWorkspaceContext(): void {
@@ -550,6 +455,8 @@ export class CompanyContextService {
     this.activeBusinessProfileSubject.next(null);
     this.activeMemberRoleSubject.next(null);
     this.verifiedWorkspaceContext = null;
+    this.restorationResult = null;
+    this.restorationStatus = 'idle';
     this.stateSubject.next({
       loading: false,
       error: null,
@@ -629,7 +536,10 @@ export class CompanyContextService {
     this.syncActiveContextState();
   }
 
-  async activateFromMembership(membership: ActiveMembershipInput): Promise<void> {
+  async activateFromMembership(
+    membership: ActiveMembershipInput,
+    commitGuard?: () => boolean
+  ): Promise<void> {
     if (!membership) {
       throw new Error('Missing membership');
     }
@@ -658,6 +568,10 @@ export class CompanyContextService {
 
     if (!profile?.id) {
       throw new Error('Membership has no business_profile id');
+    }
+
+    if (commitGuard && !commitGuard()) {
+      return;
     }
 
     this.activeMembershipSubject.next({
@@ -704,94 +618,24 @@ export class CompanyContextService {
     activeBusinessProfile: BusinessProfileRecord;
     activeMemberRole: string;
   } | null> {
-
-    const currentUser = await this.auth.getCurrentUserAfterRestore();
-    if (!currentUser?.id) {
-      this.clearActiveWorkspaceContext();
-      return null;
+    const restored = await firstValueFrom(this.restoreWorkspaceContext(false));
+    if (restored.verifiedContext) {
+      return {
+        activeMembership: restored.verifiedContext.activeMembership,
+        activeBusinessProfile: restored.verifiedContext.activeBusinessProfile,
+        activeMemberRole: restored.verifiedContext.activeMemberRole
+      };
     }
 
-    const currentUserId = this.normalizeId(currentUser.id);
-    if (!currentUserId) {
-      this.clearActiveWorkspaceContext();
-      return null;
-    }
+    return null;
 
-    const existingMembership = this.activeMembershipSubject.value;
-    const existingProfile = this.activeBusinessProfileSubject.value;
-    if (existingMembership?.id && existingProfile?.id) {
-      const memberUserId = this.normalizeId(existingMembership.user);
-      if (memberUserId === currentUserId) {
-        return {
-          activeMembership: existingMembership,
-          activeBusinessProfile: existingProfile,
-          activeMemberRole: String(existingMembership.member_role || '').toLowerCase()
-        };
-      }
-
-      console.warn('[WorkspaceContext] in-memory context belongs to another user, clearing');
-      this.clearActiveWorkspaceContext();
-    }
-
-    const storedMembership = this.readStoredMembership();
-    if (storedMembership) {
-      try {
-        const membershipToUse = storedMembership;
-        const memberUserId = this.normalizeId(membershipToUse?.user);
-        const belongsToCurrentUser = memberUserId === currentUserId;
-
-
-        if (!membershipToUse?.id || !belongsToCurrentUser) {
-          console.warn('[WorkspaceContext] stored membership invalid or belongs to another user, clearing');
-          this.clearActiveWorkspaceContext();
-        } else if (String(membershipToUse.status || '').toLowerCase() === 'active') {
-          await this.activateFromMembership(membershipToUse as ActiveMembershipInput);
-
-          return {
-            activeMembership: this.activeMembershipSubject.value as ActiveMembershipContext,
-            activeBusinessProfile: this.activeBusinessProfileSubject.value as BusinessProfileRecord,
-            activeMemberRole: String(this.activeMemberRoleSubject.value ?? '').toLowerCase()
-          };
-        } else {
-          console.warn('[WorkspaceContext] stored membership is not active, clearing');
-          this.clearActiveWorkspaceContext();
-        }
-      } catch (error) {
-        console.warn('[WorkspaceContext] stored membership restore failed', error);
-        this.clearActiveWorkspaceContext();
-      }
-    }
-
-    if (!(await this.ensureSessionEstablished())) {
-      this.clearActiveWorkspaceContext();
-      return null;
-    }
-
-    const activeContext = await this.loadAuthoritativeUserContext();
-    const memberships = await this.fetchActiveMembershipsForUser(String(currentUser.id), activeContext);
-    const activeMembership = memberships[0] ?? null;
-    if (!activeMembership) {
-      this.clearActiveWorkspaceContext();
-      return null;
-    }
-
-    const activeMemberUserId = this.normalizeId(activeMembership.user);
-    if (activeMemberUserId !== currentUserId) {
-      console.warn('[WorkspaceContext] fetched membership belongs to another user, clearing');
-      this.clearActiveWorkspaceContext();
-      return null;
-    }
-
-    await this.activateFromMembership(activeMembership as ActiveMembershipInput);
-
-    return {
-      activeMembership: this.activeMembershipSubject.value as ActiveMembershipContext,
-      activeBusinessProfile: this.activeBusinessProfileSubject.value as BusinessProfileRecord,
-      activeMemberRole: String(this.activeMemberRoleSubject.value ?? '').toLowerCase()
-    };
   }
 
   async getActiveMembershipsForCurrentUser(): Promise<ActiveMembershipContext[]> {
+    if (this.restorationResult) {
+      return this.restorationResult.memberships;
+    }
+
     const user = await this.auth.getCurrentUserAfterRestore();
     const userId = this.normalizeId(user?.id);
     if (!userId || !(await this.ensureSessionEstablished())) {
@@ -809,51 +653,117 @@ export class CompanyContextService {
     return this.ensureLoadedInternal(forceRefresh, {});
   }
 
-  private ensureLoadedInternal(forceRefresh = false, options: EnsureLoadedOptions = {}): Observable<CompanyContextState> {
-    const current = this.snapshot();
-    if (!this.auth.isSessionEstablished()) {
-      const session = this.auth.ensureSession();
-      return session.pipe(switchMap((established) => established
-        ? this.ensureLoadedInternal(forceRefresh, options)
-        : of(this.buildSignedOutState(true, true))));
+  restoreWorkspaceContext(forceRefresh = false): Observable<WorkspaceRestorationResult> {
+    return this.restoreWorkspaceContextInternal(forceRefresh, {});
+  }
+
+  private restoreWorkspaceContextInternal(
+    forceRefresh = false,
+    options: EnsureLoadedOptions = {}
+  ): Observable<WorkspaceRestorationResult> {
+    if (this.restorationInFlight$) {
+      return this.restorationInFlight$;
     }
-    const hasCurrentUserIdentity = Boolean(current.context.currentUser?.id || current.context.userId);
-    const hasCurrentUserEmail = Boolean(
-      this.pickString(current.context.currentUser?.email) ||
-      this.pickString(current.context.userEmail)
+
+    if (!forceRefresh && this.restorationResult) {
+      return of(this.restorationResult);
+    }
+
+    this.restorationStatus = 'restoring';
+    if (!options.commitGuard) {
+      this.stateSubject.next({
+        ...this.snapshot(),
+        loading: true,
+        error: null
+      });
+    }
+    const request$ = from(this.runWorkspaceRestoration(options)).pipe(
+      tap((result) => {
+        if (!options.commitGuard || options.commitGuard()) {
+          this.restorationResult = result;
+          this.restorationStatus = 'success';
+        }
+      }),
+      catchError((error) => {
+        this.restorationResult = null;
+        this.restorationStatus = 'failed';
+        return throwError(() => error);
+      }),
+      finalize(() => {
+        this.restorationInFlight$ = null;
+      }),
+      shareReplay({ bufferSize: 1, refCount: false })
     );
-    const alreadyLoaded = Boolean(
-      hasCurrentUserIdentity &&
-      hasCurrentUserEmail &&
-      current.context.workspaceInitialized &&
-      current.context.availableCompanies.length > 1 &&
-      !current.error
+
+    this.restorationInFlight$ = request$;
+    return request$;
+  }
+
+  private async runWorkspaceRestoration(
+    options: EnsureLoadedOptions = {}
+  ): Promise<WorkspaceRestorationResult> {
+    const established = await firstValueFrom(this.auth.ensureSession());
+    if (!established) {
+      if (options.commitGuard && !options.commitGuard()) {
+        const state = this.snapshot();
+        return { state, workspaceContext: null, memberships: [], verifiedContext: null };
+      }
+      this.clearActiveWorkspaceContext();
+      const state = this.buildSignedOutState(true, true);
+      this.stateSubject.next(state);
+      return { state, workspaceContext: null, memberships: [], verifiedContext: null };
+    }
+
+    const workspaceContext = await firstValueFrom(
+      this.workspaceContextApi.getContext().pipe(timeout(10000))
     );
-    const currentActiveMembershipId =
-      current.context.availableCompanies.find((company) => company.isActive)?.membershipId ?? null;
+    const activeMembershipId = this.normalizeId(workspaceContext.active?.membership?.id);
     const syncedMembershipId = this.readStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY);
 
-    if (!forceRefresh && alreadyLoaded && !current.loading && syncedMembershipId && currentActiveMembershipId === syncedMembershipId) {
-      return of(current);
+    if (!options.skipMembershipSync && activeMembershipId && syncedMembershipId !== activeMembershipId) {
+      await firstValueFrom(this.workspaceContextApi.switchMembership(activeMembershipId));
+      this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, activeMembershipId);
     }
 
-    if (!forceRefresh && this.inFlight$) {
-      return this.inFlight$;
+    const user = await firstValueFrom(this.fetchCurrentUserContext().pipe(timeout(15000)));
+    if (!user.userId) {
+      throw new Error('Workspace restoration returned no authenticated user.');
     }
 
-    const request$ = from(this.synchronizeLoadedContext(options, forceRefresh)).pipe(
-      switchMap(() =>
-        this.fetchCurrentUserContext().pipe(
-          timeout(15000),
-          switchMap((user) =>
-            from(this.loadWorkspaceContext()).pipe(
-              catchError(() => of(null)),
-              map((workspaceContext) => this.buildState(user, workspaceContext))
-            )
-          )
-        )
-      ),
-      tap((state) => this.stateSubject.next(state)),
+    let verifiedContext: VerifiedWorkspaceContext | null = null;
+    if (workspaceContext.active?.workspace?.id && workspaceContext.active.membership?.id) {
+      const workspace = this.normalizeBusinessProfileFromWorkspace(workspaceContext.active.workspace);
+      const membership = this.normalizeVerifiedMembership(workspaceContext.active, workspace);
+      if (!options.commitGuard || options.commitGuard()) {
+        this.applyVerifiedWorkspaceContext(membership, workspace, workspaceContext.active.department ?? null, options.commitGuard);
+        verifiedContext = this.verifiedWorkspaceContext;
+      }
+    } else if (!options.commitGuard || options.commitGuard()) {
+      this.clearActiveWorkspaceContext();
+    }
+
+    const currentUser = user.currentUser ?? {
+      id: user.userId,
+      email: user.userEmail,
+      first_name: null,
+      last_name: null
+    };
+    const memberships = workspaceContext.memberships
+      .map((membership) => this.mapWorkspaceMembershipToActiveMembership(membership, currentUser))
+      .filter((membership): membership is ActiveMembershipContext => Boolean(membership));
+    const state = options.commitGuard && !options.commitGuard()
+      ? this.snapshot()
+      : this.buildState(user, workspaceContext);
+    if (!options.commitGuard || options.commitGuard()) {
+      this.stateSubject.next(state);
+    }
+
+    return { state, workspaceContext, memberships, verifiedContext };
+  }
+
+  private ensureLoadedInternal(forceRefresh = false, options: EnsureLoadedOptions = {}): Observable<CompanyContextState> {
+    return this.restoreWorkspaceContextInternal(forceRefresh, options).pipe(
+      map((result) => result.state),
       catchError((error) => {
         if (this.isUnauthorizedError(error)) {
           this.auth.clearAuthState();
@@ -874,49 +784,8 @@ export class CompanyContextService {
         };
         this.stateSubject.next(failedState);
         return of(failedState);
-      }),
-      finalize(() => {
-        this.inFlight$ = null;
-      }),
-      shareReplay(1)
+      })
     );
-
-    this.stateSubject.next({
-      ...current,
-      loading: true,
-      error: null
-    });
-
-    this.inFlight$ = request$;
-    return request$;
-  }
-
-  private async synchronizeLoadedContext(
-    options: EnsureLoadedOptions,
-    forceRefresh: boolean
-  ): Promise<boolean> {
-    if (!options.skipMembershipSync) {
-      await this.syncServerConfirmedMembershipAccessOnce(forceRefresh);
-    }
-
-    return true;
-  }
-
-  private async syncServerConfirmedMembershipAccessOnce(forceRefresh = false): Promise<void> {
-    const workspaceContext = await firstValueFrom(this.workspaceContextApi.getContext().pipe(timeout(10000)));
-    const activeMembershipId = this.normalizeId(workspaceContext?.active?.membership?.id);
-    if (!activeMembershipId) {
-      return;
-    }
-
-    const currentSignature = this.readStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY);
-    if (currentSignature === activeMembershipId) {
-      return;
-    }
-
-    await firstValueFrom(this.workspaceContextApi.switchMembership(activeMembershipId));
-
-    this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, activeMembershipId);
   }
 
   switchCompany(companyId: string): Observable<CompanyContextState> {
@@ -925,21 +794,10 @@ export class CompanyContextService {
       return of(this.snapshot());
     }
 
-    return this.workspaceContextApi.switchMembership(company.membershipId).pipe(
-      switchMap(() => from(this.refreshAccessTokenAfterMembershipChange())),
-      switchMap(() => this.ensureLoadedInternal(true, { skipMembershipSync: true })),
-      switchMap(() => from(this.ensureVerifiedWorkspaceContext(true, true))),
-      map((verifiedContext) => {
-        const confirmedMembershipId = this.normalizeId(verifiedContext?.activeMembership?.id);
-        if (confirmedMembershipId !== company.membershipId) {
-          throw new Error('Workspace switch did not confirm the selected organization.');
-        }
-
-        this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, confirmedMembershipId);
-        return this.snapshot();
-      }),
-      catchError((error) => this.handleMutationError(error, 'Failed to switch company context.'))
-    );
+    const generation = ++this.switchGeneration;
+    return from(this.coordinateSwitch(generation, (isCurrent) =>
+      this.executeMembershipSwitch(company.membershipId, 'Workspace switch', isCurrent)
+    )).pipe(switchMap((state) => state ? of(state) : from([])));
   }
 
   clearDepartmentScope(): Observable<CompanyContextState> {
@@ -961,21 +819,59 @@ export class CompanyContextService {
       return of(this.snapshot());
     }
 
-    return this.workspaceContextApi.switchMembership(matchingCompany.membershipId).pipe(
-      switchMap(() => from(this.refreshAccessTokenAfterMembershipChange())),
-      switchMap(() => this.ensureLoadedInternal(true, { skipMembershipSync: true })),
-      switchMap(() => from(this.ensureVerifiedWorkspaceContext(true, true))),
-      map((verifiedContext) => {
-        const confirmedMembershipId = this.normalizeId(verifiedContext?.activeMembership?.id);
-        if (confirmedMembershipId !== matchingCompany.membershipId) {
-          throw new Error('Workspace update did not confirm the selected organization.');
-        }
+    const generation = ++this.switchGeneration;
+    return from(this.coordinateSwitch(generation, (isCurrent) =>
+      this.executeMembershipSwitch(matchingCompany.membershipId, 'Workspace update', isCurrent)
+    )).pipe(switchMap((state) => state ? of(state) : from([])));
+  }
 
-        this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, confirmedMembershipId);
-        return this.snapshot();
-      }),
-      catchError((error) => this.handleMutationError(error, 'Failed to update workspace context.'))
+  private coordinateSwitch<T>(
+    generation: number,
+    operation: (isCurrent: () => boolean) => Promise<T | null>
+  ): Promise<T | null> {
+    const previous = this.switchPipeline;
+    const current = previous.catch(() => undefined).then(() => {
+      if (generation !== this.switchGeneration) {
+        return null;
+      }
+
+      return operation(() => generation === this.switchGeneration);
+    });
+    this.switchPipeline = current.then(() => undefined, () => undefined);
+    return current;
+  }
+
+  private async executeMembershipSwitch(
+    membershipId: string,
+    switchLabel: string,
+    isCurrent: () => boolean
+  ): Promise<CompanyContextState | null> {
+    await firstValueFrom(this.workspaceContextApi.switchMembership(membershipId));
+    await this.refreshAccessTokenAfterMembershipChange();
+    if (!isCurrent()) {
+      return null;
+    }
+
+    const restored = await firstValueFrom(
+      this.restoreWorkspaceContextInternal(true, {
+        skipMembershipSync: true,
+        commitGuard: isCurrent
+      })
     );
+    if (!isCurrent()) {
+      return null;
+    }
+
+    const confirmedMembershipId = this.normalizeId(restored.verifiedContext?.activeMembership?.id);
+    if (confirmedMembershipId !== membershipId) {
+      throw new Error(`${switchLabel} did not confirm the selected organization.`);
+    }
+
+    if (!isCurrent()) {
+      return null;
+    }
+    this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, confirmedMembershipId);
+    return this.snapshot();
   }
 
   private async refreshAccessTokenAfterMembershipChange(): Promise<void> {
@@ -1541,8 +1437,12 @@ export class CompanyContextService {
   private applyVerifiedWorkspaceContext(
     membership: ActiveMembershipContext,
     profile: BusinessProfileRecord,
-    department: WorkspaceContextDepartment | null
+    department: WorkspaceContextDepartment | null,
+    commitGuard?: () => boolean
   ): void {
+    if (commitGuard && !commitGuard()) {
+      return;
+    }
     this.verifiedWorkspaceContext = {
       activeMembership: membership,
       activeBusinessProfile: profile,
@@ -1945,17 +1845,15 @@ export class CompanyContextService {
     return null;
   }
 
-  private describeError(error: any, fallback: string): string {
-    return (
-      error?.error?.errors?.[0]?.extensions?.reason ||
-      error?.error?.errors?.[0]?.message ||
-      error?.error?.message ||
-      error?.message ||
-      fallback
-    );
+  private describeError(error: unknown, fallback: string): string {
+    if (error instanceof WorkspaceContextApiError) {
+      return error.userMessage || fallback;
+    }
+
+    return mapSafeError(error).userMessage || fallback;
   }
 
-  private handleMutationError(error: any, fallback: string): Observable<CompanyContextState> {
+  private handleMutationError(error: unknown, fallback: string): Observable<CompanyContextState> {
     const nextState: CompanyContextState = {
       ...this.snapshot(),
       loading: false,

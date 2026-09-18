@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 import { catchError, map, timeout } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 import { AuthService } from '../../services/auth';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   selector: 'app-audit-logs',
@@ -118,7 +119,7 @@ export class AuditLogs implements OnInit {
           this.cdr.detectChanges();
         },
         error: (err) => {
-          console.error('[audit-logs] create log error:', err);
+          console.error('[audit-logs] create log error:', mapSafeError(err).kind);
           this.submitFeedback = { type: 'error', message: 'Failed to submit log.' };
           this.cdr.detectChanges();
         }
@@ -142,14 +143,14 @@ export class AuditLogs implements OnInit {
             this.loadLogs();
           },
           error: (err) => {
-            console.error('[audit-logs] create log error:', err);
+            console.error('[audit-logs] create log error:', mapSafeError(err).kind);
             this.submitFeedback = { type: 'error', message: 'Failed to submit log.' };
             this.cdr.detectChanges();
           }
         });
       },
       error: (err) => {
-        console.error('[audit-logs] resolve user error:', err);
+        console.error('[audit-logs] resolve user error:', mapSafeError(err).kind);
         this.submitFeedback = { type: 'error', message: 'Failed to resolve user email.' };
         this.cdr.detectChanges();
       }
@@ -174,7 +175,7 @@ export class AuditLogs implements OnInit {
           this.applyLogs(logs);
         },
         error: (err) => {
-          console.error('[audit-logs] audit_logs error:', err);
+          console.error('[audit-logs] audit_logs error:', mapSafeError(err).kind);
         }
       });
       return;
@@ -186,7 +187,7 @@ export class AuditLogs implements OnInit {
         this.applyLogs(logs);
       },
       error: (err) => {
-        console.error('[audit-logs] audit_logs error:', err);
+        console.error('[audit-logs] audit_logs error:', mapSafeError(err).kind);
       }
     });
   }

@@ -9,6 +9,7 @@ import {
   type WorkspaceApplicationRecord,
   WorkspaceApplicationsService
 } from '../../services/workspace-applications.service';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 type WorkspaceRequestForm = {
   company_name: string;
@@ -896,7 +897,7 @@ export class WorkspaceRequestPageComponent implements OnInit {
       try {
         applications = await this.workspaceApplications.getMyApplications(this.normalizeUserId(user.id));
       } catch (error) {
-        console.warn('[WorkspaceRequest] Could not load applications', error);
+        console.warn('[WorkspaceRequest] Could not load applications', mapSafeError(error).kind);
         applications = [];
       }
 
@@ -941,7 +942,7 @@ export class WorkspaceRequestPageComponent implements OnInit {
       this.state = 'form';
       this.cdr.detectChanges();
     } catch (error) {
-      console.error('[WorkspaceRequest] session check failed', error);
+      console.error('[WorkspaceRequest] session check failed', mapSafeError(error).kind);
       this.router.navigate(['/'], { queryParams: { auth: 'login' } });
     }
   }
@@ -1039,7 +1040,7 @@ export class WorkspaceRequestPageComponent implements OnInit {
       this.statusMessage = '';
       this.cdr.detectChanges();
     } catch (error) {
-      console.error('[WorkspaceRequest] submit failed', error);
+      console.error('[WorkspaceRequest] submit failed', mapSafeError(error).kind);
       this.state = 'error';
       this.statusMessage = 'We could not submit your organization setup request.';
       this.cdr.detectChanges();

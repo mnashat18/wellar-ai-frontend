@@ -5,7 +5,10 @@
       class="settings-toast"
       [class.is-success]="toast.type === 'success'"
       [class.is-error]="toast.type === 'error'"
-      [class.is-info]="toast.type === 'info'">
+      [class.is-info]="toast.type === 'info'"
+      [attr.role]="toast.type === 'error' ? 'alert' : 'status'"
+      [attr.aria-live]="toast.type === 'error' ? 'assertive' : 'polite'"
+      aria-atomic="true">
       {{ toast.text }}
     </div>
   </div>
@@ -294,4 +297,28 @@
       </section>
     </div>
   </section>
+
+  <app-viewport-dialog
+    *ngIf="showClearCacheConfirmation"
+    [panelClass]="'rounded-[2rem] bg-white px-6 py-6 shadow-2xl text-slate-950'"
+    [lockScroll]="true"
+    labelledBy="clear-cache-confirmation-title"
+    (backdropClick)="cancelClearCache()">
+    <div>
+      <p class="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">Confirm action</p>
+      <h2 id="clear-cache-confirmation-title" class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">Reload workspace context?</h2>
+      <p class="mt-3 text-sm leading-6 text-slate-600">
+        This clears locally cached organization context from this browser and reloads the verified workspace state. It does not delete backend data.
+      </p>
+
+      <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
+        <button type="button" class="inline-flex items-center rounded-full border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 disabled:cursor-not-allowed disabled:opacity-50" [disabled]="clearingWorkspaceCache" (click)="cancelClearCache()">
+          Cancel
+        </button>
+        <button type="button" class="inline-flex items-center rounded-full bg-sky-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60" [disabled]="clearingWorkspaceCache" [attr.aria-busy]="clearingWorkspaceCache" (click)="confirmClearWorkspaceCache()">
+          {{ clearingWorkspaceCache ? 'Reloading...' : 'Reload workspace context' }}
+        </button>
+      </div>
+    </div>
+  </app-viewport-dialog>
 </div>

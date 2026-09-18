@@ -16,7 +16,7 @@
   <ng-container *ngIf="vm$ | async as vm">
     <ng-container *ngIf="!vm.loading; else sidebarLoading">
       <div class="app-sidebar__body">
-        <section class="app-sidebar__company">
+        <section class="app-sidebar__company" aria-labelledby="app-sidebar-active-organization">
           <div class="app-sidebar__company-identity">
             <div class="app-sidebar__company-avatar" aria-hidden="true">
               {{ vm.companyInitial }}
@@ -24,7 +24,7 @@
 
             <div class="app-sidebar__company-copy">
               <p class="app-sidebar__eyebrow">Active organization</p>
-              <h3>{{ vm.companyName || 'Loading organization...' }}</h3>
+              <h3 id="app-sidebar-active-organization">{{ vm.companyName || 'Loading organization...' }}</h3>
               <p class="app-sidebar__company-meta">
                 {{ vm.scopeValue }} · {{ vm.departmentValue }}
               </p>
@@ -37,17 +37,18 @@
         <ng-container *ngIf="vm.groups.length">
           <nav class="app-sidebar__nav sidebar-nav" aria-label="Organization navigation">
             <section *ngFor="let group of vm.groups" class="app-sidebar__group">
-              <p class="app-sidebar__group-label">{{ group.group }}</p>
+              <h2 class="app-sidebar__group-label">{{ group.group }}</h2>
 
               <div class="app-sidebar__group-items">
                 <a
                   *ngFor="let item of group.items"
-                  class="app-sidebar__nav-item"
+                  class="app-sidebar__nav-item motion-sidebar-item"
                   [routerLink]="item.route"
                   routerLinkActive="is-active"
                   ariaCurrentWhenActive="page"
                   [routerLinkActiveOptions]="routerLinkActiveOptions(item)"
                   (click)="onNavigate(item)"
+                  [attr.aria-label]="item.label"
                   [attr.title]="item.description">
                   <span class="app-sidebar__nav-icon" aria-hidden="true">
                     <ng-container [ngSwitch]="item.icon">

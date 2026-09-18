@@ -95,7 +95,7 @@ describe('OperationsAdminService invite payload', () => {
     req.flush({ data: { ok: true } });
   });
 
-  it('surfaces a nested Directus backend invite message', async () => {
+  it('sanitizes a nested Directus backend invite message', async () => {
     let capturedError: unknown = null;
 
     service.createInvite({
@@ -129,10 +129,11 @@ describe('OperationsAdminService invite payload', () => {
     await Promise.resolve();
 
     expect(capturedError).toBeTruthy();
-    expect((capturedError as Error).message).toContain('Invite role must be employee, manager, or hr.');
+    expect((capturedError as Error).message).toBe('Enter a valid email address.');
+    expect((capturedError as Error).message).not.toContain('Invite role must be employee');
   });
 
-  it('surfaces a standard Directus errors array message', async () => {
+  it('preserves duplicate invite classification without exposing backend text', async () => {
     let capturedError: unknown = null;
 
     service.createInvite({
@@ -162,7 +163,58 @@ describe('OperationsAdminService invite payload', () => {
     await Promise.resolve();
 
     expect(capturedError).toBeTruthy();
-    expect((capturedError as Error).message).toContain('Duplicate invite detected.');
+    expect((capturedError as Error).message).toBe('An active invite already exists for this person.');
+    expect((capturedError as Error).message).not.toContain('Duplicate invite detected.');
+  });
+
+  it.each([
+    [401, 'You do not have permission to send invites.'],
+    [403, 'You do not have permission to send invites.'],
+    [500, 'Something went wrong on our end. Please try again later.']
+  ])('maps HTTP %s to a safe invite failure', async (status, message) => {
+    let capturedError: unknown = null;
+
+    service.createInvite({ email: 'error@example.com', member_role: 'employee' }).subscribe({
+      error: (error) => { capturedError = error; }
+    });
+
+    const req = httpMock.expectOne(`${environment.API_URL}/wellar/workspaces/invites`);
+    req.flush({ message: 'SQL constraint and internal backend details' }, { status, statusText: 'Failure' });
+    await Promise.resolve();
+
+    expect((capturedError as Error).message).toBe(message);
+    expect((capturedError as Error).message).not.toContain('SQL constraint');
+  });
+
+  it('maps a network failure to a retryable safe message', async () => {
+    let capturedError: unknown = null;
+
+    service.createInvite({ email: 'network@example.com', member_role: 'employee' }).subscribe({
+      error: (error) => { capturedError = error; }
+    });
+
+    const req = httpMock.expectOne(`${environment.API_URL}/wellar/workspaces/invites`);
+    req.flush(null, { status: 0, statusText: 'Unknown Error' });
+    await Promise.resolve();
+
+    expect((capturedError as Error).message).toBe('We couldn’t reach the server. Check your connection and try again.');
+  });
+
+  it('maps a timeout to a distinct safe message', async () => {
+    let capturedError: unknown = null;
+    vi.useFakeTimers();
+
+    try {
+      service.createInvite({ email: 'timeout@example.com', member_role: 'employee' }).subscribe({
+        error: (error) => { capturedError = error; }
+      });
+
+      httpMock.expectOne(`${environment.API_URL}/wellar/workspaces/invites`);
+      await vi.advanceTimersByTimeAsync(12001);
+      expect((capturedError as Error).message).toBe('The invitation request took too long. Please try again.');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('exposes the full endpoint URL for the invite request', () => {

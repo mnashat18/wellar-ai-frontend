@@ -26,6 +26,7 @@ import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.com
 import { RiskBadgeComponent } from '../../shared/ui/risk-badge/risk-badge.component';
 import { StatusBadgeComponent } from '../../shared/ui/status-badge/status-badge.component';
 import { environment } from '../../../environments/environment';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   selector: 'app-dashboard',
@@ -390,7 +391,8 @@ export class Dashboard implements OnInit, OnDestroy {
         console.error('[Dashboard bootstrap failed]', {
           stage,
           status: details?.status,
-          url: details?.url ? new URL(details.url, window.location.origin).pathname : undefined
+          url: details?.url ? new URL(details.url, window.location.origin).pathname : undefined,
+          errorKind: mapSafeError(error).kind
         });
       }
       this.state = 'error';
@@ -439,7 +441,7 @@ export class Dashboard implements OnInit, OnDestroy {
             resolve();
             return;
           }
-          this.errorMessage = error?.message || 'Failed to load dashboard data.';
+          this.errorMessage = mapSafeError(error).userMessage;
           reject(error);
         }
       });

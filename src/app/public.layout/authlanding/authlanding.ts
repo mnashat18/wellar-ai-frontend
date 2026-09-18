@@ -9,6 +9,7 @@ import { CompanyContextService } from '../../core/context/company-context.servic
 import { InviteService } from '../../services/invites';
 import { PostAuthWelcomeService } from '../../services/post-auth-welcome.service';
 import { PostLoginRoutingService } from '../../services/post-login-routing.service';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
 import { MotionVisibilityDirective } from '../../shared/motion/motion-visibility.directive';
 
@@ -673,62 +674,39 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
     product.focus({ preventScroll: true });
   }
 
-  private resolveSignupError(err: any): string {
-    const message =
-      err?.error?.errors?.[0]?.extensions?.reason ||
-      err?.error?.errors?.[0]?.message ||
-      err?.error?.error ||
-      err?.message ||
-      '';
-    const normalized = String(message).toLowerCase();
+  private resolveSignupError(err: unknown): string {
+    const mapped = mapSafeError(err);
 
-    if (normalized.includes('timeout')) {
+    if (mapped.kind === 'timeout') {
       return 'Signup is taking too long. Please try again.';
     }
-    if (err?.status === 409 || normalized.includes('already')) {
+    if (mapped.kind === 'conflict') {
       this.duplicateSignupRecovery = true;
       this.login.email = this.signup.email.trim();
       return 'An account already exists for this email. Sign in instead.';
     }
-    if (err?.status === 400) {
+    if (mapped.kind === 'validation') {
       return 'Signup data is invalid. Please check your input.';
     }
     return 'Unable to create account right now.';
   }
 
-  private resolveLoginError(err: any): string {
-    const message = this.extractAuthErrorMessage(err);
-    const normalized = String(message).toLowerCase();
+  private resolveLoginError(err: unknown): string {
+    const mapped = mapSafeError(err);
 
-    if (err?.status === 401 || normalized.includes('invalid')) {
+    if (mapped.kind === 'authentication') {
       return 'Email or password is incorrect.';
     }
     return 'Unable to sign in right now. Please try again.';
   }
 
-  private extractAuthErrorMessage(err: any): string {
-    return (
-      err?.error?.errors?.[0]?.extensions?.reason ||
-      err?.error?.errors?.[0]?.message ||
-      err?.error?.error ||
-      err?.message ||
-      ''
-    );
-  }
+  private resolvePostSignupLoginError(err: unknown): string {
+    const mapped = mapSafeError(err);
 
-  private resolvePostSignupLoginError(err: any): string {
-    const message =
-      err?.error?.errors?.[0]?.extensions?.reason ||
-      err?.error?.errors?.[0]?.message ||
-      err?.error?.error ||
-      err?.message ||
-      '';
-    const normalized = String(message).toLowerCase();
-
-    if (normalized.includes('timeout')) {
+    if (mapped.kind === 'timeout') {
       return 'Account created, but auto-login timed out. Please log in manually.';
     }
-    if (err?.status === 401 || normalized.includes('invalid') || normalized.includes('verify')) {
+    if (mapped.kind === 'authentication') {
       return 'Account created successfully. Please verify your email if required, then log in.';
     }
     return 'Account created successfully. Please log in to continue.';

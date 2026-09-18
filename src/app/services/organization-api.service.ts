@@ -4,6 +4,8 @@ import { Observable, throwError } from 'rxjs';
 import { catchError, map, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
+import type { AppErrorKind } from '../shared/errors/app-error.types';
 
 export type OrganizationProfile = {
   id: string;
@@ -89,6 +91,7 @@ export type OrganizationApiErrorCode =
   | 'forbidden'
   | 'not_found'
   | 'conflict'
+  | 'timeout'
   | 'validation'
   | 'server_error'
   | 'network_error'
@@ -385,31 +388,61 @@ export class OrganizationApiService {
     const body = this.pickObject(httpError?.error);
     const errorBody = this.pickObject(body?.['error']) ?? body;
     const backendCode = this.pickString(errorBody?.['code'])?.toUpperCase() ?? '';
-    const backendMessage = this.pickString(errorBody?.['message']) ?? this.pickString(body?.['message']);
+    const mapped = mapSafeError(error);
+    const mappedStatus = mapped.status ?? status;
+    const backendKind: Record<string, AppErrorKind> = {
+      UNAUTHORIZED: 'authentication',
+      AUTHENTICATION: 'authentication',
+      FORBIDDEN: 'authorization',
+      AUTHORIZATION: 'authorization',
+      NOT_FOUND: 'not_found',
+      CONFLICT: 'conflict',
+      VALIDATION: 'validation',
+      VALIDATION_ERROR: 'validation',
+      TIMEOUT: 'timeout',
+      TIMEOUT_ERROR: 'timeout',
+      SERVER_ERROR: 'server',
+      INTERNAL_ERROR: 'server'
+    };
+    const effectiveKind = backendKind[backendCode] ?? mapped.kind;
+    const backendReason = (
+      this.pickString(errorBody?.['message']) ??
+      this.pickString(body?.['message']) ??
+      ''
+    ).toLowerCase();
+    const isActiveMemberConflict = [
+      'ACTIVE_MEMBERS',
+      'ACTIVE_MEMBER_CONFLICT',
+      'DEPARTMENT_ACTIVE_MEMBERS'
+    ].includes(backendCode) || backendReason.includes('active member');
 
-    if (status === 0) {
-      return throwError(() => new OrganizationApiError('network_error', 0, fallbackMessage, error));
+    switch (effectiveKind) {
+      case 'authentication':
+        return throwError(() => new OrganizationApiError('unauthorized', mappedStatus || 401, 'Session expired. Please sign in again.', error));
+      case 'authorization':
+        return throwError(() => new OrganizationApiError('forbidden', mappedStatus || 403, 'You do not have permission for this organization action.', error));
+      case 'not_found':
+        return throwError(() => new OrganizationApiError('not_found', mappedStatus || 404, mapped.userMessage, error));
+      case 'conflict':
+        return throwError(() => new OrganizationApiError(
+          'conflict',
+          mappedStatus || 409,
+          isActiveMemberConflict
+            ? 'Deactivate the department after reassigning its active members.'
+            : mapped.userMessage,
+          error
+        ));
+      case 'timeout':
+        return throwError(() => new OrganizationApiError('timeout', mappedStatus, mapped.userMessage, error));
+      case 'validation':
+        return throwError(() => new OrganizationApiError('validation', mappedStatus || 422, mapped.userMessage, error));
+      case 'network':
+        return throwError(() => new OrganizationApiError('network_error', mappedStatus, mapped.userMessage, error));
+      case 'server':
+        return throwError(() => new OrganizationApiError('server_error', mappedStatus || 500, mapped.userMessage, error));
+      default:
+        return throwError(() => new OrganizationApiError('unknown', mappedStatus, mapped.userMessage || fallbackMessage, error));
     }
-    if (status === 401 || backendCode === 'UNAUTHORIZED') {
-      return throwError(() => new OrganizationApiError('unauthorized', 401, 'Session expired. Please sign in again.', error));
-    }
-    if (status === 403 || backendCode === 'FORBIDDEN') {
-      return throwError(() => new OrganizationApiError('forbidden', 403, backendMessage ?? 'You do not have permission for this organization action.', error));
-    }
-    if (status === 404 || backendCode === 'NOT_FOUND') {
-      return throwError(() => new OrganizationApiError('not_found', 404, backendMessage ?? 'The requested organization record was not found.', error));
-    }
-    if (status === 409 || backendCode === 'CONFLICT') {
-      return throwError(() => new OrganizationApiError('conflict', 409, backendMessage ?? 'The organization change could not be completed.', error));
-    }
-    if (status === 422 || backendCode === 'VALIDATION') {
-      return throwError(() => new OrganizationApiError('validation', 422, backendMessage ?? 'Please correct the highlighted fields.', error));
-    }
-    if (status >= 500 || backendCode === 'SERVER_ERROR') {
-      return throwError(() => new OrganizationApiError('server_error', status || 500, backendMessage ?? fallbackMessage, error));
-    }
-
-    return throwError(() => new OrganizationApiError('unknown', status, backendMessage ?? fallbackMessage, error));
   }
 
   private pickObject(value: unknown): Record<string, unknown> | null {

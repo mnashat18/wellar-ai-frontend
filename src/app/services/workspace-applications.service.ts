@@ -1,9 +1,10 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { firstValueFrom, Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { firstValueFrom, Observable, of, throwError } from 'rxjs';
+import { catchError, map, timeout } from 'rxjs/operators';
 
 import { environment } from '../../environments/environment';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 export type WorkspaceApplicationStatus =
   | 'pending_review'
@@ -55,6 +56,7 @@ export type WorkspaceApplicationInput = {
 @Injectable({ providedIn: 'root' })
 export class WorkspaceApplicationsService {
   private readonly api = environment.API_URL;
+  private readonly requestTimeoutMs = 15000;
 
   constructor(
     private http: HttpClient
@@ -103,7 +105,7 @@ export class WorkspaceApplicationsService {
     ).pipe(
       map((response) => (response.data ?? []).map((row) => this.normalizeRecord(row)).filter((row) => Boolean(row.id))),
       catchError((error) => {
-        console.warn('[WorkspaceApplications] Could not load applications', error);
+        console.warn('[WorkspaceApplications] Could not load applications', mapSafeError(error).kind);
         return of([]);
       })
     );
@@ -174,11 +176,9 @@ export class WorkspaceApplicationsService {
         withCredentials: true
       }
     ).pipe(
+      timeout(this.requestTimeoutMs),
       map((response) => this.normalizeRecord(response?.data ?? response)),
-      catchError((error) => {
-        console.warn('[WorkspaceApplications] Could not create application', error);
-        return of(null);
-      })
+      catchError((error) => throwError(() => mapSafeError(error)))
     );
   }
 
@@ -204,7 +204,7 @@ export class WorkspaceApplicationsService {
     ).pipe(
       map((response) => this.normalizeRecord(response?.data ?? response)),
       catchError((error) => {
-        console.warn('[WorkspaceApplications] Could not update application', error);
+        console.warn('[WorkspaceApplications] Could not update application', mapSafeError(error).kind);
         return of(null);
       })
     );

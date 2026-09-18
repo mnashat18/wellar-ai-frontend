@@ -11,10 +11,10 @@ import {
   WorkspaceApplicationsService
 } from './workspace-applications.service';
 import {
-  WorkspaceContextApiService,
   type WorkspaceContextInvitation,
   type WorkspaceContextMembership
 } from './workspace-context-api.service';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 export type WorkspaceAccessUser = {
   id: string;
@@ -149,13 +149,13 @@ export class WorkspaceAccessService {
     private auth: AuthService,
     private companyContext: CompanyContextService,
     private invites: InviteService,
-    private workspaceApplications: WorkspaceApplicationsService,
-    private workspaceContextApi: WorkspaceContextApiService
+    private workspaceApplications: WorkspaceApplicationsService
   ) {}
 
   loadWorkspaceAccess(forceRefresh = false): Observable<WorkspaceAccessState> {
-    return this.auth.getVerifiedCurrentUser().pipe(
-      switchMap((user) => {
+    return this.companyContext.restoreWorkspaceContext(forceRefresh).pipe(
+      switchMap((restoration) => {
+        const user = restoration.state.context.currentUser;
         const userId = this.normalizeId(user?.id);
         const email = this.pickString(user?.email);
 
@@ -170,42 +170,45 @@ export class WorkspaceAccessService {
           email
         };
 
-        return this.workspaceContextApi.getContext().pipe(
-          switchMap((workspaceContext) => {
-            const memberships = this.mapWorkspaceMemberships(workspaceContext.memberships);
-            const invites = this.mapWorkspaceInvitations(workspaceContext.invitations, email);
-            const initialState = this.buildState(baseUser, memberships, invites, []);
+        const workspaceContext = restoration.workspaceContext;
+        if (!workspaceContext) {
+          return of(this.buildErrorState('We could not load your workspace access.'));
+        }
 
-            if (initialState.activeWorkspaces.length > 0) {
-              return of(initialState);
-            }
+        const memberships = this.mapWorkspaceMemberships(workspaceContext.memberships);
+        const invites = this.mapWorkspaceInvitations(workspaceContext.invitations, email);
+        const initialState = this.buildState(baseUser, memberships, invites, []);
 
-            this.companyContext.clearActiveWorkspaceContext();
+        if (initialState.activeWorkspaces.length > 0) {
+          return of(initialState);
+        }
 
-            return from(this.workspaceApplications.getMyApplications(userId)).pipe(
-              map((applications) => this.buildState(baseUser, memberships, invites, applications))
-            );
-          }),
-          catchError((error) =>
-            of(this.buildErrorState(this.toFriendlyError(error, 'We could not load your workspace access.')))
-          )
+        this.companyContext.clearActiveWorkspaceContext();
+
+        return from(this.workspaceApplications.getMyApplications(userId)).pipe(
+          map((applications) => this.buildState(baseUser, memberships, invites, applications))
         );
       }),
       timeout(this.requestTimeoutMs),
-      catchError((error) => of(this.buildErrorState(this.toFriendlyError(error, 'We could not load your workspace access.'))))
+      catchError((error) => of(this.buildErrorState(mapSafeError(error).userMessage)))
     );
   }
 
   openWorkspace(workspace: WorkspaceAccessWorkspace): Observable<WorkspaceActionResult> {
     return this.companyContext.activateWorkspace(workspace.id, workspace.memberRole, workspace.departmentId).pipe(
-      map(() => ({
-        ok: true,
-        message: 'Workspace opened.'
-      })),
+      map((state) => state.error
+        ? {
+            ok: false,
+            message: mapSafeError({ message: state.error }).userMessage
+          }
+        : {
+            ok: true,
+            message: 'Workspace opened.'
+          }),
       catchError((error) =>
         of({
           ok: false,
-          message: this.toFriendlyError(error, 'We could not open that workspace.')
+          message: mapSafeError(error).userMessage
         })
       )
     );
@@ -500,18 +503,4 @@ export class WorkspaceAccessService {
     return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
   }
 
-  private toFriendlyError(err: any, fallback: string): string {
-    const status = typeof err?.status === 'number' ? err.status : 0;
-    const detail =
-      err?.error?.errors?.[0]?.extensions?.reason ||
-      err?.error?.errors?.[0]?.message ||
-      err?.error?.message ||
-      err?.message ||
-      '';
-
-    if (status === 401 || status === 403) {
-      return 'We could not verify your workspace access.';
-    }
-    return detail || fallback;
-  }
 }

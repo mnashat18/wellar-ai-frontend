@@ -1,25 +1,36 @@
 <div class="dashboard-page app-page-shell">
   <app-page-header
+    class="dashboard-hero"
     eyebrow="Operations"
-    title="Operational Overview"
+    [title]="activeBusinessProfile?.company_name ? 'Good morning, ' + activeBusinessProfile.company_name : 'Operational Overview'"
     [description]="dashboardDescription"
     [breadcrumbs]="[{ label: 'Dashboard' }]">
     <button pageActions type="button" class="dashboard-action-button" (click)="refresh()" [disabled]="loading">
       {{ loading ? 'Refreshing...' : 'Refresh' }}
     </button>
     <a pageActions routerLink="/app/scan-requests" class="dashboard-action-button">
-      Scan Requests
+      Create Request
+    </a>
+    <a pageActions routerLink="/app/workforce" [queryParams]="{ invite: '1' }" class="dashboard-action-button">
+      Invite Member
+    </a>
+    <a pageActions routerLink="/app/reports" class="dashboard-action-button">
+      View Reports
     </a>
     <a pageActions routerLink="/app/alerts" class="dashboard-action-button dashboard-action-button--primary">
       Review Alerts
     </a>
   </app-page-header>
 
-  <ng-container *ngIf="loading">
+  <section *ngIf="loading" class="dashboard-loading-state" role="status" aria-live="polite" aria-busy="true">
+    <div class="dashboard-loading-state__copy">
+      <span class="dashboard-loading-state__eyebrow">Operational command center</span>
+      <h2>Preparing your workspace overview</h2>
+      <p>Loading the latest readiness and workforce signals.</p>
+    </div>
     <app-card-skeleton-loader [count]="4"></app-card-skeleton-loader>
     <app-card-skeleton-loader [count]="3"></app-card-skeleton-loader>
-    <app-card-skeleton-loader [count]="3"></app-card-skeleton-loader>
-  </ng-container>
+  </section>
 
   <app-error-state
     *ngIf="!loading && errorMessage"
@@ -35,6 +46,32 @@
       <span class="dashboard-filter-chip" *ngIf="vm.company.companyName">{{ vm.company.companyName }}</span>
       <span class="dashboard-filter-chip dashboard-filter-chip--muted" *ngIf="freshnessLabel">{{ freshnessLabel }}</span>
     </section>
+
+    <nav class="dashboard-quick-actions app-dashboard-panel" aria-label="Dashboard quick actions">
+      <div class="dashboard-quick-actions__intro">
+        <span class="dashboard-quick-actions__eyebrow">Quick actions</span>
+        <h2>Keep operations moving</h2>
+        <p>Jump directly to the workflows your team uses most.</p>
+      </div>
+      <div class="dashboard-quick-actions__links">
+        <a routerLink="/app/workforce" [queryParams]="{ invite: '1' }" class="dashboard-quick-action">
+          <span class="dashboard-quick-action__icon" aria-hidden="true">+</span>
+          <span><strong>Invite employee</strong><small>Grow your active roster</small></span>
+        </a>
+        <a routerLink="/app/scan-requests" class="dashboard-quick-action">
+          <span class="dashboard-quick-action__icon" aria-hidden="true">↗</span>
+          <span><strong>Create scan request</strong><small>Start a readiness check</small></span>
+        </a>
+        <a routerLink="/app/alerts" class="dashboard-quick-action">
+          <span class="dashboard-quick-action__icon" aria-hidden="true">!</span>
+          <span><strong>Review alerts</strong><small>Resolve open attention items</small></span>
+        </a>
+        <a routerLink="/app/reports" class="dashboard-quick-action">
+          <span class="dashboard-quick-action__icon" aria-hidden="true">▥</span>
+          <span><strong>Open reports</strong><small>Explore operational trends</small></span>
+        </a>
+      </div>
+    </nav>
 
     <section class="dashboard-scope-warning app-dashboard-panel" *ngIf="isManager && !hasActiveDepartmentContext">
       <div>
@@ -92,23 +129,30 @@
       [description]="isManager ? 'Department-level signals from the data available in your scope.' : 'Organization-level signals from the active workspace.'"
       tone="blue">
       <div class="dashboard-summary-grid" *ngIf="vm.kpis.length; else kpiEmpty">
-        <app-kpi-card
+        <div
           *ngFor="let card of vm.kpis; trackBy: trackByKpi"
-          class="dashboard-card"
-          [label]="card.label"
-          [value]="card.value"
-          [helper]="card.description"
-          [tone]="card.tone"
-          [toneLabel]="card.toneLabel"
-          [showToneLabel]="true">
-        </app-kpi-card>
+          class="dashboard-kpi-card">
+          <span class="dashboard-kpi-card__icon" aria-hidden="true"></span>
+          <app-kpi-card
+            class="dashboard-card"
+            [label]="card.label"
+            [value]="card.value"
+            [helper]="card.description"
+            [tone]="card.tone"
+            [toneLabel]="card.toneLabel"
+            [showToneLabel]="true">
+          </app-kpi-card>
+        </div>
       </div>
 
       <ng-template #kpiEmpty>
-        <div class="dashboard-empty-state">
-          <h3>{{ noOperationalDataTitle }}</h3>
-          <p>{{ noOperationalDataMessage }}</p>
-        </div>
+          <div class="dashboard-empty-state">
+            <h3>{{ noOperationalDataTitle }}</h3>
+            <p>{{ noOperationalDataMessage }}</p>
+            <a routerLink="/app/workforce" [queryParams]="{ invite: '1' }" class="dashboard-action-button dashboard-action-button--primary">
+              Invite your team
+            </a>
+          </div>
       </ng-template>
     </app-dashboard-section>
 
@@ -198,10 +242,11 @@
         </ng-container>
 
         <ng-template #readinessEmpty>
-          <div class="dashboard-empty-state dashboard-empty-state--compact">
-            <h3>No completed scans today</h3>
-            <p>Readiness coverage will populate when completed scans are available in this scope.</p>
-          </div>
+        <div class="dashboard-empty-state dashboard-empty-state--compact">
+          <h3>No completed scans today</h3>
+          <p>Readiness coverage will populate when completed scans are available in this scope.</p>
+          <a routerLink="/app/scan-requests" class="dashboard-chip-button dashboard-chip-button--primary">Create a scan request</a>
+        </div>
         </ng-template>
       </app-dashboard-section>
 
@@ -250,6 +295,9 @@
                   : 'Department compliance will populate after departments and eligible members are available.'
               }}
             </p>
+            <a routerLink="/app/company" [queryParams]="{ tab: 'departments' }" class="dashboard-chip-button dashboard-chip-button--primary">
+              Manage departments
+            </a>
           </div>
         </ng-template>
       </app-dashboard-section>
@@ -272,8 +320,9 @@
           <div *ngIf="vm.recentScans.error" class="dashboard-mini-error">{{ vm.recentScans.error }}</div>
 
           <ng-container *ngIf="!vm.recentScans.error">
-            <div class="dashboard-operations-list" *ngIf="vm.recentScans.items.length; else scanEmpty">
+            <div class="dashboard-operations-list dashboard-timeline" *ngIf="vm.recentScans.items.length; else scanEmpty">
               <article *ngFor="let item of vm.recentScans.items; trackBy: trackByScan" class="dashboard-operations-row">
+                <span class="dashboard-timeline__marker" aria-hidden="true">✓</span>
                 <div>
                   <p class="dashboard-operations-row__name">{{ item.employeeName }}</p>
                   <p class="dashboard-operations-row__meta">{{ item.department }} / {{ item.completedLabel }}</p>
@@ -287,7 +336,10 @@
           </ng-container>
 
           <ng-template #scanEmpty>
-            <div class="dashboard-preview-empty">No completed scans were returned in this scope.</div>
+            <div class="dashboard-preview-empty">
+              <span>No completed scans were returned in this scope.</span>
+              <a routerLink="/app/scan-requests" class="dashboard-chip-button">Create a scan request</a>
+            </div>
           </ng-template>
         </article>
 
@@ -318,7 +370,10 @@
           </ng-container>
 
           <ng-template #alertsEmpty>
-            <div class="dashboard-preview-empty">No open alerts were returned in this scope.</div>
+            <div class="dashboard-preview-empty">
+              <span>No open alerts were returned in this scope.</span>
+              <a routerLink="/app/alerts" class="dashboard-chip-button">Open Alerts</a>
+            </div>
           </ng-template>
         </article>
 
@@ -348,7 +403,10 @@
           </ng-container>
 
           <ng-template #requestsEmpty>
-            <div class="dashboard-preview-empty">No pending scan requests were returned in this scope.</div>
+            <div class="dashboard-preview-empty">
+              <span>No pending scan requests were returned in this scope.</span>
+              <a routerLink="/app/scan-requests" class="dashboard-chip-button">Open Requests</a>
+            </div>
           </ng-template>
         </article>
       </div>

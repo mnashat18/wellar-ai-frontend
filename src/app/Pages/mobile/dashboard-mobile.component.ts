@@ -6,6 +6,7 @@ import { DashboardService, DashboardSnapshot, DashboardStats, ScanResult, type S
 import { SubscriptionService } from '../../services/subscription.service';
 import { of } from 'rxjs';
 import { catchError, delay, finalize, timeout } from 'rxjs/operators';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   imports: [CommonModule, RouterModule, NotificationsComponent],
@@ -68,7 +69,7 @@ export class DashboardMobileComponent implements OnInit {
       delay(0),
       timeout(8000),
       catchError((err) => {
-        console.error('[dashboard-mobile] scan_results error:', err);
+        console.error('[dashboard-mobile] scan_results error:', mapSafeError(err).kind);
         return of(null);
       }),
       finalize(() => {

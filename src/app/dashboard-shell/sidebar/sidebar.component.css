@@ -17,7 +17,8 @@
   align-items: center;
   gap: 0.75rem;
   min-width: 0;
-  padding: 0.15rem 0.1rem 0.05rem;
+  padding: 0.35rem 0.35rem 1rem;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.12);
 }
 
 .app-sidebar__logo-wrap {
@@ -174,6 +175,7 @@
 }
 
 .app-sidebar__nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -187,21 +189,36 @@
   font-size: 0.83rem;
   font-weight: 700;
   line-height: 1.15;
-  transition-property: background-color, border-color, color, opacity;
-  transition-duration: 150ms;
-  transition-timing-function: ease;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease),
+    box-shadow var(--motion-fast) var(--motion-ease);
 }
 
 .app-sidebar__nav-item:hover {
   background: rgba(255, 255, 255, 0.045);
   border-color: rgba(148, 163, 184, 0.14);
   color: #f8fafc;
+  transform: translateX(2px);
 }
 
 .app-sidebar__nav-item.is-active {
-  background: rgba(56, 189, 248, 0.1);
+  background: linear-gradient(90deg, rgba(56, 189, 248, 0.16), rgba(99, 102, 241, 0.08));
   border-color: rgba(125, 211, 252, 0.22);
   color: #f8fafc;
+  box-shadow: inset 3px 0 0 var(--app-cyan), 0 10px 24px rgba(2, 6, 23, 0.14);
+}
+
+.app-sidebar__nav-item.is-active::after {
+  content: '';
+  position: absolute;
+  inset: 0.48rem auto 0.48rem 0.08rem;
+  width: 0.18rem;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--app-cyan), var(--app-indigo));
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.48);
 }
 
 .app-sidebar__nav-item:focus-visible {
@@ -647,6 +664,82 @@
   .app-sidebar__nav-item,
   .app-sidebar__account-control,
   .app-sidebar__account-menu-item {
+    transition: none;
+    transform: none;
+  }
+}
+
+/* Phase 6.1 shell surface: presentation-only overrides. */
+.sidebar {
+  font-family: var(--app-font-body, 'Manrope', sans-serif);
+  gap: var(--app-space-4, 1rem);
+}
+
+.app-sidebar__brand {
+  padding: 0.45rem 0.4rem 1.1rem;
+  border-bottom-color: var(--app-border, rgba(148, 163, 184, 0.16));
+}
+
+.app-sidebar__logo-wrap,
+.app-sidebar__company,
+.app-sidebar__account-control {
+  border-color: var(--app-border, rgba(148, 163, 184, 0.16));
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+}
+
+.app-sidebar__logo-wrap {
+  border-radius: var(--app-radius-md, 0.85rem);
+}
+
+.app-sidebar__brand-copy h2,
+.app-sidebar__company-copy h3,
+.app-sidebar__account-copy strong {
+  font-family: var(--app-font-display, 'Space Grotesk', 'Manrope', sans-serif);
+}
+
+.app-sidebar__nav-item {
+  min-height: 2.8rem;
+  border-radius: var(--app-radius-md, 0.85rem);
+  color: var(--app-muted, rgba(203, 213, 225, 0.64));
+  transition-duration: var(--app-motion-fast, 140ms);
+}
+
+.app-sidebar__nav-item:hover,
+.app-sidebar__nav-item:focus-visible {
+  border-color: var(--app-border-strong, rgba(148, 163, 184, 0.28));
+  background: rgba(148, 163, 184, 0.08);
+  box-shadow: var(--app-shadow-focus, 0 0 0 3px rgba(103, 213, 255, 0.22));
+}
+
+.app-sidebar__nav-item.is-active {
+  background: linear-gradient(100deg, rgba(103, 213, 255, 0.16), rgba(139, 130, 255, 0.1));
+  border-color: rgba(103, 213, 255, 0.28);
+  box-shadow: inset 3px 0 0 var(--app-cyan, #67d5ff), 0 12px 28px rgba(2, 6, 23, 0.18);
+}
+
+.app-sidebar__account-control:focus-visible,
+.app-sidebar__account-menu-item:focus-visible,
+.app-sidebar__organization-switcher-item:focus-visible,
+.app-sidebar__organization-switcher-back:focus-visible {
+  outline: var(--app-focus-ring, 2px solid rgba(103, 213, 255, 0.92));
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.app-sidebar__account-menu-panel,
+.app-sidebar__organization-switcher-panel {
+  border-color: var(--app-border-strong, rgba(148, 163, 184, 0.28));
+  border-radius: var(--app-radius-xl, 1.35rem);
+  background: rgba(8, 13, 26, 0.97);
+  box-shadow: var(--app-shadow-strong, 0 28px 76px rgba(2, 6, 23, 0.46));
+  backdrop-filter: blur(20px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar__nav-item,
+  .app-sidebar__nav-item:hover {
+    transform: none;
     transition: none;
   }
 }

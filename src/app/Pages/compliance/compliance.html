@@ -1,6 +1,6 @@
 <div class="compliance-page app-page-shell">
   <app-page-header
-    title="Compliance"
+    title="Compliance Overview"
     [description]="pageDescription"
     [breadcrumbs]="[
       { label: 'Dashboard', url: '/app/dashboard' },
@@ -16,7 +16,7 @@
     </button>
   </app-page-header>
 
-  <section class="compliance-scope-strip app-dashboard-panel app-dashboard-panel--compact">
+  <section class="compliance-scope-strip app-dashboard-panel app-dashboard-panel--compact" aria-label="Compliance scope">
     <span class="dashboard-filter-chip">{{ scopeLabel }}</span>
     <span class="dashboard-filter-chip">{{ roleLabel }}</span>
     <span class="dashboard-filter-chip">{{ overview?.workspaceName || 'Current organization' }}</span>
@@ -43,7 +43,7 @@
   }
 
   @if (feedback) {
-    <section class="compliance-feedback-card" [class.compliance-feedback-card--error]="feedback.type === 'error'">
+    <section class="compliance-feedback-card" [class.compliance-feedback-card--error]="feedback.type === 'error'" [attr.role]="feedback.type === 'error' ? 'alert' : 'status'" aria-live="polite" aria-atomic="true">
       {{ feedback.text }}
     </section>
   }
@@ -126,7 +126,7 @@
         </section>
       }
 
-      <app-dashboard-section eyebrow="Coverage" title="Coverage Summary" [description]="coverageDescription">
+      <app-dashboard-section eyebrow="Health overview" title="Compliance health" [description]="coverageDescription">
         @if (showCoverageSummary) {
           <div class="compliance-summary-grid">
             @if (showCoverageKpi) {
@@ -175,6 +175,15 @@
               [tone]="(overview?.summary?.overdueRequests ?? 0) > 0 ? 'warning' : 'neutral'"
               toneLabel="Overdue"></app-kpi-card>
           </div>
+          @if (showCoverageKpi) {
+            <div class="compliance-score-rail" role="progressbar" aria-label="Compliance coverage score" aria-valuemin="0" aria-valuemax="100" [attr.aria-valuenow]="overview?.summary?.complianceRate ?? 0">
+              <div class="compliance-score-rail__header">
+                <span>Coverage confidence</span>
+                <strong>{{ coverageRateDisplay }}</strong>
+              </div>
+              <div class="compliance-score-rail__track"><span [style.width.%]="overview?.summary?.complianceRate ?? 0"></span></div>
+            </div>
+          }
         } @else {
           <div class="compliance-inline-empty">
             <p>Coverage empty</p>
@@ -189,16 +198,16 @@
           [title]="isManager ? 'Department Coverage' : 'Department Comparison'"
           [description]="isManager ? 'Coverage for the active department only.' : 'Department coverage from returned authorized data.'">
           <app-table-shell>
-            <table class="compliance-table min-w-[58rem] w-full text-left">
+            <table class="compliance-table min-w-[58rem] w-full text-left" aria-label="Department compliance coverage">
               <thead>
                 <tr>
-                  <th>Department</th>
-                  <th>Active Members</th>
-                  <th>Scan Eligible</th>
-                  <th>Completed</th>
-                  <th>Missing</th>
-                  <th>Coverage</th>
-                  <th>Open Alerts</th>
+                  <th scope="col">Department</th>
+                  <th scope="col">Active Members</th>
+                  <th scope="col">Scan Eligible</th>
+                  <th scope="col">Completed</th>
+                  <th scope="col">Missing</th>
+                  <th scope="col">Coverage</th>
+                  <th scope="col">Open Alerts</th>
                 </tr>
               </thead>
               <tbody>
@@ -237,20 +246,20 @@
           </div>
         } @else {
           <app-table-shell>
-            <table class="compliance-table compliance-table--exceptions min-w-[70rem] w-full text-left">
+            <table class="compliance-table compliance-table--exceptions min-w-[70rem] w-full text-left" aria-label="Compliance exceptions">
               <thead>
                 <tr>
-                  <th>Member</th>
-                  <th>Department</th>
-                  <th>Exception</th>
-                  <th>Expected Check</th>
-                  <th>Scan Status</th>
+                  <th scope="col">Member</th>
+                  <th scope="col">Department</th>
+                  <th scope="col">Exception</th>
+                  <th scope="col">Expected Check</th>
+                  <th scope="col">Scan Status</th>
                   @if (isOwnerOrHr) {
-                    <th>Readiness</th>
+                    <th scope="col">Readiness</th>
                   }
-                  <th>Alert</th>
-                  <th>Last Check</th>
-                  <th>Actions</th>
+                  <th scope="col">Alert</th>
+                  <th scope="col">Last Check</th>
+                  <th scope="col">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -265,15 +274,15 @@
                     <td>{{ row.departmentName }}</td>
                     <td>{{ exceptionProblemType(row) }}</td>
                     <td>{{ row.expectedCheck }}</td>
-                    <td><span [class]="todayScanBadgeClass(row.todayScan)">{{ row.todayScan }}</span></td>
+                    <td><span [class]="todayScanBadgeClass(row.todayScan)" [attr.aria-label]="'Scan status: ' + row.todayScan">{{ row.todayScan }}</span></td>
                     @if (isOwnerOrHr) {
-                      <td><span [class]="readinessBadgeClass(row.readiness)">{{ row.readiness }}</span></td>
+                      <td><span [class]="readinessBadgeClass(row.readiness)" [attr.aria-label]="'Readiness: ' + row.readiness">{{ row.readiness }}</span></td>
                     }
-                    <td><span [class]="alertBadgeClass(row.alertStatus)">{{ row.alertStatus }}</span></td>
+                    <td><span [class]="alertBadgeClass(row.alertStatus)" [attr.aria-label]="'Alert status: ' + row.alertStatus">{{ row.alertStatus }}</span></td>
                     <td>{{ row.lastScanLabel }}</td>
                     <td>
                       <div class="compliance-row-actions">
-                        <button type="button" class="compliance-row-action" (click)="openExceptionDetails(row)">View</button>
+                        <button type="button" class="compliance-row-action" [attr.aria-label]="'View compliance exception for ' + row.memberName" (click)="openExceptionDetails(row)">View</button>
                         @if (isOwnerOrHr) {
                           <span class="compliance-row-action-note">Follow-up workflow is not available in this release.</span>
                         }
@@ -295,13 +304,13 @@
           </div>
         } @else {
           <app-table-shell>
-            <table class="compliance-table min-w-[54rem] w-full text-left">
+            <table class="compliance-table min-w-[54rem] w-full text-left" aria-label="Compliance evidence activity">
               <thead>
                 <tr>
-                  <th>Evidence Type</th>
-                  <th>Summary</th>
-                  <th>Department</th>
-                  <th>Time</th>
+                  <th scope="col">Evidence Type</th>
+                  <th scope="col">Summary</th>
+                  <th scope="col">Department</th>
+                  <th scope="col">Time</th>
                 </tr>
               </thead>
               <tbody>

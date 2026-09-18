@@ -6,7 +6,7 @@ import { Component, EventEmitter, Input, Output } from '@angular/core';
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="rounded-3xl border border-red-200 bg-red-50 px-6 py-8 shadow-sm">
+    <div class="rounded-3xl border border-red-200 bg-red-50 px-6 py-8 shadow-sm" role="alert" aria-live="assertive" aria-atomic="true">
       <p class="text-sm font-semibold text-red-700">{{ title }}</p>
       <p class="mt-2 text-sm text-red-600">{{ message }}</p>
       <button

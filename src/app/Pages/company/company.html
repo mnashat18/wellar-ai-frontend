@@ -17,7 +17,7 @@
   </app-page-header>
 
 
-  <section *ngIf="feedback" class="company-feedback-card" [class.company-feedback-card--error]="feedback.type === 'error'">
+  <section *ngIf="feedback" class="company-feedback-card" [class.company-feedback-card--error]="feedback.type === 'error'" role="status" aria-live="polite" aria-atomic="true">
     {{ feedback.text }}
   </section>
 

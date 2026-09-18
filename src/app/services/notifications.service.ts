@@ -6,6 +6,7 @@ import { catchError, distinctUntilChanged, map } from 'rxjs/operators';
 import { environment } from '../../environments/environment';
 import { CompanyContextService, type CompanyContext } from '../core/context/company-context.service';
 import { sanitizeDisplayValue } from '../shared/utils/display-formatters';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 
 type NotificationRow = {
   id?: string | number | null;
@@ -298,7 +299,7 @@ export class NotificationsService implements OnDestroy {
       ).pipe(
         map((response) => response.data ?? []),
         catchError((error: DirectusHttpError) => {
-          console.warn('[Notifications] schema introspection failed, using minimal field set', error);
+      console.warn('[Notifications] schema introspection failed, using minimal field set', mapSafeError(error).kind);
           return of([] as DirectusFieldRow[]);
         })
       )
@@ -686,7 +687,7 @@ export class NotificationsService implements OnDestroy {
   }
 
   private logDirectusError(error: DirectusHttpError): void {
-    console.error('[Notifications] Directus error', error);
+    console.error('[Notifications] Directus error', mapSafeError(error).kind);
     if ((error?.status ?? 0) !== 403) {
       return;
     }

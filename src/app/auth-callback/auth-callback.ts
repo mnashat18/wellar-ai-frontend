@@ -7,6 +7,7 @@ import { AuthService } from '../services/auth';
 import { InviteService } from '../services/invites';
 import { PostAuthWelcomeService } from '../services/post-auth-welcome.service';
 import { PostLoginRoutingService } from '../services/post-login-routing.service';
+import { mapSafeError } from '../shared/errors/safe-error.mapper';
 import { LoadingStateComponent } from '../shared/ui/loading-state/loading-state.component';
 
 @Component({
@@ -102,7 +103,7 @@ export class AuthCallbackComponent implements OnInit {
             }
             await this.router.navigateByUrl(nextRoute || '/app/workspace-access', { replaceUrl: true });
           } catch (error) {
-            this.fail((error as { message?: string })?.message || 'Unable to continue after login.');
+            this.fail(mapSafeError(error).userMessage);
           }
             return;
           }

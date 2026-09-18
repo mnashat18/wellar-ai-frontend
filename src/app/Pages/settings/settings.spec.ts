@@ -7,7 +7,6 @@ import { vi } from 'vitest';
 
 import { CompanyContextService } from '../../core/context/company-context.service';
 import { AuthService } from '../../services/auth';
-import { WorkspaceContextApiService } from '../../services/workspace-context-api.service';
 import { SettingsPageComponent } from './settings';
 
 describe('SettingsPageComponent', () => {
@@ -42,6 +41,32 @@ describe('SettingsPageComponent', () => {
     clearActiveWorkspaceContext: () => undefined,
     ensureActiveContext: () => Promise.resolve(),
     ensureLoaded: () => of(null),
+    restoreWorkspaceContext: () =>
+      of({
+        workspaceContext: {
+          memberships: [
+            {
+              id: 'membership-1',
+              status: 'active',
+              memberRole: role,
+              workspace: {
+                id: 'profile-1',
+                companyName: 'Wellar',
+                isActive: true,
+                planCode: 'pilot',
+                billingStatus: 'trial'
+              },
+              department: null
+            }
+          ],
+          invitations: [],
+          active: {
+            membership: { id: 'membership-1' },
+            workspace: { id: 'profile-1', company_name: 'Wellar', is_active: true },
+            department: null
+          }
+        }
+      }),
     activateFromMembership: () => Promise.resolve(),
     applyCurrentUserPatch: vi.fn()
     };
@@ -88,35 +113,6 @@ describe('SettingsPageComponent', () => {
             logout: () => undefined
           }
         },
-        {
-          provide: WorkspaceContextApiService,
-          useValue: {
-            getContext: () =>
-              of({
-                memberships: [
-                  {
-                    id: 'membership-1',
-                    status: 'active',
-                    memberRole: role,
-                    workspace: {
-                      id: 'profile-1',
-                      companyName: 'Wellar',
-                      isActive: true,
-                      planCode: 'pilot',
-                      billingStatus: 'trial'
-                    },
-                    department: null
-                  }
-                ],
-                invitations: [],
-                active: {
-                  membership: { id: 'membership-1' },
-                  workspace: { id: 'profile-1', company_name: 'Wellar', is_active: true },
-                  department: null
-                }
-              })
-          }
-        }
       ]
     }).compileComponents();
 

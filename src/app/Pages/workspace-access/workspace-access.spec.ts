@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
-import { Subject, of, throwError } from 'rxjs';
+import { EMPTY, Subject, of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { CompanyContextService } from '../../core/context/company-context.service';
@@ -24,6 +24,7 @@ describe('WorkspaceAccessPageComponent', () => {
   let resolveDestinationStrictSpy: any;
   let startActivationSpy: any;
   let companyContextSnapshot: any;
+  let workspaceAccessSpy: any;
 
   const noWorkspaceState: WorkspaceAccessState = {
     loading: false,
@@ -67,6 +68,19 @@ describe('WorkspaceAccessPageComponent', () => {
     refreshAuthAndWorkspaceContextSpy = vi.fn(() => Promise.resolve());
     resolveDestinationStrictSpy = vi.fn(() => Promise.resolve('/app/dashboard'));
     startActivationSpy = vi.fn();
+    workspaceAccessSpy = {
+      loadWorkspaceAccess: () => of(noWorkspaceState),
+      openWorkspace: vi.fn(() => of({ ok: true, message: 'Workspace opened.' })),
+      claimInviteByToken: () => of({ ok: false, message: 'n/a' }),
+      declineInvite: () => of({ ok: false, message: 'n/a' }),
+      getPendingInviteToken: () => null,
+      setPendingInviteToken: () => undefined,
+      clearPendingInviteToken: () => undefined,
+      hasClaimAttemptedForToken: () => false,
+      consumeInviteClaimError: () => null,
+      clearInviteClaimError: () => undefined,
+      getInviteTokenFromCurrentUrl: () => null
+    };
 
     await TestBed.configureTestingModule({
       imports: [WorkspaceAccessPageComponent],
@@ -101,19 +115,7 @@ describe('WorkspaceAccessPageComponent', () => {
         },
         {
           provide: WorkspaceAccessService,
-          useValue: {
-            loadWorkspaceAccess: () => of(noWorkspaceState),
-            openWorkspace: () => of({ ok: true, message: 'Workspace opened.' }),
-            claimInviteByToken: () => of({ ok: false, message: 'n/a' }),
-            declineInvite: () => of({ ok: false, message: 'n/a' }),
-            getPendingInviteToken: () => null,
-            setPendingInviteToken: () => undefined,
-            clearPendingInviteToken: () => undefined,
-            hasClaimAttemptedForToken: () => false,
-            consumeInviteClaimError: () => null,
-            clearInviteClaimError: () => undefined,
-            getInviteTokenFromCurrentUrl: () => null
-          }
+          useValue: workspaceAccessSpy
         },
         {
           provide: CompanyContextService,
@@ -182,6 +184,73 @@ describe('WorkspaceAccessPageComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Create Company Workspace');
     expect(fixture.nativeElement.textContent).toContain('Join with an invitation');
     expect(fixture.nativeElement.textContent).toContain('Request organization access');
+  });
+
+  it('clears workspace loading without navigation or an error for a superseded completion', async () => {
+    workspaceAccessSpy.openWorkspace.mockReturnValueOnce(EMPTY);
+
+    await fixture.componentInstance.openWorkspace({
+      id: 'profile-1',
+      companyName: 'Northwind Logistics',
+      memberRole: 'owner',
+      departmentId: null
+    } as any);
+
+    expect(fixture.componentInstance.switchingWorkspaceId).toBeNull();
+    expect(fixture.componentInstance.errorMessage).toBe('');
+    expect(routerSpy.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('clears workspace loading and shows feedback for a confirmed switch failure', async () => {
+    workspaceAccessSpy.openWorkspace.mockReturnValueOnce(of({ ok: false, message: 'Workspace access denied.' }));
+
+    await fixture.componentInstance.openWorkspace({
+      id: 'profile-1',
+      companyName: 'Northwind Logistics',
+      memberRole: 'owner',
+      departmentId: null
+    } as any);
+
+    expect(fixture.componentInstance.switchingWorkspaceId).toBeNull();
+    expect(fixture.componentInstance.errorMessage).toBe('Workspace access denied.');
+    expect(routerSpy.navigateByUrl).not.toHaveBeenCalled();
+  });
+
+  it('displays the safe workspace access error returned by the service', async () => {
+    workspaceAccessSpy.loadWorkspaceAccess = vi.fn(() => of({
+      ...noWorkspaceState,
+      mode: 'error',
+      error: 'Something went wrong on our end. Please try again later.'
+    }));
+
+    loadPage();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.errorMessage).toBe(
+      'Something went wrong on our end. Please try again later.'
+    );
+    expect(fixture.nativeElement.textContent).not.toContain('DirectusException');
+  });
+
+  it('does not navigate to joined state when invite activation cannot be confirmed', async () => {
+    workspaceAccessSpy.claimInviteByToken = vi.fn(() => of({
+      ok: true,
+      message: 'Invite accepted.',
+      businessProfileId: 'profile-1',
+      memberRole: 'owner',
+      departmentId: null
+    }));
+
+    const component = fixture.componentInstance;
+    component.inviteCode = 'invite-token';
+    component.joinWithInviteCode();
+    await fixture.whenStable();
+
+    expect(component.inviteCodeError).toBe(
+      'Invite accepted, but workspace activation could not be confirmed. Please retry.'
+    );
+    expect(component.inviteCodeLoading).toBe(false);
+    expect(routerSpy.navigateByUrl).not.toHaveBeenCalledWith('/app/workspace-access?joined=1', { replaceUrl: true });
   });
 
   it('routes a confirmed 201 with workspace.id through workspace activation', async () => {
@@ -502,8 +571,12 @@ describe('WorkspaceAccessPageComponent', () => {
 
     expect(component.createCompanyLoading).toBe(false);
     expect(component.createCompanyForm.companyName).toBe('Northwind Logistics');
-    expect(component.createCompanyErrorCode).toBe('SERVER_ERROR');
-    expect(component.createCompanyError).toContain('We could not create your company right now.');
+    expect(component.createCompanyErrorCode).toBe('SERVER');
+    expect(component.createCompanyError).toBe(
+      'Something went wrong on our end. Please try again later.'
+    );
+    expect(fixture.nativeElement.textContent).not.toContain('SERVER_ERROR');
+    expect(fixture.nativeElement.textContent).not.toContain('Database exploded');
   });
 
   it('preserves the draft and shows a safe error code on network failure', async () => {
@@ -531,7 +604,9 @@ describe('WorkspaceAccessPageComponent', () => {
     expect(component.createCompanyLoading).toBe(false);
     expect(component.createCompanyForm.companyName).toBe('Northwind Logistics');
     expect(component.createCompanyErrorCode).toBe('NETWORK');
-    expect(component.createCompanyError).toContain('We could not reach the server.');
+    expect(component.createCompanyError).toBe(
+      'We couldn’t reach the server. Check your connection and try again.'
+    );
   });
 
   it('rejects invalid drafts before calling the backend', async () => {

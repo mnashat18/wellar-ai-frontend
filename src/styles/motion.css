@@ -3,6 +3,8 @@
   --motion-standard: 220ms;
   --motion-slow: 420ms;
   --motion-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-shell-enter: 320ms;
+  --motion-overlay: 180ms;
 }
 
 .motion-fade-in {
@@ -21,6 +23,24 @@
 
 .motion-press:active {
   transform: scale(0.98);
+}
+
+.motion-sidebar-item {
+  transition:
+    transform var(--motion-fast) var(--motion-ease),
+    opacity var(--motion-fast) ease;
+}
+
+.motion-sidebar-item:hover {
+  transform: translateX(2px);
+}
+
+.motion-shell-enter {
+  animation: motion-shell-enter var(--motion-shell-enter) var(--motion-ease) both;
+}
+
+.motion-feedback-enter {
+  animation: motion-slide-up var(--motion-overlay) var(--motion-ease) both;
 }
 
 .motion-success {
@@ -85,6 +105,17 @@
   to { transform: translateX(240%); }
 }
 
+@keyframes motion-shell-enter {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 900px) {
   .public-orbits,
   .hero-ambient,
@@ -109,5 +140,10 @@
     animation-iteration-count: 1 !important;
     scroll-behavior: auto !important;
     transition-duration: 0.001ms !important;
+  }
+
+  .motion-sidebar-item,
+  .motion-sidebar-item:hover {
+    transform: none;
   }
 }

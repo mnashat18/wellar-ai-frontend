@@ -22,6 +22,7 @@ import {
 import { AuthService } from '../../services/auth';
 import { NotificationsComponent } from '../../components/notifications/notifications';
 import { environment } from '../../../environments/environment';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   selector: 'app-requests-mobile',
@@ -373,7 +374,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (requests) => this.applyRequests(requests),
       error: (fetchErr) => {
-        console.error('[requests-mobile] requests error:', fetchErr);
+        console.error('[requests-mobile] requests error:', mapSafeError(fetchErr).kind);
         if (fetchErr?.status === 401 || fetchErr?.status === 403) {
           this.tryRecoverSessionAndReload();
         }
@@ -402,7 +403,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
         }
       },
       error: (fetchErr) => {
-        console.error('[requests-mobile] own requests error:', fetchErr);
+        console.error('[requests-mobile] own requests error:', mapSafeError(fetchErr).kind);
         if (fetchErr?.status === 401 || fetchErr?.status === 403) {
           this.tryRecoverSessionAndReload();
         }
@@ -765,36 +766,8 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
     return 'scan';
   }
 
-  private describeHttpError(err: any, fallback: string): string {
-    const status = typeof err?.status === 'number' ? err.status : 0;
-    const detail =
-      err?.error?.errors?.[0]?.extensions?.reason ||
-      err?.error?.errors?.[0]?.message ||
-      err?.error?.error ||
-      err?.error?.message ||
-      err?.message ||
-      '';
-    const normalized = String(detail).toLowerCase();
-
-    if (
-      status === 0 ||
-      normalized.includes('network') ||
-      normalized.includes('failed to fetch') ||
-      normalized.includes('connection refused') ||
-      normalized.includes('timeout')
-    ) {
-      return `Network error: ${detail || fallback}`;
-    }
-
-    if (status >= 500) {
-      return `Server error (${status}): ${detail || fallback}`;
-    }
-
-    if (status >= 400) {
-      return `Request error (${status}): ${detail || fallback}`;
-    }
-
-    return detail || fallback;
+  private describeHttpError(error: unknown, fallback: string): string {
+    return mapSafeError(error).userMessage || fallback;
   }
 
   private isValidEmail(value: string): boolean {

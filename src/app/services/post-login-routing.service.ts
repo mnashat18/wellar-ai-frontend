@@ -11,6 +11,7 @@ export class PostLoginRoutingService {
   private readonly resolveTimeoutMs = 12000;
   private inviteClaimInProgress = false;
   private claimFlowPromise: Promise<string> | null = null;
+  private inviteClaimGeneration = 0;
 
   constructor(
     private auth: AuthService,
@@ -123,7 +124,12 @@ export class PostLoginRoutingService {
       try {
         await this.companyContext.activateFromMembership(targetMembership as any);
       } catch {
-        // Fallback to route-only decision below.
+        return '/app/workspace-access';
+      }
+
+      const activatedContext = this.companyContext.snapshot().context;
+      if (activatedContext.activeBusinessProfileId !== this.normalizeId(targetMembership.business_profile)) {
+        return '/app/workspace-access';
       }
     }
 
@@ -152,22 +158,28 @@ export class PostLoginRoutingService {
 
   async refreshAuthAndWorkspaceContext(options: { force?: boolean; failOnError?: boolean } = {}): Promise<ActiveMembershipContext[]> {
     const forceRefresh = options.force ?? true;
+    try {
+      const restoration = await firstValueFrom(
+        this.companyContext.restoreWorkspaceContext(forceRefresh)
+      );
+      this.invites.debugFlow('restored authentication and workspace context');
+      this.invites.debugFlow('restored memberships', {
+        count: restoration.memberships.length
+      });
+      return restoration.memberships;
+    } catch (error) {
+      if (options.failOnError) {
+        throw error;
+      }
+      this.invites.debugFlow('workspace context restoration failed');
+      return [];
+    }
+  }
 
-    this.invites.debugFlow('refreshed current user started');
-    await this.companyContext.refreshCurrentUser({ force: forceRefresh });
-    this.invites.debugFlow('refreshed current user');
-
-    await this.companyContext.refreshWorkspaceContext({ force: forceRefresh });
-    this.invites.debugFlow('refreshed workspace context');
-
-    const memberships = await this.companyContext.refreshMemberships({
-      force: forceRefresh,
-      failOnError: options.failOnError ?? false
-    });
-    this.invites.debugFlow('refreshed memberships', {
-      count: memberships.length
-    });
-    return memberships;
+  cancelPendingInviteClaim(): void {
+    this.inviteClaimGeneration += 1;
+    this.inviteClaimInProgress = false;
+    this.claimFlowPromise = null;
   }
 
   async refreshAuthTokenAfterInviteRoleChange(): Promise<void> {
@@ -215,9 +227,12 @@ export class PostLoginRoutingService {
       try {
         await this.companyContext.activateFromMembership(targetMembership as any);
       } catch {
-        const failedRoute = this.resolveRouteForRole(activeProfileId, this.normalizeRole(claimed?.memberRole), true);
-        this.invites.debugFlow('final route decision', { route: this.safeRouteForDebug(failedRoute), reason: 'activation_failed' });
-        return failedRoute;
+        return '/app/workspace-access';
+      }
+
+      const activatedContext = this.companyContext.snapshot().context;
+      if (activatedContext.activeBusinessProfileId !== this.normalizeId(targetMembership.business_profile)) {
+        return '/app/workspace-access';
       }
     }
 
@@ -354,7 +369,7 @@ export class PostLoginRoutingService {
 
     if (this.invites.hasClaimAttemptedForToken(normalizedToken)) {
       this.invites.debugFlow('claim already attempted for token');
-      return await this.resolveAttemptedInviteDestination(normalizedToken);
+      return `/invites/claim?token=${encodeURIComponent(normalizedToken)}`;
     }
 
     const authReady = await this.ensureInviteClaimAuthReady(normalizedToken);
@@ -369,7 +384,8 @@ export class PostLoginRoutingService {
 
     this.invites.clearInviteClaimError();
     this.inviteClaimInProgress = true;
-    this.claimFlowPromise = this.claimPendingInvite(normalizedToken);
+    const generation = ++this.inviteClaimGeneration;
+    this.claimFlowPromise = this.claimPendingInvite(normalizedToken, generation);
 
     try {
       return await this.claimFlowPromise;
@@ -379,26 +395,63 @@ export class PostLoginRoutingService {
     }
   }
 
-  private async claimPendingInvite(token: string): Promise<string> {
+  private async claimPendingInvite(token: string, generation: number): Promise<string> {
     this.invites.markClaimAttemptedForToken(token);
     this.invites.markClaimInProgressForToken(token);
 
     try {
       const claimResult = await firstValueFrom(this.invites.claimInvite(token));
+      if (!this.isCurrentInviteClaimGeneration(generation)) {
+        return `/invites/claim?token=${encodeURIComponent(token)}`;
+      }
       this.invites.debugFlow('claim success', {
         memberRole: claimResult.memberRole
       });
+      await this.refreshAuthTokenAfterInviteRoleChange();
+      if (!this.isCurrentInviteClaimGeneration(generation)) {
+        return `/invites/claim?token=${encodeURIComponent(token)}`;
+      }
+      const activated = await this.activateClaimedInviteMembership(claimResult.businessProfileId);
+      if (!activated) {
+        this.invites.clearClaimInProgressForToken(token);
+        this.invites.setInviteClaimError('Invite accepted, but workspace activation could not be confirmed. Please retry.');
+        return `/invites/claim?token=${encodeURIComponent(token)}`;
+      }
+      await this.refreshAuthAndWorkspaceContext({ force: true, failOnError: true });
+      if (!this.isCurrentInviteClaimGeneration(generation)) {
+        return `/invites/claim?token=${encodeURIComponent(token)}`;
+      }
+      const activatedContext = this.companyContext.snapshot().context;
+      if (
+        !claimResult.businessProfileId ||
+        activatedContext.activeBusinessProfileId !== this.normalizeId(claimResult.businessProfileId) ||
+        !activatedContext.activeMemberRole
+      ) {
+        this.invites.clearClaimInProgressForToken(token);
+        this.invites.setInviteClaimError('Invite accepted, but workspace context could not be confirmed. Please retry.');
+        return `/invites/claim?token=${encodeURIComponent(token)}`;
+      }
+
+      const nextRoute = await this.resolveFinalRouteAfterClaim(token, claimResult);
+      if (!this.isCurrentInviteClaimGeneration(generation)) {
+        return `/invites/claim?token=${encodeURIComponent(token)}`;
+      }
+      if (nextRoute.startsWith('/invites/claim')) {
+        this.invites.clearClaimInProgressForToken(token);
+        return nextRoute;
+      }
+
       this.invites.markClaimSucceededForToken(token);
       this.invites.markClaimCompleted(token);
       this.invites.clearPendingInviteToken();
       this.invites.clearClaimAttemptedForToken(token);
       this.invites.clearClaimInProgressForToken(token);
       this.invites.clearInviteClaimError();
-      await this.refreshAuthTokenAfterInviteRoleChange();
-      await this.activateClaimedInviteMembership(claimResult.businessProfileId);
-      await this.refreshInviteContexts();
-      return await this.resolveFinalRouteAfterClaim(token, claimResult);
+      return nextRoute;
     } catch (error) {
+      if (!this.isCurrentInviteClaimGeneration(generation)) {
+        return `/invites/claim?token=${encodeURIComponent(token)}`;
+      }
       this.invites.clearClaimInProgressForToken(token);
 
       if ((error as { message?: unknown })?.message === 'Workspace joined successfully. Please sign in again to activate your access.') {
@@ -409,19 +462,6 @@ export class PostLoginRoutingService {
       if (!this.invites.isAlreadyClaimedError(error)) {
         this.invites.setInviteClaimError(detail);
         return `/invites/claim?token=${encodeURIComponent(token)}`;
-      }
-
-      await this.refreshInviteContexts();
-      const context = this.companyContext.snapshot().context;
-      if (context.activeBusinessProfileId) {
-        this.invites.markClaimSucceededForToken(token);
-        this.invites.markClaimCompleted(token);
-        this.invites.clearPendingInviteToken();
-        this.invites.clearClaimAttemptedForToken(token);
-        this.invites.clearClaimInProgressForToken(token);
-        this.invites.clearInviteClaimError();
-        const role = this.normalizeRole(context.activeMemberRole);
-        return this.resolveClaimedWorkspaceDestination(context.activeBusinessProfileId, role, true);
       }
 
       this.invites.setInviteClaimError(detail);
@@ -457,22 +497,27 @@ export class PostLoginRoutingService {
     await this.refreshAuthAndWorkspaceContext({ force: true });
   }
 
-  private async activateClaimedInviteMembership(businessProfileId: string | null): Promise<void> {
+  private async activateClaimedInviteMembership(businessProfileId: string | null): Promise<boolean> {
     const profileId = this.normalizeId(businessProfileId);
     if (!profileId) {
       this.invites.debugFlow('claim response missing business profile id');
-      return;
+      return false;
     }
 
     const membership = await this.companyContext.activateClaimedMembershipForCurrentUser(profileId);
     if (!membership?.id) {
       this.invites.debugFlow('claimed active membership not found after claim');
-      return;
+      return false;
     }
 
     this.invites.debugFlow('claimed active membership activated', {
       memberRole: membership.member_role
     });
+    return true;
+  }
+
+  private isCurrentInviteClaimGeneration(generation: number): boolean {
+    return generation === this.inviteClaimGeneration;
   }
 
   private async resolveFinalRouteAfterClaim(
@@ -557,18 +602,6 @@ export class PostLoginRoutingService {
       const route = this.resolveClaimedWorkspaceDestination(context.activeBusinessProfileId, role, true);
       this.queueInviteWelcome(route);
       return '/app/welcome';
-    }
-
-    if (context.activeBusinessProfileId) {
-      const nextRoute = await this.navigateToPostInviteDestination(undefined, token);
-      if (nextRoute !== '/app/workspace-access') {
-        this.invites.markClaimCompleted(token);
-        this.invites.clearPendingInviteToken();
-        this.invites.clearClaimAttemptedForToken(token);
-        this.invites.clearClaimInProgressForToken(token);
-        this.invites.clearInviteClaimError();
-        return nextRoute;
-      }
     }
 
     return `/invites/claim?token=${encodeURIComponent(token)}`;

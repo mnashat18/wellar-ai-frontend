@@ -5,7 +5,7 @@ import { TestBed } from '@angular/core/testing';
 
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth';
-import { OrganizationApiService } from './organization-api.service';
+import { OrganizationApiError, OrganizationApiService } from './organization-api.service';
 
 describe('OrganizationApiService department contracts', () => {
   let service: OrganizationApiService;
@@ -101,5 +101,40 @@ describe('OrganizationApiService department contracts', () => {
         }
       }
     });
+  });
+
+  it('sanitizes backend permission messages', () => {
+    let failure: OrganizationApiError | undefined;
+    service.updateProfile({ company_name: 'Northwind' }).subscribe({
+      error: (error: OrganizationApiError) => failure = error
+    });
+
+    const request = httpMock.expectOne(`${environment.API_URL}/wellar/organization/profile`);
+    request.flush({ error: { message: 'DirectusException SQL permission detail' } }, {
+      status: 403,
+      statusText: 'Forbidden'
+    });
+
+    expect(failure?.code).toBe('forbidden');
+    expect(failure?.userMessage).toBe('You do not have permission for this organization action.');
+    expect(failure?.userMessage).not.toContain('DirectusException');
+  });
+
+  it('preserves timeout as a distinct typed failure', async () => {
+    vi.useFakeTimers();
+    try {
+      let failure: OrganizationApiError | undefined;
+      service.updateProfile({ company_name: 'Northwind' }).subscribe({
+        error: (error: OrganizationApiError) => failure = error
+      });
+
+      httpMock.expectOne(`${environment.API_URL}/wellar/organization/profile`);
+      await vi.advanceTimersByTimeAsync(12000);
+
+      expect(failure?.code).toBe('timeout');
+      expect(failure?.userMessage).toBe('The request took too long. Please try again.');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

@@ -146,6 +146,29 @@ describe('AuthCallbackComponent', () => {
     expect(authSpy.clearAuthRecoveryState).not.toHaveBeenCalled();
   });
 
+  it('sanitizes technical post-login routing failures', async () => {
+    authSpy.captureAuthFromUrl.mockReturnValue({
+      stored: false,
+      hasCode: false
+    });
+    authSpy.ensureSession.mockReturnValue(of(true));
+    authSpy.getCurrentUser.mockReturnValue(of({ id: 'user-1' }));
+    postLoginRoutingSpy.resolveDestination.mockRejectedValue({
+      status: 500,
+      error: { message: 'DirectusException SQLSTATE[08006] token=secret' }
+    });
+
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fixture.componentInstance.status).toBe('error');
+    expect(fixture.componentInstance.message).toBe(
+      'Something went wrong on our end. Please try again later.'
+    );
+    expect(fixture.nativeElement.textContent).not.toContain('DirectusException');
+    expect(fixture.nativeElement.textContent).not.toContain('token=secret');
+  });
+
   it('queues a returning-user welcome after a restored callback session resolves to the dashboard', async () => {
     authSpy.captureAuthFromUrl.mockReturnValue({
       stored: false,

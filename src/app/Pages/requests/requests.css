@@ -4,6 +4,32 @@
   min-inline-size: 0;
   max-inline-size: 100%;
   box-sizing: border-box;
+  isolation: isolate;
+}
+
+.scan-requests-page :is(input, select, button, a):focus-visible {
+  outline: 2px solid rgba(125, 211, 252, 0.95);
+  outline-offset: 3px;
+}
+
+.scan-requests-scope-card {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(125, 211, 252, 0.16);
+  border-radius: 1.25rem;
+  background:
+    radial-gradient(460px at 0% 0%, rgba(14, 165, 233, 0.13), transparent 58%),
+    rgba(9, 14, 28, 0.9);
+  padding: 1.25rem 1.35rem;
+  box-shadow: 0 18px 48px rgba(2, 6, 23, 0.2);
+}
+
+.scan-requests-scope-card::after {
+  position: absolute;
+  inset: auto 1.5rem 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.34), transparent);
+  content: '';
 }
 
 .scan-requests-page > *,
@@ -21,6 +47,7 @@
   padding: 0.72rem 0.95rem;
   font-size: 0.88rem;
   font-weight: 600;
+  animation: scan-requests-feedback-in 220ms ease-out both;
 }
 
 .scan-requests-feedback--success {
@@ -62,6 +89,13 @@
   height: 100%;
   min-height: 8.4rem;
   min-width: 0;
+  animation: scan-requests-card-in 360ms ease-out both;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.scan-requests-summary-grid .app-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 20px 48px rgba(2, 6, 23, 0.28);
 }
 
 @container (min-width: 48rem) {
@@ -94,6 +128,13 @@
   background: rgba(15, 23, 42, 0.45);
   padding: 1.25rem;
   color: rgb(203 213 225);
+}
+
+.scan-requests-state-card--empty {
+  border-color: rgba(125, 211, 252, 0.22);
+  background:
+    radial-gradient(420px at top left, rgba(56, 189, 248, 0.09), transparent 55%),
+    rgba(9, 14, 28, 0.74);
 }
 
 .scan-requests-state-card--warning {
@@ -139,6 +180,7 @@
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+  background: rgba(2, 6, 23, 0.7);
 }
 
 .scan-requests-table th,
@@ -152,11 +194,12 @@
 }
 
 .scan-requests-table-row {
-  transition: background-color 0.16s ease;
+  transition: background-color 0.16s ease, box-shadow 0.16s ease;
 }
 
 .scan-requests-table-row:hover {
   background: rgba(56, 189, 248, 0.08);
+  box-shadow: inset 3px 0 rgba(56, 189, 248, 0.56);
 }
 
 .scan-requests-primary {
@@ -237,6 +280,8 @@
   font-weight: 800;
   line-height: 1.2;
   white-space: nowrap;
+  min-height: 2.45rem;
+  transition: background-color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
 }
 
 .scan-requests-row-action:hover,
@@ -245,6 +290,7 @@
   background: rgba(56, 189, 248, 0.1);
   color: rgb(125 211 252);
   outline: none;
+  transform: translateY(-1px);
 }
 
 .scan-requests-row-action--danger {
@@ -321,5 +367,45 @@
 
   .scan-requests-row-actions {
     min-width: 8rem;
+  }
+}
+
+@keyframes scan-requests-feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scan-requests-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.35rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan-requests-feedback,
+  .scan-requests-summary-grid .app-kpi-card,
+  .scan-requests-table-row,
+  .scan-requests-row-action {
+    animation: none;
+    transition: none;
+  }
+
+  .scan-requests-summary-grid .app-kpi-card:hover,
+  .scan-requests-row-action:hover,
+  .scan-requests-row-action:focus {
+    transform: none;
   }
 }

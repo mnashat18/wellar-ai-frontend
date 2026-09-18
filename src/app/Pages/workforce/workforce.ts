@@ -33,6 +33,7 @@ import { KpiCardComponent } from '../../shared/ui/kpi-card/kpi-card.component';
 import { PageHeaderComponent } from '../../shared/ui/page-header/page-header.component';
 import { TableShellComponent } from '../../shared/ui/table-shell/table-shell.component';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 type ViewState = 'loading' | 'ready' | 'empty' | 'error';
 type FeedbackType = 'success' | 'error' | 'info';
@@ -1449,34 +1450,32 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
             return;
           }
           const normalized = this.toFriendlyError(error, 'Failed to load workforce data.');
-          if (normalized === 'AUTH_REQUIRED' || normalized === 'AUTH_TOKEN_MISSING') {
+          if (this.hasWorkforceControlError(error, 'AUTH_REQUIRED') || this.hasWorkforceControlError(error, 'AUTH_TOKEN_MISSING')) {
             this.errorMessage = 'Your session has expired. Please sign in again.';
             this.errorDetails = '';
             void this.router.navigateByUrl('/?auth=login&reason=session');
             return;
           }
-          if (normalized === 'WORKSPACE_CONTEXT_MISSING') {
+          if (this.hasWorkforceControlError(error, 'WORKSPACE_CONTEXT_MISSING')) {
             this.errorMessage = 'Select an active workspace before opening Workforce.';
             this.errorDetails = '';
             void this.router.navigateByUrl('/app/workspace-access');
             return;
           }
           this.errorMessage = normalized;
-          this.errorDetails = this.extractErrorDetails(error);
+          this.errorDetails = '';
         },
       });
   }
 
   private resolveSetupError(error: unknown): string {
-    const normalized = this.toFriendlyError(error, 'Workforce setup is not ready.');
-    if (
-      normalized === 'AUTH_REQUIRED' ||
-      normalized === 'AUTH_TOKEN_MISSING' ||
-      normalized.toLowerCase().includes('token')
-    ) {
+    if (this.hasWorkforceControlError(error, 'AUTH_REQUIRED') || this.hasWorkforceControlError(error, 'AUTH_TOKEN_MISSING')) {
       return 'Please sign in to load workforce data.';
     }
-    return normalized;
+    if (this.hasWorkforceControlError(error, 'WORKSPACE_CONTEXT_MISSING')) {
+      return 'Select an active workspace before opening Workforce.';
+    }
+    return this.toFriendlyError(error, 'Workforce setup is not ready.');
   }
 
   private matchesEligibilityFilter(row: WorkforceRosterRow, filter: string): boolean {
@@ -1591,58 +1590,22 @@ export class WorkforcePageComponent implements OnInit, OnDestroy {
   }
 
   private toFriendlyError(error: unknown, fallback: string): string {
-    const anyError = error as {
-      error?: {
-        errors?: Array<{ extensions?: { reason?: string }; message?: string }>;
-        message?: string;
-      };
-      message?: string;
+    const code = typeof (error as { code?: unknown } | null)?.code === 'string'
+      ? (error as { code: string }).code
+      : '';
+    const knownMessages: Record<string, string> = {
+      DUPLICATE_INVITE: 'An active invite already exists for this person.',
+      INVALID_EMAIL: 'Enter a valid email address.',
+      PERMISSION_DENIED: 'You do not have permission to perform this action.',
+      NETWORK_ERROR: 'We couldn’t reach the server. Check your connection and try again.',
+      TIMEOUT_ERROR: 'The request took too long. Please try again.',
+      SERVER_ERROR: 'Something went wrong on our end. Please try again later.'
     };
-
-    const backendMessage =
-      anyError?.error?.errors?.[0]?.extensions?.reason ||
-      anyError?.error?.errors?.[0]?.message ||
-      anyError?.error?.message;
-
-    if (typeof backendMessage === 'string' && backendMessage.trim()) {
-      return backendMessage.trim();
-    }
-
-    if (error instanceof Error && error.message) {
-      return error.message;
-    }
-
-    if (typeof error === 'string' && error.trim()) {
-      return error.trim();
-    }
-
-    return fallback;
+    return knownMessages[code] ?? mapSafeError(error).userMessage ?? fallback;
   }
 
-  private extractErrorDetails(error: unknown): string {
-    const anyError = error as {
-      status?: number;
-      error?: {
-        errors?: Array<{ message?: string; extensions?: { reason?: string; code?: string } }>;
-        message?: string;
-      };
-      message?: string;
-    };
-
-    const status = typeof anyError?.status === 'number' ? anyError.status : null;
-    const reason =
-      anyError?.error?.errors?.[0]?.extensions?.reason ||
-      anyError?.error?.errors?.[0]?.message ||
-      anyError?.error?.message ||
-      anyError?.message ||
-      null;
-
-    if (!reason && status === null) {
-      return '';
-    }
-
-    const statusPart = status !== null ? `HTTP ${status}` : '';
-    const reasonPart = reason ? String(reason).trim() : '';
-    return [statusPart, reasonPart].filter(Boolean).join(' - ');
+  private hasWorkforceControlError(error: unknown, code: string): boolean {
+    return (error as { message?: unknown } | null)?.message === code ||
+      (error as { code?: unknown } | null)?.code === code;
   }
 }

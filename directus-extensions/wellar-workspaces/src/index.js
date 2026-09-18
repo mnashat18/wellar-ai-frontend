@@ -4,7 +4,15 @@ const MAX_COMPANY_NAME = 120;
 const PUSH_WEBHOOK_TIMEOUT_MS = 5000;
 const MAX_PERSON_NAME = 80;
 const MAX_PHONE = 30;
+const WELLAR_BROWSER_ORIGIN = 'https://conntinuity.com';
+const STATE_CHANGING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+function validateMutationOrigin(method, origin, authorization) {
+  if (!STATE_CHANGING_METHODS.has(String(method ?? '').toUpperCase())) return true;
+  if (origin === WELLAR_BROWSER_ORIGIN) return true;
+  if (origin === undefined && /^Bearer\s+\S+$/i.test(String(authorization ?? '').trim())) return true;
+  return false;
+}
 function parseSingleRange(value) {
   if (!value) return undefined;
   const match = /^bytes=(\d*)-(\d*)$/i.exec(String(value).trim());
@@ -69,28 +77,51 @@ const WORKSPACE_PLACEHOLDER_VALUES = new Set([
   'your name',
 ]);
 function badRequest(res, message, details = undefined) {
-  return res.status(400).json({ error: { code: 'BAD_REQUEST', message, details } });
+  return res.status(400).json({ error: { code: 'BAD_REQUEST', message: publicClientMessage(message, 'Please check the submitted details and try again.'), details } });
 }
 function unauthorized(res, message) {
-  return res.status(401).json({ error: { code: 'UNAUTHORIZED', message } });
+  return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: publicClientMessage(message, 'Please sign in again.') } });
 }
 function forbidden(res, message) {
-  return res.status(403).json({ error: { code: 'FORBIDDEN', message } });
+  return res.status(403).json({ error: { code: 'FORBIDDEN', message: publicClientMessage(message, 'You do not have permission to perform this action.') } });
 }
 function notFound(res, message) {
-  return res.status(404).json({ error: { code: 'NOT_FOUND', message } });
+  return res.status(404).json({ error: { code: 'NOT_FOUND', message: publicClientMessage(message, 'The requested resource could not be found.') } });
 }
 function conflict(res, message) {
-  return res.status(409).json({ error: { code: 'CONFLICT', message } });
+  return res.status(409).json({ error: { code: 'CONFLICT', message: publicClientMessage(message, 'This request conflicts with the current workspace state.') } });
 }
 function serverError(res, message) {
-  return res.status(500).json({ error: { code: 'SERVER_ERROR', message } });
+  return res.status(500).json({ error: { code: 'SERVER_ERROR', message: 'Something went wrong on our end. Please try again later.' } });
 }
 function configurationError(res, message) {
-  return res.status(500).json({ error: { code: 'CONFIGURATION_ERROR', message } });
+  return res.status(500).json({ error: { code: 'CONFIGURATION_ERROR', message: 'The service is temporarily unavailable. Please try again later.' } });
 }
 function serviceUnavailable(res, message) {
-  return res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE', message } });
+  return res.status(503).json({ error: { code: 'SERVICE_UNAVAILABLE', message: 'The service is temporarily unavailable. Please try again later.' } });
+}
+const PUBLIC_ERROR_PATTERNS = [
+  /^A verified (active )?(organization|workspace) membership is required\.$/i,
+  /^Owner(, HR, or manager)? access is required\.$/i,
+  /^Only owners can edit the organization profile\.$/i,
+  /^The (active organization profile|requested (department|workforce member|alert|invitation)) was not found/i,
+  /^The selected (manager|workforce member|department) /i,
+  /^Deactivate the department after reassigning its active members\.$/i,
+  /^Scan requests can only target /i,
+  /^An open scan request already exists /i,
+  /^A pending invitation already exists /i,
+  /^This (invitation|person) /i,
+  /^Invitation expired\.$/i,
+  /^The current account email could not be verified\.$/i,
+  /^Company name /i,
+  /^(First|Last) name /i,
+  /^Work email /i,
+  /^Country /i,
+  /^Phone number /i,
+];
+function publicClientMessage(message, fallback) {
+  const normalized = pickString(message);
+  return normalized && PUBLIC_ERROR_PATTERNS.some((pattern) => pattern.test(normalized)) ? normalized : fallback;
 }
 function pickString(value, max = MAX_TEXT) {
   if (typeof value !== 'string' && typeof value !== 'number') {
@@ -804,61 +835,17 @@ async function ensureInviteNotification(trx, inviteRow, inviterUserId, targetUse
 function pickInviteActionMessage(channel) {
   return channel === 'in_app' ? 'Invitation sent in Wellar.' : 'Email invitation sent.';
 }
-function getRawAuthorizationHeader(req) {
-  const rawAuthorization = req?.headers?.authorization;
-  return typeof rawAuthorization === 'string' ? rawAuthorization.trim() : '';
-}
-function resolveDirectusBaseUrl(env = process.env) {
-  return pickString(env.DIRECTUS_URL) ?? pickString(env.API_URL) ?? '';
-}
-function mapExternalInviteError(status, message) {
-  const error = new Error(message);
-  if (status === 400) {
-    error.code = 'BAD_REQUEST';
-  } else if (status === 401) {
-    error.code = 'UNAUTHORIZED';
-  } else if (status === 403) {
-    error.code = 'FORBIDDEN';
-  } else if (status === 404) {
-    error.code = 'NOT_FOUND';
-  } else if (status === 409) {
-    error.code = 'CONFLICT';
-  } else if (status === 500) {
-    error.code = 'SERVER_ERROR';
-  } else {
-    error.code = 'SERVER_ERROR';
-  }
-  error.status = status;
-  return error;
-}
-async function postWorkspaceInviteToDirectus({ baseUrl, authorization, payload }) {
-  const normalizedBaseUrl = pickString(baseUrl)?.replace(/\/+$/, '') ?? '';
-  if (!normalizedBaseUrl) {
-    const error = new Error('Directus URL is not configured.');
+async function postWorkspaceInviteToDirectus({ ItemsService, schema, accountability, payload }) {
+  if (typeof ItemsService !== 'function' || !schema || !accountability?.user) {
+    const error = new Error('Directus invitation service is unavailable.');
     error.code = 'CONFIGURATION_ERROR';
     throw error;
   }
-  const headers = { 'Content-Type': 'application/json' };
-  if (authorization) {
-    headers.Authorization = authorization;
-  }
-  const response = await fetch(`${normalizedBaseUrl}/items/request_invites`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
+  const service = new ItemsService('request_invites', {
+    schema,
+    accountability,
   });
-  const body = await response.json().catch(() => null);
-  if (!response.ok) {
-    const reason =
-      body?.errors?.[0]?.extensions?.reason ||
-      body?.errors?.[0]?.message ||
-      body?.error?.message ||
-      body?.message ||
-      'Request invitation could not be created.';
-    throw mapExternalInviteError(response.status, reason);
-  }
-  const data = body?.data ?? body ?? {};
-  return Array.isArray(data) ? (data[0] ?? null) : data;
+  return service.createOne(payload);
 }
 const INVITE_ALLOWED_KEYS = new Set(['email', 'member_role', 'department']);
 const INVITE_ALLOWED_TARGET_ROLES = new Set(['employee', 'manager', 'hr']);
@@ -2155,6 +2142,10 @@ export default {
   handler: (router, context) => {
     const { database, getSchema, logger, services } = context;
     const { ItemsService, AssetsService } = services;
+    router.use((req, res, next) => {
+      if (validateMutationOrigin(req.method, req.headers?.origin, req.headers?.authorization)) return next();
+      return forbidden(res, 'Request origin is not allowed.');
+    });
     router.get('/files/:fileId', async (req, res) => {
       const fileId = String(req.params?.fileId ?? '');
       if (!UUID_PATTERN.test(fileId)) return notFound(res, 'File not found.');
@@ -2184,6 +2175,8 @@ export default {
         if (!kinds.size) return notFound(res, 'File not found.');
         const range = parseSingleRange(req.headers?.range);
         if (range === null) return res.status(416).end();
+        // Parent authorization has succeeded under req.accountability; Directus 11.14.1
+        // uses accountability:null internally for the intentional sudo file read.
         const assetService = new AssetsService({ schema, accountability: null, knex: database });
         const { stream, file, stat } = await assetService.getAsset(fileId, undefined, range, true);
         const mime = String(file?.type ?? '').toLowerCase();
@@ -3219,10 +3212,11 @@ export default {
               },
             };
           }
-          const rawAuthorization = getRawAuthorizationHeader(req);
+          const schema = await getSchema();
           const created = await postWorkspaceInviteToDirectus({
-            baseUrl: resolveDirectusBaseUrl(process.env),
-            authorization: rawAuthorization,
+            ItemsService,
+            schema,
+            accountability: req.accountability,
             payload: {
               email: validation.payload.email,
               member_role: validation.payload.member_role,
@@ -3828,6 +3822,7 @@ export default {
 };
 export {
   parseSingleRange,
+  validateMutationOrigin,
   isAccessDeniedError,
   resolveProtectedFileDelivery,
   buildBusinessProfileInsertPayload,
@@ -3836,8 +3831,6 @@ export {
   buildOwnerMembershipInsertPayload,
   buildWorkspaceCreatedActivityEventPayload,
   buildWorkspaceRecordIds,
-  getRawAuthorizationHeader,
-  mapExternalInviteError,
   logWorkspaceCreatedActivityEvent,
   postWorkspaceInviteToDirectus,
   validateWorkspaceInvitePayload,

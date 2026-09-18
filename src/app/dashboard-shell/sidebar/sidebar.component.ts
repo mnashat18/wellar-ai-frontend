@@ -261,7 +261,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
     this.organizationSwitchError = '';
 
     try {
-      await firstValueFrom(this.companyContext.switchCompany(selected.id));
+      const result = await firstValueFrom(this.companyContext.switchCompany(selected.id), { defaultValue: null });
+      if (result === null) {
+        return;
+      }
+
       this.closeAccountMenu(true);
       void this.router.navigateByUrl('/app/dashboard', { replaceUrl: true });
     } catch {

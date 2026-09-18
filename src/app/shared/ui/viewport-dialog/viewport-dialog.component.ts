@@ -1,5 +1,5 @@
 import { DOCUMENT, CommonModule, NgClass } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, EventEmitter, Input, OnDestroy, Output, Renderer2, inject } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, EventEmitter, HostListener, Input, OnDestroy, Output, Renderer2, inject } from '@angular/core';
 
 type ScrollLockState = {
   scrollX: number;
@@ -100,6 +100,7 @@ function unlockDocumentScroll(doc: Document): void {
         [ngClass]="panelClass"
         [attr.role]="role"
         aria-modal="true"
+        tabindex="-1"
         [attr.aria-labelledby]="labelledBy || null"
         [attr.aria-label]="ariaLabel || null">
         <ng-content></ng-content>
@@ -155,11 +156,17 @@ export class ViewportDialogComponent implements AfterViewInit, OnDestroy {
   @Input() ariaLabel = '';
   @Input() role = 'dialog';
   @Input() lockScroll = false;
+  @Input() closeOnEscape = true;
 
   @Output() readonly backdropClick = new EventEmitter<void>();
 
+  private previouslyFocusedElement: HTMLElement | null = null;
+  private focusInitialisation: ReturnType<typeof setTimeout> | null = null;
+
   ngAfterViewInit(): void {
     const host = this.elementRef.nativeElement;
+    const activeElement = this.document?.activeElement;
+    this.previouslyFocusedElement = activeElement instanceof HTMLElement ? activeElement : null;
     if (this.document?.body && host.parentNode !== this.document.body) {
       this.renderer.appendChild(this.document.body, host);
       this.movedHost = true;
@@ -168,9 +175,52 @@ export class ViewportDialogComponent implements AfterViewInit, OnDestroy {
     if (this.lockScroll && this.document?.body) {
       lockDocumentScroll(this.document);
     }
+
+    this.focusInitialisation = setTimeout(() => this.focusFirstMeaningfulElement(), 0);
+  }
+
+  @HostListener('document:keydown', ['$event'])
+  handleKeydown(event: KeyboardEvent): void {
+    if (event.key === 'Escape' && this.closeOnEscape) {
+      event.preventDefault();
+      this.backdropClick.emit();
+      return;
+    }
+
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    const focusable = this.getFocusableElements();
+    if (!focusable.length) {
+      event.preventDefault();
+      this.getPanel()?.focus();
+      return;
+    }
+
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = this.document.activeElement;
+    if (!this.elementRef.nativeElement.contains(active)) {
+      event.preventDefault();
+      (event.shiftKey ? last : first).focus();
+      return;
+    }
+    if (event.shiftKey && active === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && active === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   ngOnDestroy(): void {
+    if (this.focusInitialisation !== null) {
+      clearTimeout(this.focusInitialisation);
+      this.focusInitialisation = null;
+    }
+
     if (this.lockScroll && this.document?.body) {
       unlockDocumentScroll(this.document);
     }
@@ -178,5 +228,46 @@ export class ViewportDialogComponent implements AfterViewInit, OnDestroy {
     if (this.movedHost) {
       this.elementRef.nativeElement.remove();
     }
+
+    if (this.previouslyFocusedElement?.isConnected) {
+      this.previouslyFocusedElement.focus();
+    }
+  }
+
+  private focusFirstMeaningfulElement(): void {
+    const host = this.elementRef.nativeElement as HTMLElement;
+    const autofocus = host.querySelector<HTMLElement>('[autofocus]');
+    const first = autofocus ?? this.getFocusableElements()[0];
+    (first ?? this.getPanel())?.focus();
+  }
+
+  private getPanel(): HTMLElement | null {
+    const host = this.elementRef.nativeElement as HTMLElement;
+    return host.querySelector('.viewport-dialog__panel') as HTMLElement | null;
+  }
+
+  private getFocusableElements(): HTMLElement[] {
+    const host = this.elementRef.nativeElement as HTMLElement;
+    const selector = [
+      'a[href]',
+      'area[href]',
+      'button:not([disabled])',
+      'input:not([disabled]):not([type="hidden"])',
+      'select:not([disabled])',
+      'textarea:not([disabled])',
+      'iframe',
+      'object',
+      'embed',
+      '[contenteditable="true"]',
+      '[tabindex]:not([tabindex="-1"])'
+    ].join(',');
+
+    return Array.from(host.querySelectorAll(selector)).filter((element): element is HTMLElement => {
+      if (element.getAttribute('aria-hidden') === 'true') {
+        return false;
+      }
+      const style = typeof window !== 'undefined' ? window.getComputedStyle(element) : null;
+      return style?.display !== 'none' && style?.visibility !== 'hidden';
+    });
   }
 }

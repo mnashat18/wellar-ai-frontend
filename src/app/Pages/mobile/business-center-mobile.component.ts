@@ -9,6 +9,7 @@ import {
   BusinessHubAccessState,
   RequestRecord
 } from '../../services/business-center.service';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   selector: 'app-business-center-mobile',
@@ -73,9 +74,6 @@ export class BusinessCenterMobileComponent implements OnInit {
         return of(null);
       }),
       finalize(() => {
-        console.log('business-center-mobile loading', this.loading);
-        console.log('business-center-mobile summary loading', this.loadingSummary);
-        console.log('business-center-mobile stats', this.stats);
       })
     ).subscribe((state) => {
       if (!state) {
@@ -139,9 +137,6 @@ export class BusinessCenterMobileComponent implements OnInit {
       finalize(() => {
         this.loadingSummary = false;
         this.loading = false;
-        console.log('business-center-mobile loading', this.loading);
-        console.log('business-center-mobile summary loading', this.loadingSummary);
-        console.log('business-center-mobile stats', this.stats);
       })
     ).subscribe(({ teamMembers, requests, events }) => {
       const rows = (requests as RequestRecord[]) ?? [];
@@ -161,31 +156,8 @@ export class BusinessCenterMobileComponent implements OnInit {
     return normalized.includes('pending');
   }
 
-  private describeHttpError(err: any, fallback: string): string {
-    const status = typeof err?.status === 'number' ? err.status : 0;
-    const detail =
-      err?.error?.errors?.[0]?.extensions?.reason ||
-      err?.error?.errors?.[0]?.message ||
-      err?.error?.error ||
-      err?.error?.message ||
-      err?.message ||
-      '';
-
-    const normalized = String(detail).toLowerCase();
-
-    if (
-      status === 0 ||
-      normalized.includes('network') ||
-      normalized.includes('failed to fetch') ||
-      normalized.includes('connection refused') ||
-      normalized.includes('timeout')
-    ) {
-      return `Network error: ${detail || fallback}`;
-    }
-
-    if (status >= 500) return `Server error (${status}): ${detail || fallback}`;
-    if (status >= 400) return `Request error (${status}): ${detail || fallback}`;
-    return detail || fallback;
+  private describeHttpError(error: unknown, fallback: string): string {
+    return mapSafeError(error).userMessage || fallback;
   }
 
   private daysUntil(value: string | null): number | null {

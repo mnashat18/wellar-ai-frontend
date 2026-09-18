@@ -9,11 +9,12 @@ import { InviteService } from '../../services/invites';
 import { CompanyContextService } from '../../core/context/company-context.service';
 import {
   type WorkspaceAccessInvite,
+  type WorkspaceActionResult,
   type WorkspaceAccessState,
   type WorkspaceAccessWorkspace,
   WorkspaceAccessService
 } from '../../services/workspace-access.service';
-import { catchError, finalize, from, map, of, switchMap, take } from 'rxjs';
+import { catchError, finalize, from, map, Observable, of, switchMap, take } from 'rxjs';
 import { PostLoginRoutingService } from '../../services/post-login-routing.service';
 import {
   type CreatedWorkspaceContext,
@@ -21,6 +22,7 @@ import {
 } from '../../services/workspace-creation.service';
 import { WorkspaceActivationService } from '../../services/workspace-activation.service';
 import { MotionVisibilityDirective } from '../../shared/motion/motion-visibility.directive';
+import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 @Component({
   selector: 'app-workspace-access-page',
@@ -49,6 +51,12 @@ export class WorkspaceAccessPageComponent implements OnInit {
     'Your company was created, but access is still activating. Please refresh this page in a moment.';
   private recoveryReturnUrl: string | null = null;
   private createCompanyIdempotencyKey: string | null = null;
+  private pendingInviteClaim: {
+    token: string;
+    businessProfileId?: string | null;
+    memberRole?: WorkspaceAccessWorkspace['memberRole'] | null;
+    departmentId?: string | null;
+  } | null = null;
   createCompanyForm = {
     companyName: '',
     firstName: '',
@@ -133,7 +141,7 @@ export class WorkspaceAccessPageComponent implements OnInit {
             this.workspaceAccess.loadWorkspaceAccess(true).pipe(
               map((workspaceState) => ({ currentUser, workspaceState })),
               catchError((error) => {
-                this.errorMessage = '';
+                this.errorMessage = mapSafeError(error).userMessage;
                 return of({
                   currentUser,
                   workspaceState: this.createEmptyState()
@@ -198,6 +206,11 @@ export class WorkspaceAccessPageComponent implements OnInit {
 
         this.state = state;
 
+        if (state.mode === 'error') {
+          this.errorMessage = state.error ?? '';
+          return;
+        }
+
         if (state.mode === 'ready' && state.activeWorkspaces[0]) {
           void this.openWorkspace(state.activeWorkspaces[0]);
           return;
@@ -212,9 +225,9 @@ export class WorkspaceAccessPageComponent implements OnInit {
           void this.router.navigateByUrl('/app/workspace-restricted');
         }
       },
-      error: () => {
+      error: (error) => {
         this.state = this.createEmptyState();
-        this.errorMessage = '';
+        this.errorMessage = mapSafeError(error).userMessage;
       }
     });
   }
@@ -440,7 +453,11 @@ export class WorkspaceAccessPageComponent implements OnInit {
 
     this.switchingWorkspaceId = workspace.id;
     try {
-      const result = await firstValueFrom(this.workspaceAccess.openWorkspace(workspace));
+      const result = await firstValueFrom(this.workspaceAccess.openWorkspace(workspace), { defaultValue: null });
+      if (result === null) {
+        return;
+      }
+
       if (!result.ok) {
         this.errorMessage = result.message;
         return;
@@ -470,7 +487,11 @@ export class WorkspaceAccessPageComponent implements OnInit {
 
     this.switchingWorkspaceId = workspace.id;
     try {
-      const result = await firstValueFrom(this.workspaceAccess.openWorkspace(workspace));
+      const result = await firstValueFrom(this.workspaceAccess.openWorkspace(workspace), { defaultValue: null });
+      if (result === null) {
+        return;
+      }
+
       if (!result.ok) {
         this.errorMessage = result.message;
         return;
@@ -641,13 +662,33 @@ export class WorkspaceAccessPageComponent implements OnInit {
     this.inviteClaimMessage = '';
     this.errorMessage = '';
 
-    this.workspaceAccess.claimInviteByToken(code).pipe(
+    if (this.pendingInviteClaim?.token !== code) {
+      this.pendingInviteClaim = null;
+    }
+
+    const claim$: Observable<WorkspaceActionResult> = this.pendingInviteClaim
+      ? of({
+        ok: true,
+          message: 'Invite accepted.',
+          businessProfileId: this.pendingInviteClaim.businessProfileId ?? null,
+          memberRole: this.pendingInviteClaim.memberRole ?? null,
+          departmentId: this.pendingInviteClaim.departmentId ?? null
+        })
+      : this.workspaceAccess.claimInviteByToken(code);
+
+    claim$.pipe(
       switchMap((result) => {
         if (!result.ok) {
           this.inviteCodeError = result.message;
           return of(null);
         }
 
+        this.pendingInviteClaim = {
+          token: code,
+          businessProfileId: result.businessProfileId,
+          memberRole: result.memberRole,
+          departmentId: result.departmentId
+        };
         return from(this.completeInviteClaim(result, code)).pipe(map(() => null));
       }),
       finalize(() => {
@@ -742,60 +783,10 @@ export class WorkspaceAccessPageComponent implements OnInit {
   }
 
   private toCreateCompanyError(error: any): { message: string; code: string } {
-    const code = String(
-      error?.code ??
-      error?.error?.error?.code ??
-      error?.error?.code ??
-      error?.error?.error?.error?.code ??
-      ''
-    ).toUpperCase();
-    const message =
-      error?.error?.error?.message ||
-      error?.error?.message ||
-      error?.error?.errors?.[0]?.message ||
-      error?.message ||
-      '';
-
-    if (code === 'CONFLICT' || error?.status === 409) {
-      return {
-        message:
-          message ||
-          'This account already belongs to an organization. Refresh organization access to continue.',
-        code: code || 'CONFLICT'
-      };
-    }
-
-    if (code === 'BAD_REQUEST' || error?.status === 400) {
-      return {
-        message: message || 'Please check the workspace details and try again.',
-        code: code || 'BAD_REQUEST'
-      };
-    }
-
-    if (code === 'FORBIDDEN' || error?.status === 403) {
-      return {
-        message: message || 'You are not allowed to create a company workspace.',
-        code: code || 'FORBIDDEN'
-      };
-    }
-
-    if (code === 'TIMEOUT') {
-      return {
-        message: 'The request took too long. Please retry.',
-        code: code || 'TIMEOUT'
-      };
-    }
-
-    if (error?.status === 0) {
-      return {
-        message: 'We could not reach the server. Check your connection and retry.',
-        code: 'NETWORK'
-      };
-    }
-
+    const mapped = mapSafeError(error);
     return {
-      message: 'We could not create your company right now.',
-      code: code || String(error?.status ?? 'SERVER_ERROR')
+      message: mapped.userMessage,
+      code: mapped.kind.toUpperCase()
     };
   }
 
@@ -1010,16 +1001,10 @@ export class WorkspaceAccessPageComponent implements OnInit {
     },
     token: string | null
   ): Promise<void> {
-    this.invites.clearPendingInviteToken();
-    if (token) {
-      this.invites.clearClaimAttemptedForToken(token);
-    }
-    this.invites.clearInviteClaimError();
-
     let nextRoute = '/app/workspace-access?joined=1';
     try {
       await this.postLoginRouting.refreshAuthTokenAfterInviteRoleChange();
-      await this.postLoginRouting.refreshAuthAndWorkspaceContext({ force: true });
+      await this.postLoginRouting.refreshAuthAndWorkspaceContext({ force: true, failOnError: true });
       nextRoute = await this.postLoginRouting.navigateToPostInviteDestination(
         {
           businessProfileId: result.businessProfileId ?? null,
@@ -1028,17 +1013,45 @@ export class WorkspaceAccessPageComponent implements OnInit {
         },
         token
       );
+
+      const activatedContext = this.companyContext.snapshot().context;
+      if (
+        !result.businessProfileId ||
+        activatedContext.activeBusinessProfileId !== result.businessProfileId ||
+        !activatedContext.activeMemberRole
+      ) {
+        this.inviteCodeError = 'Invite accepted, but workspace activation could not be confirmed. Please retry.';
+        return;
+      }
     } catch (error) {
       if ((error as { message?: unknown })?.message === 'Workspace joined successfully. Please sign in again to activate your access.') {
-        await this.router.navigateByUrl('/?auth=login', { replaceUrl: true });
+        if (token) {
+          this.invites.setPendingInviteToken(token);
+        }
+        const navigated = await this.router.navigateByUrl('/?auth=login', { replaceUrl: true });
+        if (!navigated) {
+          this.inviteCodeError = 'Please sign in again to activate your invitation.';
+        }
         return;
       }
 
-      nextRoute = '/app/workspace-access?joined=1';
+      this.inviteCodeError = 'Invite accepted, but workspace activation could not be confirmed. Please retry.';
+      return;
+    }
+
+    const navigated = await this.router.navigateByUrl(nextRoute, { replaceUrl: true });
+    if (!navigated) {
+      this.inviteCodeError = 'Your invitation was accepted, but we could not open the workspace. Please retry.';
+      return;
     }
 
     this.inviteCode = '';
-    await this.router.navigateByUrl(nextRoute, { replaceUrl: true });
+    this.pendingInviteClaim = null;
+    this.invites.clearPendingInviteToken();
+    if (token) {
+      this.invites.clearClaimAttemptedForToken(token);
+    }
+    this.invites.clearInviteClaimError();
   }
 
   private toDisplayLabel(value: string): string {

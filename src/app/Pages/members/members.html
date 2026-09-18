@@ -1,13 +1,13 @@
 <div class="space-y-6 roster-page">
-  <section class="roster-hero app-dashboard-panel animate-dashboard-rise">
+  <section class="roster-hero app-dashboard-panel animate-dashboard-rise" aria-labelledby="members-page-title">
     <div class="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
       <div class="max-w-3xl">
-        <p class="dashboard-eyebrow">Workforce Roster</p>
-        <h1 class="mt-2 font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold tracking-[-0.06em] text-slate-50 md:text-4xl">
-          Manage team access, roles, departments, and readiness eligibility.
+        <p class="dashboard-eyebrow">People management</p>
+        <h1 id="members-page-title" class="mt-2 font-[family-name:var(--font-space-grotesk)] text-3xl font-semibold tracking-[-0.06em] text-slate-50 md:text-4xl">
+          Team Members
         </h1>
         <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-          Review who belongs to the workspace, who is active, who is Scan Eligible, and who needs Follow-up.
+          Manage your organization members, roles, access, and operational readiness.
         </p>
 
         <div class="mt-4 flex flex-wrap items-center gap-2">
@@ -23,28 +23,28 @@
           type="button"
           class="dashboard-action-button dashboard-action-button--primary"
           (click)="openInviteModal('invite')">
-          Invite Members
+           Invite member
         </button>
         <button
           *ngIf="canManageRoster"
           type="button"
           class="dashboard-action-button"
           (click)="openInviteModal('add')">
-          Add Member
+           Add member
         </button>
         <button
           *ngIf="canSendRequest"
           type="button"
           class="dashboard-action-button"
           (click)="sendScanRequest()">
-          Send Scan Request
+           Create request
         </button>
         <button
           *ngIf="canExportRoster"
           type="button"
           class="dashboard-action-button"
           (click)="exportRoster()">
-          Export
+           Export roster
         </button>
       </div>
     </div>
@@ -55,12 +55,12 @@
     <app-table-skeleton-loader [rows]="6" [columns]="8"></app-table-skeleton-loader>
   </ng-container>
 
-  <section *ngIf="!loading && feedbackMessage" class="app-dashboard-panel border border-sky-400/20 bg-sky-500/10">
+   <section *ngIf="!loading && feedbackMessage" role="status" aria-live="polite" aria-atomic="true" class="members-feedback app-dashboard-panel border border-sky-400/20 bg-sky-500/10">
     <p class="text-sm font-semibold text-sky-200">Roster update</p>
     <p class="mt-2 text-sm leading-6 text-sky-100/90">{{ feedbackMessage }}</p>
   </section>
 
-  <section *ngIf="!loading && errorMessage" class="roster-error app-dashboard-panel">
+  <section *ngIf="!loading && errorMessage" role="alert" aria-live="assertive" class="roster-error app-dashboard-panel">
     <div>
       <p class="text-sm font-semibold text-rose-300">Workforce roster unavailable</p>
       <p class="mt-2 text-sm leading-6 text-slate-300">{{ errorMessage }}</p>
@@ -121,24 +121,26 @@
             <p class="dashboard-section-title text-lg">Filters</p>
             <p class="mt-1 text-sm text-slate-300">Search by name, email, or employee code.</p>
           </div>
-          <button type="button" class="dashboard-action-button" (click)="clearFilters()">Clear Filters</button>
+       <button type="button" class="dashboard-action-button" (click)="clearFilters()" aria-label="Clear member directory filters">Clear Filters</button>
         </div>
 
         <div class="mt-4 grid gap-3 xl:grid-cols-5">
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400 xl:col-span-2">
-            Search
+             <span>Search members</span>
             <input
               [(ngModel)]="filters.search"
-              name="memberSearch"
+               name="memberSearch"
+               aria-label="Search members by name, email, employee code, or job title"
               placeholder="Name, email, employee code"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20" />
           </label>
 
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Role
+             <span>Role</span>
             <select
               [(ngModel)]="filters.role"
-              name="memberRole"
+               name="memberRole"
+               aria-label="Filter members by role"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20">
               <option value="">All</option>
               <option value="owner">Owner</option>
@@ -149,10 +151,11 @@
           </label>
 
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Status
+             <span>Status</span>
             <select
               [(ngModel)]="filters.status"
-              name="memberStatus"
+               name="memberStatus"
+               aria-label="Filter members by status"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20">
               <option value="">All</option>
               <option value="active">Active</option>
@@ -163,10 +166,11 @@
           </label>
 
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Department
+             <span>Department</span>
             <select
               [(ngModel)]="filters.department"
-              name="memberDepartment"
+               name="memberDepartment"
+               aria-label="Filter members by department"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20">
               <option value="">All departments</option>
               <option *ngFor="let option of pageData.departments" [value]="option.id">{{ option.name }}</option>
@@ -174,10 +178,11 @@
           </label>
 
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Readiness
+             <span>Readiness</span>
             <select
               [(ngModel)]="filters.readiness"
-              name="memberReadiness"
+               name="memberReadiness"
+               aria-label="Filter members by readiness"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-400/20">
               <option value="">All</option>
               <option value="stable">Stable</option>
@@ -196,6 +201,8 @@
       <button
         type="button"
         class="dashboard-action-button w-full justify-center"
+        [attr.aria-expanded]="showMobileFilters"
+        aria-controls="mobile-member-filters"
         (click)="openFilters()">
         Filters
       </button>
@@ -203,29 +210,31 @@
 
     <div *ngIf="showMobileFilters" class="roster-filter-drawer xl:hidden">
       <div class="roster-filter-drawer__backdrop" (click)="closeFilters()"></div>
-      <div class="roster-filter-drawer__panel app-dashboard-panel">
+       <div id="mobile-member-filters" class="roster-filter-drawer__panel app-dashboard-panel" role="dialog" aria-modal="true" aria-labelledby="mobile-member-filters-title">
         <div class="flex items-center justify-between gap-4">
           <div>
-            <p class="dashboard-section-title text-lg">Filters</p>
+             <p id="mobile-member-filters-title" class="dashboard-section-title text-lg">Filters</p>
             <p class="mt-1 text-sm text-slate-300">Refine the roster view.</p>
           </div>
-          <button type="button" class="dashboard-action-button" (click)="closeFilters()">Close</button>
+           <button type="button" class="dashboard-action-button" (click)="closeFilters()" aria-label="Close member filters">Close</button>
         </div>
 
         <div class="mt-4 grid gap-3">
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Search
+             <span>Search members</span>
             <input
               [(ngModel)]="filters.search"
-              name="mobileMemberSearch"
+               name="mobileMemberSearch"
+               aria-label="Search members by name, email, employee code, or job title"
               placeholder="Name, email, employee code"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none" />
           </label>
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Role
+             <span>Role</span>
             <select
               [(ngModel)]="filters.role"
-              name="mobileMemberRole"
+               name="mobileMemberRole"
+               aria-label="Filter members by role"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none">
               <option value="">All</option>
               <option value="owner">Owner</option>
@@ -235,10 +244,11 @@
             </select>
           </label>
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Status
+             <span>Status</span>
             <select
               [(ngModel)]="filters.status"
-              name="mobileMemberStatus"
+               name="mobileMemberStatus"
+               aria-label="Filter members by status"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none">
               <option value="">All</option>
               <option value="active">Active</option>
@@ -248,20 +258,22 @@
             </select>
           </label>
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Department
+             <span>Department</span>
             <select
               [(ngModel)]="filters.department"
-              name="mobileMemberDepartment"
+               name="mobileMemberDepartment"
+               aria-label="Filter members by department"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none">
               <option value="">All departments</option>
               <option *ngFor="let option of pageData.departments" [value]="option.id">{{ option.name }}</option>
             </select>
           </label>
           <label class="grid gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
-            Readiness
+             <span>Readiness</span>
             <select
               [(ngModel)]="filters.readiness"
-              name="mobileMemberReadiness"
+               name="mobileMemberReadiness"
+               aria-label="Filter members by readiness"
               class="rounded-2xl border border-slate-700/70 bg-slate-950/70 px-4 py-3 text-sm text-slate-100 outline-none">
               <option value="">All</option>
               <option value="stable">Stable</option>
@@ -279,10 +291,10 @@
       </div>
     </div>
 
-    <app-dashboard-section eyebrow="Roster" title="Members Table" description="Company-wide roster with readiness context and operational actions.">
+     <app-dashboard-section eyebrow="Directory" title="Team members" description="Review access, roles, readiness, and operational actions at a glance.">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <p class="text-sm text-slate-300">
-          {{ filteredRows.length }} of {{ pageData.rows.length }} members shown in the current scope.
+           {{ filteredRows.length }} of {{ pageData.rows.length }} members shown in the current scope.
         </p>
         <button type="button" class="dashboard-action-button xl:hidden" (click)="openFilters()">Open Filters</button>
       </div>
@@ -317,21 +329,21 @@
               </div>
             </div>
 
-            <table class="roster-table hidden min-w-[92rem] w-full table-fixed text-left lg:table">
+             <table class="roster-table hidden min-w-[92rem] w-full table-fixed text-left lg:table" aria-label="Team members directory">
               <thead class="bg-slate-950/80 text-xs font-semibold uppercase tracking-[0.16em] text-slate-400">
                 <tr>
-                  <th class="w-[23%] px-5 py-3">Member</th>
-                  <th class="w-[10%] px-5 py-3">Role</th>
-                  <th class="w-[11%] px-5 py-3">Department</th>
-                  <th class="w-[10%] px-5 py-3">Status</th>
-                  <th class="w-[10%] px-5 py-3">Scan Eligible</th>
-                  <th class="w-[12%] px-5 py-3">Last Scan</th>
-                  <th class="w-[12%] px-5 py-3">Last Readiness</th>
-                  <th class="w-[12%] px-5 py-3">Actions</th>
+                   <th scope="col" class="w-[23%] px-5 py-3">Member</th>
+                   <th scope="col" class="w-[10%] px-5 py-3">Role</th>
+                   <th scope="col" class="w-[11%] px-5 py-3">Department</th>
+                   <th scope="col" class="w-[10%] px-5 py-3">Status</th>
+                   <th scope="col" class="w-[10%] px-5 py-3">Scan Eligible</th>
+                   <th scope="col" class="w-[12%] px-5 py-3">Last Scan</th>
+                   <th scope="col" class="w-[12%] px-5 py-3">Last Readiness</th>
+                   <th scope="col" class="w-[12%] px-5 py-3">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                <tr *ngFor="let row of filteredRows; trackBy: trackByMember" class="border-t border-slate-800/70 align-top text-sm text-slate-300">
+                 <tr *ngFor="let row of filteredRows; trackBy: trackByMember" class="roster-table__row border-t border-slate-800/70 align-top text-sm text-slate-300">
                   <td class="px-5 py-4">
                     <div class="flex items-start gap-3">
                       <div class="roster-avatar">
@@ -364,10 +376,12 @@
                   </td>
                   <td class="px-5 py-4">
                     <div class="flex flex-wrap gap-2">
-                      <button type="button" class="roster-row-button roster-row-button--primary" (click)="viewMemberDetails(row)">View</button>
+                       <button type="button" class="roster-row-button roster-row-button--primary" (click)="viewMemberDetails(row)" [attr.aria-label]="'View details for ' + row.name">View</button>
                       <button *ngIf="canManageRoster" type="button" class="roster-row-button" (click)="openEditModal(row)">Edit</button>
                       <button *ngIf="canSendRequest" type="button" class="roster-row-button" (click)="sendScanRequest(row)">Send Request</button>
-                      <button *ngIf="canManageRoster && isInviteAvailable(row)" type="button" class="roster-row-button" (click)="resendInvite(row)">Resend Invite</button>
+                      <button *ngIf="canManageRoster && isInviteAvailable(row)" type="button" class="roster-row-button" [disabled]="!inviteResendAvailable || isInviteActionBusy(row)" [attr.title]="inviteResendAvailable ? null : 'Resend is not available yet.'" (click)="resendInvite(row)">
+                        {{ isInviteActionBusy(row) ? 'Resending...' : (inviteResendAvailable ? 'Resend Invite' : 'Resend unavailable') }}
+                      </button>
                       <button *ngIf="canManageRoster" type="button" class="roster-row-button roster-row-button--danger" (click)="deactivateMember(row)">Deactivate</button>
                     </div>
                   </td>
@@ -402,10 +416,12 @@
                 </div>
 
                 <div class="mt-4 flex flex-wrap gap-2">
-                  <button type="button" class="roster-row-button roster-row-button--primary" (click)="viewMemberDetails(row)">View</button>
+                   <button type="button" class="roster-row-button roster-row-button--primary" (click)="viewMemberDetails(row)" [attr.aria-label]="'View details for ' + row.name">View</button>
                   <button *ngIf="canManageRoster" type="button" class="roster-row-button" (click)="openEditModal(row)">Edit</button>
                   <button *ngIf="canSendRequest" type="button" class="roster-row-button" (click)="sendScanRequest(row)">Send Request</button>
-                  <button *ngIf="canManageRoster && isInviteAvailable(row)" type="button" class="roster-row-button" (click)="resendInvite(row)">Resend Invite</button>
+                  <button *ngIf="canManageRoster && isInviteAvailable(row)" type="button" class="roster-row-button" [disabled]="!inviteResendAvailable || isInviteActionBusy(row)" [attr.title]="inviteResendAvailable ? null : 'Resend is not available yet.'" (click)="resendInvite(row)">
+                    {{ isInviteActionBusy(row) ? 'Resending...' : (inviteResendAvailable ? 'Resend Invite' : 'Resend unavailable') }}
+                  </button>
                   <button *ngIf="canManageRoster" type="button" class="roster-row-button roster-row-button--danger" (click)="deactivateMember(row)">Deactivate</button>
                 </div>
               </article>
@@ -416,8 +432,8 @@
 
       <ng-template #noMatches>
         <div class="roster-empty-panel">
-          <p class="text-lg font-semibold text-slate-50">No members match the current filters</p>
-          <p class="mt-2 text-sm leading-6 text-slate-300">Clear the filters to return to the full roster scope.</p>
+          <p class="text-lg font-semibold text-slate-50">No members match this view</p>
+          <p class="mt-2 text-sm leading-6 text-slate-300">Try a different search or clear the filters to return to the full team directory.</p>
           <button type="button" class="mt-5 dashboard-action-button dashboard-action-button--primary" (click)="clearFilters()">Clear Filters</button>
         </div>
       </ng-template>
@@ -483,11 +499,11 @@
         <button type="button" class="dashboard-action-button" (click)="openEditModal(member)" *ngIf="canManageRoster">
           Edit
         </button>
-        <button type="button" class="dashboard-action-button" (click)="resendInvite(member)" *ngIf="canManageRoster && isInviteAvailable(member)">
-          Resend Invite
+        <button type="button" class="dashboard-action-button" [disabled]="!inviteResendAvailable || isInviteActionBusy(member)" [attr.title]="inviteResendAvailable ? null : 'Resend is not available yet.'" (click)="resendInvite(member)" *ngIf="canManageRoster && isInviteAvailable(member)">
+          {{ isInviteActionBusy(member) ? 'Resending...' : (inviteResendAvailable ? 'Resend Invite' : 'Resend unavailable') }}
         </button>
-        <button type="button" class="dashboard-action-button" (click)="deactivateMember(member)" *ngIf="canManageRoster">
-          Deactivate
+        <button type="button" class="dashboard-action-button" [disabled]="deactivatingMemberId === member.id" (click)="deactivateMember(member)" *ngIf="canManageRoster">
+          {{ deactivatingMemberId === member.id ? 'Deactivating...' : 'Deactivate' }}
         </button>
       </div>
     </div>
@@ -508,7 +524,7 @@
           </h2>
           <p class="mt-2 text-sm text-slate-300">This creates a request_invites record for workforce access.</p>
         </div>
-        <button type="button" class="dashboard-action-button" (click)="closeInviteModal()">Close</button>
+        <button type="button" class="dashboard-action-button" [disabled]="savingInvite" (click)="closeInviteModal()">Close</button>
       </div>
 
       <form class="mt-6 grid gap-4 md:grid-cols-2" (ngSubmit)="createInvite()">
@@ -558,11 +574,12 @@
       </form>
 
       <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
-        <button type="button" class="dashboard-action-button" (click)="closeInviteModal()">Cancel</button>
+        <button type="button" class="dashboard-action-button" [disabled]="savingInvite" (click)="closeInviteModal()">Cancel</button>
         <button
           type="button"
           class="dashboard-action-button dashboard-action-button--primary"
           [disabled]="savingInvite"
+          [attr.aria-busy]="savingInvite"
           (click)="createInvite()">
           {{ savingInvite ? 'Sending...' : 'Send Invite' }}
         </button>
@@ -649,6 +666,30 @@
           [disabled]="savingMember"
           (click)="saveMember()">
           {{ savingMember ? 'Saving...' : 'Save Member' }}
+        </button>
+      </div>
+    </div>
+  </app-viewport-dialog>
+
+  <app-viewport-dialog
+    *ngIf="pendingDeactivation as member"
+    [panelClass]="'app-dashboard-panel roster-dialog-panel'"
+    [lockScroll]="true"
+    labelledBy="member-deactivation-title"
+    (backdropClick)="cancelDeactivation()">
+    <div>
+      <p class="dashboard-eyebrow">Confirm action</p>
+      <h2 id="member-deactivation-title" class="mt-2 text-2xl font-semibold tracking-tight text-slate-50">Deactivate member?</h2>
+      <p class="mt-3 text-sm leading-6 text-slate-300">
+        {{ member.name }} will lose active access to this workspace. You can update the member again later if needed.
+      </p>
+
+      <div class="mt-6 flex flex-wrap items-center justify-end gap-3">
+        <button type="button" class="dashboard-action-button" [disabled]="deactivatingMemberId === member.id" (click)="cancelDeactivation()">
+          Cancel
+        </button>
+        <button type="button" class="dashboard-action-button dashboard-action-button--danger" [disabled]="deactivatingMemberId === member.id" [attr.aria-busy]="deactivatingMemberId === member.id" (click)="confirmDeactivation()">
+          {{ deactivatingMemberId === member.id ? 'Deactivating...' : 'Deactivate member' }}
         </button>
       </div>
     </div>

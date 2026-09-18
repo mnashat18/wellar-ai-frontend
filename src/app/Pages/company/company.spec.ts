@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { RouterTestingModule } from '@angular/router/testing';
-import { of, throwError } from 'rxjs';
+import { Subject, of, throwError } from 'rxjs';
 
 import { OrganizationApiError, OrganizationApiService, type OrganizationData, type OrganizationDepartment } from '../../services/organization-api.service';
 import { CompanyPageComponent } from './company';
@@ -138,13 +138,23 @@ describe('CompanyPageComponent department controls', () => {
   const createCalls: Array<Record<string, unknown>> = [];
   const updateCalls: Array<[string, Record<string, unknown>]> = [];
   const deactivateCalls: string[] = [];
+  const profileCalls: Array<Record<string, unknown>> = [];
+  let profileResponse: any = of(baseData.profile);
+  let profileError: unknown | null = null;
+  let createDepartmentError: unknown | null = null;
+  let updateDepartmentError: unknown | null = null;
   let deactivateError: unknown | null = null;
 
   const organizationApiStub = {
     getOrganization: () => of(organizationData),
-    updateProfile: () => of(baseData.profile),
+    updateProfile: (input: Record<string, unknown>) => {
+      profileCalls.push(input);
+      if (profileError) return throwError(() => profileError);
+      return profileResponse;
+    },
     createDepartment: (input: Record<string, unknown>) => {
       createCalls.push(input);
+      if (createDepartmentError) return throwError(() => createDepartmentError);
       return of({
         id: 'dept-created',
         name: String(input['name'] ?? ''),
@@ -157,6 +167,7 @@ describe('CompanyPageComponent department controls', () => {
     },
     updateDepartment: (departmentId: string, input: Record<string, unknown>) => {
       updateCalls.push([departmentId, input]);
+      if (updateDepartmentError) return throwError(() => updateDepartmentError);
       return of({
         id: departmentId,
         name: String(input['name'] ?? 'Operations'),
@@ -188,6 +199,11 @@ describe('CompanyPageComponent department controls', () => {
     organizationData = baseData;
     createCalls.length = 0;
     updateCalls.length = 0;
+    profileCalls.length = 0;
+    profileResponse = of(baseData.profile);
+    profileError = null;
+    createDepartmentError = null;
+    updateDepartmentError = null;
     deactivateCalls.length = 0;
     deactivateError = null;
 
@@ -314,6 +330,89 @@ describe('CompanyPageComponent department controls', () => {
       name: 'Delivery',
       manager_member_id: 'member-manager'
     });
+  });
+
+  it('saves the organization profile and resets the loading state', async () => {
+    component.profileDraft.company_name = 'Northwind';
+
+    component.saveProfile();
+    await fixture.whenStable();
+    fixture.detectChanges();
+
+    expect(profileCalls[0]?.['company_name']).toBe('Northwind');
+    expect(component.savingProfile).toBe(false);
+    expect(component.feedback?.text).toBe('Organization profile saved.');
+  });
+
+  it('shows explicit feedback for invalid team size without submitting', () => {
+    component.profileDraft.team_size = 'not-a-number';
+
+    component.saveProfile();
+
+    expect(profileCalls).toHaveLength(0);
+    expect(component.feedback?.text).toBe('Team size must be a positive whole number.');
+  });
+
+  it('maps profile permission, conflict, network, and timeout failures safely', async () => {
+    const failures = [
+      [new OrganizationApiError('forbidden', 403, 'Directus permission detail', { raw: true }), 'This organization action is not available for your access level.'],
+      [new OrganizationApiError('conflict', 409, 'Directus conflict detail', { raw: true }), 'This change conflicts with the current workspace state.'],
+      [new OrganizationApiError('network_error', 0, 'Directus network detail', { raw: true }), 'We couldn’t reach the server. Check your connection and try again.'],
+      [new OrganizationApiError('timeout', 0, 'Directus timeout detail', { raw: true }), 'The request took too long. Please try again.']
+    ] as const;
+
+    for (const [failure, expected] of failures) {
+      profileError = failure;
+      component.profileDraft.company_name = 'Northwind';
+      component.saveProfile();
+      await fixture.whenStable();
+      fixture.detectChanges();
+
+      expect(component.savingProfile).toBe(false);
+      expect(component.feedback?.text).toBe(expected);
+      expect(component.feedback?.text).not.toContain('Directus');
+    }
+  });
+
+  it('prevents duplicate profile submissions while the first request is pending', async () => {
+    const pending = new Subject<OrganizationData['profile']>();
+    profileResponse = pending.asObservable();
+    component.profileDraft.company_name = 'Northwind';
+
+    component.saveProfile();
+    component.saveProfile();
+
+    expect(profileCalls).toHaveLength(1);
+    expect(component.savingProfile).toBe(true);
+
+    pending.next(baseData.profile);
+    pending.complete();
+    await fixture.whenStable();
+
+    expect(component.savingProfile).toBe(false);
+  });
+
+  it('resets department loading after create and update failures', async () => {
+    createDepartmentError = new OrganizationApiError('validation', 422, 'Directus validation detail', { raw: true });
+    openDepartmentForm('New department');
+    component.departmentForm = { name: 'Research', manager_member_id: '' };
+    submitDepartmentForm();
+    await fixture.whenStable();
+
+    expect(component.savingDepartment).toBe(false);
+    expect(component.feedback?.text).toBe('Please check the highlighted fields and try again.');
+    expect(component.feedback?.text).not.toContain('Directus');
+
+    createDepartmentError = null;
+    updateDepartmentError = new OrganizationApiError('server_error', 500, 'SQL failure', { raw: true });
+    openDepartmentForm('Edit');
+    component.departmentForm = { name: 'Research', manager_member_id: '' };
+    submitDepartmentForm();
+    await fixture.whenStable();
+
+    expect(component.savingDepartment).toBe(false);
+    expect(component.feedback?.text).toBe('Something went wrong on our end. Please try again later.');
+    expect(component.feedback?.text).not.toContain('SQL');
   });
 
   it('displays the assigned manager in the department list and allows clearing it during edit', async () => {

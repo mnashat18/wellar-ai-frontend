@@ -45,6 +45,13 @@ import { LoadingStateComponent } from '../../shared/ui/loading-state/loading-sta
 
         <div class="grid gap-8 px-8 py-8 lg:grid-cols-[1.2fr_0.8fr]">
           <div *ngIf="state$ | async as state">
+            <p
+              *ngIf="switchErrorMessage"
+              class="mb-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700"
+              role="alert"
+            >
+              {{ switchErrorMessage }}
+            </p>
             <app-loading-state *ngIf="state.loading" title="Loading available organizations..." />
 
             <app-error-state
@@ -63,7 +70,7 @@ import { LoadingStateComponent } from '../../shared/ui/loading-state/loading-sta
                     class="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-slate-900/10"
                     *ngFor="let company of state.context.availableCompanies"
                     (click)="switchCompany(company.id)"
-                    [disabled]="switchingCompanyId === company.id"
+                    [disabled]="switchingCompanyId !== null"
                   >
                     <div aria-hidden="true" class="pointer-events-none absolute inset-0 opacity-0 transition group-hover:opacity-100">
                       <div class="absolute -right-24 -top-24 h-52 w-52 rounded-full bg-gradient-to-br from-indigo-500/15 via-sky-500/10 to-emerald-500/10 blur-2xl"></div>
@@ -219,6 +226,7 @@ import { LoadingStateComponent } from '../../shared/ui/loading-state/loading-sta
 export class SelectCompanyPageComponent {
   readonly state$;
   switchingCompanyId: string | null = null;
+  switchErrorMessage = '';
 
   constructor(private companyContext: CompanyContextService) {
     this.state$ = this.companyContext.state$;
@@ -238,7 +246,12 @@ export class SelectCompanyPageComponent {
   }
 
   switchCompany(companyId: string): void {
+    if (this.switchingCompanyId !== null) {
+      return;
+    }
+
     this.switchingCompanyId = companyId;
+    this.switchErrorMessage = '';
     this.companyContext.switchCompany(companyId).subscribe({
       next: () => {
         if (typeof window !== 'undefined') {
@@ -246,6 +259,10 @@ export class SelectCompanyPageComponent {
         }
       },
       error: () => {
+        this.switchingCompanyId = null;
+        this.switchErrorMessage = 'Could not switch organization. Please try again.';
+      },
+      complete: () => {
         this.switchingCompanyId = null;
       }
     });
