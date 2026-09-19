@@ -313,31 +313,23 @@
     </app-dashboard-section>
   </ng-container>
 
+<div
+  *ngIf="showCreateModal"
+  class="scan-requests-modal"
+  role="dialog"
+  aria-modal="true"
+  aria-labelledby="scan-request-create-title"
+>
   <div
-    *ngIf="showCreateModal"
-    class="scan-requests-modal"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="scan-request-create-title"
-    style="position: fixed; inset: 0; z-index: 1200; pointer-events: auto"
-  >
-    <div
-      class="scan-requests-modal__scrim"
-      style="position: absolute; inset: 0; pointer-events: auto"
-      (click)="closeCreateRequestModal()"
-    ></div>
+    class="scan-requests-modal__scrim"
+    aria-hidden="true"
+    (click)="closeCreateRequestModal()"
+  ></div>
 
-    <form
-      class="scan-requests-modal__panel app-dashboard-panel scan-requests-modal__panel--create"
-      style="
-        position: relative;
-        z-index: 1;
-        pointer-events: auto;
-        max-height: calc(100vh - 2rem);
-        overflow: auto;
-      "
-      (ngSubmit)="submitCreateRequest()"
-    >
+  <form
+    class="scan-requests-modal__panel app-dashboard-panel scan-requests-modal__panel--create"
+    (ngSubmit)="submitCreateRequest()"
+  >
       <div class="flex items-start justify-between gap-4">
         <div>
           <p class="dashboard-eyebrow">New Request</p>
@@ -424,7 +416,7 @@
             </p>
           </label>
 
-          <label class="grid gap-2 text-sm font-medium text-slate-200">
+          <label class="grid gap-2 text-sm font-medium text-slate-200 md:col-span-2">
             Due Time
             <input
               [(ngModel)]="requestForm.dueAt"
@@ -444,7 +436,7 @@
         </p>
       </div>
 
-      <div class="mt-6 flex flex-wrap justify-end gap-3">
+      <div class="scan-requests-modal__actions">
         <button type="button" class="dashboard-action-button" (click)="closeCreateRequestModal()">
           Cancel
         </button>
