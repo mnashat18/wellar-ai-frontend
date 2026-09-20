@@ -250,7 +250,7 @@
           <span>Email address</span>
           <input
             class="auth-input"
-            [class.auth-input--invalid]="hasSignupFieldError('email')"
+            [class.auth-input--invalid]="signupEmailInvalid"
             placeholder="you@company.com"
             [(ngModel)]="signup.email"
             (ngModelChange)="handleSignupFieldInput('email', $event)"
@@ -259,10 +259,41 @@
             autocomplete="email"
             required
             (blur)="markSignupFieldTouched('email')"
-            [attr.aria-invalid]="hasSignupFieldError('email') ? 'true' : null"
-            [attr.aria-describedby]="hasSignupFieldError('email') ? 'signup-email-error' : null" />
+            [attr.aria-invalid]="signupEmailInvalid ? 'true' : null"
+            [attr.aria-describedby]="signupEmailDescribedBy" />
           <small id="signup-email-error" class="auth-field__error" *ngIf="hasSignupFieldError('email')" role="alert">
             {{ signupFieldError('email') }}
+          </small>
+          <div
+            *ngIf="duplicateSignupRecovery"
+            id="signup-email-duplicate-error"
+            class="auth-duplicate-error"
+            role="alert"
+            aria-live="assertive">
+            <span class="auth-duplicate-error__icon" aria-hidden="true">!</span>
+            <div class="auth-duplicate-error__body">
+              <strong>{{ duplicateSignupMessage }}</strong>
+              <div class="auth-duplicate-error__actions">
+                <button type="button" class="auth-duplicate-error__action" (click)="loginFromDuplicateSignup()">
+                  Log in
+                </button>
+                <button type="button" class="auth-duplicate-error__action" (click)="useDifferentSignupEmail()">
+                  Use a different email
+                </button>
+              </div>
+            </div>
+          </div>
+          <small
+            *ngIf="signupEmailAvailabilityState === 'checking'"
+            class="auth-field__availability"
+            role="status">
+            Checking...
+          </small>
+          <small
+            *ngIf="signupEmailAvailabilityState === 'error' && signupEmailAvailabilityMessage"
+            class="auth-field__availability auth-field__availability--error"
+            role="alert">
+            {{ signupEmailAvailabilityMessage }}
           </small>
         </label>
         <label class="auth-field">
@@ -297,7 +328,7 @@
           </small>
         </label>
         <p class="trial-note">Create your account, then set up your organization in the next step.</p>
-        <button class="auth-primary" type="submit" [disabled]="authBusy">
+        <button class="auth-primary" type="submit" [disabled]="authBusy || signupEmailChecking || signupEmailTaken">
           {{ resolvingOrganizationAccess ? 'Preparing your workspace...' : (submitting ? 'Creating account...' : (inviteMode ? 'Create account and join organization' : 'Create account')) }}
         </button>
       </form>
@@ -356,14 +387,6 @@
       </button>
 
       <p class="auth-feedback" *ngIf="feedback" [attr.role]="resolvingOrganizationAccess ? 'status' : 'alert'">{{ feedback }}</p>
-      <button
-        *ngIf="duplicateSignupRecovery && authMode === 'signup'"
-        type="button"
-        class="auth-secondary"
-        (click)="switchAuth('login')">
-        Log in
-      </button>
-
       <p class="auth-switch" *ngIf="authMode === 'signup'">
         Already have an account? <button type="button" (click)="switchAuth('login')">Log in</button>
       </p>

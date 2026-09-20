@@ -3,13 +3,13 @@ import { ChangeDetectorRef, Component, AfterViewInit, OnDestroy, OnInit, HostLis
 import { ActivatedRoute, NavigationEnd, Router, RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { AuthService } from '../../services/auth';
-import { of, Subscription } from 'rxjs';
+import { of, Subject, Subscription, timer } from 'rxjs';
 import { catchError, filter, map, switchMap, timeout } from 'rxjs/operators';
 import { CompanyContextService } from '../../core/context/company-context.service';
 import { InviteService } from '../../services/invites';
 import { PostAuthWelcomeService } from '../../services/post-auth-welcome.service';
 import { PostLoginRoutingService } from '../../services/post-login-routing.service';
-import { mapSafeError } from '../../shared/errors/safe-error.mapper';
+import { isDuplicateEmailRegistrationError, mapSafeError } from '../../shared/errors/safe-error.mapper';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
 import { MotionVisibilityDirective } from '../../shared/motion/motion-visibility.directive';
 
@@ -22,9 +22,11 @@ import { MotionVisibilityDirective } from '../../shared/motion/motion-visibility
 })
 export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
   private readonly authTimeoutMs = 20000;
+  private readonly emailAvailabilityTimeoutMs = 8000;
   private readonly namePattern = /^[\p{L}\p{M}' -]+$/u;
   private readonly emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   private readonly signupPasswordPattern = /^(?=.*[A-Za-z])(?=.*\d).{10,128}$/;
+  private readonly emailAvailabilityTtlMs = 60000;
 
   presentationStates = [
     {
@@ -68,6 +70,9 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
   loginEmailTouched = false;
   signupSubmitAttempted = false;
   duplicateSignupRecovery = false;
+  duplicateSignupMessage = 'This email is already registered. Log in instead, or use a different email address.';
+  signupEmailAvailabilityState: 'idle' | 'checking' | 'available' | 'taken' | 'error' = 'idle';
+  signupEmailAvailabilityMessage = '';
   signupTouched = {
     firstName: false,
     lastName: false,
@@ -96,7 +101,11 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
   private routeSub?: Subscription;
   private authQuerySub?: Subscription;
   private revealObserver: IntersectionObserver | null = null;
+  private initialFocusTimer: ReturnType<typeof setTimeout> | null = null;
   private pendingAuthNotice = '';
+  private signupEmailCheckSubject = new Subject<{ email: string; delayMs: number }>();
+  private signupEmailCheckSub?: Subscription;
+  private emailAvailabilityCache = new Map<string, { available: boolean; expiresAt: number }>();
 
   constructor(
     private auth: AuthService,
@@ -110,6 +119,61 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    this.signupEmailCheckSub = this.signupEmailCheckSubject.pipe(
+      switchMap(({ email, delayMs }) => {
+        if (!email) {
+          return of({ email, state: 'idle' as const, message: '' });
+        }
+
+        const cached = this.emailAvailabilityCache.get(email);
+        const wait$ = timer(delayMs);
+        return wait$.pipe(
+          switchMap(() => {
+            if (cached && cached.expiresAt > Date.now()) {
+              this.cdr.markForCheck();
+              return of({
+                email,
+                state: cached.available ? ('available' as const) : ('taken' as const),
+                message: ''
+              });
+            }
+
+            this.signupEmailAvailabilityState = 'checking';
+            this.cdr.markForCheck();
+            return this.auth.checkEmailAvailability(email).pipe(
+              map((response) => {
+                const available = response.data.available;
+                this.emailAvailabilityCache.set(email, {
+                  available,
+                  expiresAt: Date.now() + this.emailAvailabilityTtlMs
+                });
+                this.cdr.markForCheck();
+                return {
+                  email,
+                  state: available ? ('available' as const) : ('taken' as const),
+                  message: ''
+                };
+              }),
+              catchError((err) => of({
+                email,
+                state: 'error' as const,
+                message: this.resolveEmailAvailabilityError(err)
+              }))
+            );
+          })
+        );
+      })
+    ).subscribe(({ email, state, message }) => {
+      if (email !== this.normalizedSignupEmail()) {
+        return;
+      }
+      this.signupEmailAvailabilityState = state;
+      this.signupEmailAvailabilityMessage = message;
+      if (state === 'taken') {
+        this.showDuplicateSignupError();
+      }
+      this.cdr.markForCheck();
+    });
     const authNotice = this.auth.consumeAuthNotice();
     if (authNotice) {
       this.pendingAuthNotice = authNotice;
@@ -134,9 +198,14 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
   ngOnDestroy() {
     this.routeSub?.unsubscribe();
     this.authQuerySub?.unsubscribe();
+    this.signupEmailCheckSub?.unsubscribe();
     if (this.revealObserver) {
       this.revealObserver.disconnect();
       this.revealObserver = null;
+    }
+    if (this.initialFocusTimer) {
+      clearTimeout(this.initialFocusTimer);
+      this.initialFocusTimer = null;
     }
   }
 
@@ -205,6 +274,79 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
     return this.isValidEmail(this.login.email) && this.login.password.trim().length > 0;
   }
 
+  get signupEmailInvalid(): boolean {
+    return this.hasSignupFieldError('email') || this.duplicateSignupRecovery;
+  }
+
+  get signupEmailChecking(): boolean {
+    return this.signupEmailAvailabilityState === 'checking';
+  }
+
+  get signupEmailTaken(): boolean {
+    return this.signupEmailAvailabilityState === 'taken';
+  }
+
+  private normalizedSignupEmail(): string {
+    return this.signup.email.trim().toLowerCase();
+  }
+
+  private queueEmailAvailabilityCheck(delayMs: number): void {
+    const email = this.normalizedSignupEmail();
+    if (!this.isValidEmail(email)) {
+      this.signupEmailAvailabilityState = 'idle';
+      this.signupEmailAvailabilityMessage = '';
+      this.signupEmailCheckSubject.next({ email: '', delayMs: 0 });
+      return;
+    }
+
+    this.signupEmailAvailabilityState = 'idle';
+    this.signupEmailAvailabilityMessage = '';
+    this.signupEmailCheckSubject.next({ email, delayMs });
+  }
+
+  private recordEmailAvailability(email: string, available: boolean): void {
+    const normalized = email.trim().toLowerCase();
+    this.emailAvailabilityCache.set(normalized, {
+      available,
+      expiresAt: Date.now() + this.emailAvailabilityTtlMs
+    });
+    if (normalized === this.normalizedSignupEmail()) {
+      this.signupEmailAvailabilityState = available ? 'available' : 'taken';
+      this.signupEmailAvailabilityMessage = '';
+      this.cdr.markForCheck();
+    }
+  }
+
+  private resolveEmailAvailabilityError(err: unknown): string {
+    const mapped = mapSafeError(err);
+    if (mapped.status === 429) {
+      return 'Too many attempts, please wait a moment and try again.';
+    }
+    if (mapped.kind === 'network') {
+      return 'We couldn’t reach the server. Check your connection and try again.';
+    }
+    if (mapped.kind === 'timeout' || (mapped.status !== undefined && mapped.status >= 500)) {
+      return 'Something went wrong. Please try again.';
+    }
+    return 'We couldn’t check this email right now. You can still try to sign up.';
+  }
+
+  private showDuplicateSignupError(): void {
+    this.signupEmailAvailabilityState = 'taken';
+    this.duplicateSignupRecovery = true;
+    this.login.email = this.signup.email.trim();
+    this.feedback = this.duplicateSignupMessage;
+    this.scrollDuplicateSignupErrorIntoView();
+  }
+
+  get signupEmailDescribedBy(): string | null {
+    const ids = [
+      this.hasSignupFieldError('email') ? 'signup-email-error' : null,
+      this.duplicateSignupRecovery ? 'signup-email-duplicate-error' : null
+    ].filter((id): id is string => Boolean(id));
+    return ids.length ? ids.join(' ') : null;
+  }
+
   get activePresentation() {
     return this.presentationStates[this.activePresentationIndex] ?? this.presentationStates[0];
   }
@@ -221,9 +363,13 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
     if (typeof document === 'undefined') {
       return;
     }
-    setTimeout(() => {
+    if (this.initialFocusTimer) {
+      clearTimeout(this.initialFocusTimer);
+    }
+    this.initialFocusTimer = setTimeout(() => {
       const input = document.querySelector('.auth-card input') as HTMLInputElement | null;
       input?.focus();
+      this.initialFocusTimer = null;
     }, 60);
   }
 
@@ -256,6 +402,18 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
     this.focusFirstField();
   }
 
+  loginFromDuplicateSignup(): void {
+    this.login.email = this.signup.email.trim();
+    this.switchAuth('login');
+    this.focusAuthField('loginPassword');
+  }
+
+  useDifferentSignupEmail(): void {
+    this.duplicateSignupRecovery = false;
+    this.feedback = '';
+    this.focusAuthField('email', true);
+  }
+
   toggleSignupPasswordVisibility() {
     this.showSignupPassword = !this.showSignupPassword;
   }
@@ -271,6 +429,7 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
       this.signup[field] = this.normalizeName(this.signup[field]);
     } else if (field === 'email') {
       this.signup.email = this.signup.email.trim();
+      this.queueEmailAvailabilityCheck(0);
     }
 
     this.refreshSignupFieldError(field);
@@ -278,6 +437,11 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
 
   handleSignupFieldInput(field: keyof typeof this.signupTouched, value: string): void {
     this.signup[field] = value;
+
+    if (field === 'email') {
+      this.duplicateSignupRecovery = false;
+      this.queueEmailAvailabilityCheck(600);
+    }
 
     if (this.shouldShowSignupError(field)) {
       this.refreshSignupFieldError(field);
@@ -345,34 +509,74 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
     const email = this.signup.email.trim();
     const password = this.signup.password;
 
+    if (this.signupEmailAvailabilityState === 'taken') {
+      this.showDuplicateSignupError();
+      return;
+    }
     this.submitting = true;
     this.duplicateSignupRecovery = false;
-    this.feedback = 'Creating your account...';
-    this.auth.signup({
-      email,
-      password,
-      first_name: this.signup.firstName,
-      last_name: this.signup.lastName
-    }).pipe(
-      timeout(this.authTimeoutMs),
-      switchMap(() => {
-        this.feedback = 'Account created. Signing you in...';
-        return this.auth.login(email, password).pipe(
+    this.signupEmailAvailabilityState = 'checking';
+    this.feedback = 'Checking your email...';
+    this.auth.checkEmailAvailability(email).pipe(
+      timeout(this.emailAvailabilityTimeoutMs),
+      map((availability) => {
+        this.recordEmailAvailability(email, availability.data.available);
+        return { available: availability.data.available, blocked: false };
+      }),
+      catchError((err) => {
+        const mapped = mapSafeError(err);
+        this.signupEmailAvailabilityState = 'error';
+        this.signupEmailAvailabilityMessage = this.resolveEmailAvailabilityError(err);
+        this.feedback = this.signupEmailAvailabilityMessage;
+        this.cdr.markForCheck();
+        if (mapped.status === 429) {
+          this.submitting = false;
+          return of({ available: false, blocked: true });
+        }
+        return of({ available: true, blocked: false });
+      }),
+      switchMap(({ available, blocked }) => {
+        if (blocked) {
+          return of(null);
+        }
+        if (!available) {
+          this.showDuplicateSignupError();
+          this.submitting = false;
+          return of(null);
+        }
+
+        this.feedback = 'Creating your account...';
+        return this.auth.signup({
+          email,
+          password,
+          first_name: this.signup.firstName,
+          last_name: this.signup.lastName
+        }).pipe(
           timeout(this.authTimeoutMs),
-          // Legacy old-`requests` pending-request check removed.
-          map((loginResult) => ({
-            loginResult,
-            hasRequest: false
-          })),
+          switchMap(() => {
+            this.feedback = 'Account created. Signing you in...';
+            return this.auth.login(email, password).pipe(
+              timeout(this.authTimeoutMs),
+              // Legacy old-`requests` pending-request check removed.
+              map((loginResult) => ({ loginResult, hasRequest: false })),
+              catchError((err) => {
+                this.authMode = 'login';
+                this.login.email = email;
+                this.feedback = this.resolvePostSignupLoginError(err);
+                this.submitting = false;
+                this.cdr.markForCheck();
+                return of(null);
+              })
+            );
+          }),
           catchError((err) => {
-            this.authMode = 'login';
-            this.login.email = email;
-            this.feedback = this.resolvePostSignupLoginError(err);
+            this.feedback = this.resolveSignupError(err);
             this.submitting = false;
             return of(null);
           })
         );
-      }),
+      })
+    ).pipe(
       catchError((err) => {
         this.feedback = this.resolveSignupError(err);
         this.submitting = false;
@@ -677,18 +881,23 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
   private resolveSignupError(err: unknown): string {
     const mapped = mapSafeError(err);
 
-    if (mapped.kind === 'timeout') {
-      return 'Signup is taking too long. Please try again.';
+    if (isDuplicateEmailRegistrationError(err)) {
+      this.showDuplicateSignupError();
+      return this.duplicateSignupMessage;
     }
-    if (mapped.kind === 'conflict') {
-      this.duplicateSignupRecovery = true;
-      this.login.email = this.signup.email.trim();
-      return 'An account already exists for this email. Sign in instead.';
+    if (mapped.status === 429) {
+      return 'Too many attempts, please wait a moment and try again.';
+    }
+    if (mapped.kind === 'timeout') {
+      return 'The request took too long. Please try again.';
+    }
+    if (mapped.kind === 'network') {
+      return 'We couldn’t reach the server. Check your connection and try again.';
     }
     if (mapped.kind === 'validation') {
       return 'Signup data is invalid. Please check your input.';
     }
-    return 'Unable to create account right now.';
+    return 'Something went wrong. Please try again.';
   }
 
   private resolveLoginError(err: unknown): string {
@@ -697,7 +906,16 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
     if (mapped.kind === 'authentication') {
       return 'Email or password is incorrect.';
     }
-    return 'Unable to sign in right now. Please try again.';
+    if (mapped.status === 429) {
+      return 'Too many attempts, please wait a moment and try again.';
+    }
+    if (mapped.kind === 'timeout') {
+      return 'The request took too long. Please try again.';
+    }
+    if (mapped.kind === 'network') {
+      return 'We couldn’t reach the server. Check your connection and try again.';
+    }
+    return 'Something went wrong. Please try again.';
   }
 
   private resolvePostSignupLoginError(err: unknown): string {
@@ -707,7 +925,7 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
       return 'Account created, but auto-login timed out. Please log in manually.';
     }
     if (mapped.kind === 'authentication') {
-      return 'Account created successfully. Please verify your email if required, then log in.';
+      return "We couldn't sign you in automatically. If this email already has an account, log in with your existing password. Otherwise, check your inbox to verify your email, then log in.";
     }
     return 'Account created successfully. Please log in to continue.';
   }
@@ -803,6 +1021,8 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
       email: null,
       password: null
     };
+    this.signupEmailAvailabilityState = 'idle';
+    this.signupEmailAvailabilityMessage = '';
   }
 
   private focusFirstInvalidSignupField(): void {
@@ -827,6 +1047,40 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
 
       const input = document.querySelector(`input[name="${target.name}"]`) as HTMLInputElement | null;
       (input ?? firstInvalid)?.focus();
+    }, 0);
+  }
+
+  private focusAuthField(name: string, select = false): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    if (this.initialFocusTimer) {
+      clearTimeout(this.initialFocusTimer);
+      this.initialFocusTimer = null;
+    }
+    setTimeout(() => {
+      const input = document.querySelector(`input[name="${name}"]`) as HTMLInputElement | null;
+      if (!input) {
+        return;
+      }
+      input.focus();
+      if (select) {
+        input.select();
+      }
+    }, 0);
+  }
+
+  private scrollDuplicateSignupErrorIntoView(): void {
+    if (typeof document === 'undefined') {
+      return;
+    }
+
+    setTimeout(() => {
+      (document.getElementById('signup-email-duplicate-error') as HTMLElement | null)?.scrollIntoView?.({
+        behavior: 'smooth',
+        block: 'nearest'
+      });
     }, 0);
   }
 

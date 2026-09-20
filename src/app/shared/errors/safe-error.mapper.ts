@@ -217,3 +217,17 @@ export const safeErrorMapper = new SafeErrorMapper();
 export function mapSafeError(error: unknown): NormalizedAppError {
   return safeErrorMapper.map(error);
 }
+
+export function isDuplicateEmailRegistrationError(error: unknown): boolean {
+  const record = error && typeof error === 'object' ? (error as Record<string, unknown>) : null;
+  const status = record?.['status'];
+  if (status !== 400 && status !== 409 && status !== 422) {
+    return false;
+  }
+
+  const message = JSON.stringify(record).toLowerCase();
+  return (
+    message.includes('record_not_unique') && message.includes('email') ||
+    message.includes('field email has to be unique')
+  );
+}
