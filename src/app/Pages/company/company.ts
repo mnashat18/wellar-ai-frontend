@@ -58,6 +58,32 @@ const EMPTY_PERMISSIONS: OrganizationPermissions = {
   styleUrls: ['./company.css']
 })
 export class CompanyPageComponent implements OnInit {
+readonly timezoneOptions: string[] = (() => {
+  const intl = Intl as typeof Intl & {
+    supportedValuesOf?: (key: 'timeZone') => string[];
+  };
+
+  const zones = intl.supportedValuesOf?.('timeZone') ?? [];
+
+  return zones.length
+    ? ['UTC', ...zones]
+    : [
+        'UTC',
+        'Africa/Cairo',
+        'Europe/London',
+        'Europe/Paris',
+        'Asia/Dubai',
+        'Asia/Riyadh',
+        'Asia/Kuwait',
+        'Asia/Qatar',
+        'Asia/Amman',
+        'Asia/Beirut',
+        'America/New_York',
+        'America/Chicago',
+        'America/Denver',
+        'America/Los_Angeles'
+      ];
+})();
   readonly unsupportedWorkflowMessage = 'Coming next: controlled access workflow.';
 
   viewState: CompanyViewState = 'loading';
@@ -486,10 +512,32 @@ export class CompanyPageComponent implements OnInit {
     payload.company_name = companyName;
 
     const contactName = this.normalizeText(this.profileDraft.contact_name);
-    if (contactName) payload.contact_name = contactName;
+
+if (contactName && !this.isValidContactName(contactName)) {
+  this.feedback = {
+    type: 'error',
+    text: 'Please enter a valid contact name.'
+  };
+  return null;
+}
+
+if (contactName) {
+  payload.contact_name = contactName;
+}
 
     const phone = this.normalizeText(this.profileDraft.phone);
-    if (phone) payload.phone = phone;
+
+if (phone && !this.isValidPhone(phone)) {
+  this.feedback = {
+    type: 'error',
+    text: 'Please enter a valid phone number.'
+  };
+  return null;
+}
+
+if (phone) {
+  payload.phone = phone;
+}
 
     const industry = this.normalizeText(this.profileDraft.industry);
     if (industry) payload.industry = industry;
@@ -508,17 +556,62 @@ export class CompanyPageComponent implements OnInit {
     if (city) payload.city = city;
 
     const website = this.normalizeText(this.profileDraft.website);
-    if (website) payload.website = website;
+
+if (website && !this.isValidWebsite(website)) {
+  this.feedback = {
+    type: 'error',
+    text: 'Please enter a valid website URL.'
+  };
+  return null;
+}
+
+if (website) {
+  payload.website = website;
+}
 
     const timezone = this.normalizeText(this.profileDraft.timezone);
     if (timezone) payload.timezone = timezone;
 
-    const defaultLanguage = this.normalizeText(this.profileDraft.default_language);
-    if (defaultLanguage) payload.default_language = defaultLanguage;
+    payload.default_language = 'en';
 
     return payload;
   }
+private isValidPhone(value: string): boolean {
+  const normalized = this.normalizeText(value);
 
+  if (!normalized) {
+    return true;
+  }
+
+  if (!/^\+?[0-9\s().-]+$/.test(normalized)) {
+    return false;
+  }
+
+  const digitsOnly = normalized.replace(/\D/g, '');
+
+  return digitsOnly.length >= 7 && digitsOnly.length <= 15;
+}
+private isValidWebsite(value: string): boolean {
+  try {
+    const url = new URL(value);
+
+    return (
+      (url.protocol === 'http:' || url.protocol === 'https:') &&
+      Boolean(url.hostname)
+    );
+  } catch {
+    return false;
+  }
+}
+private isValidContactName(value: string): boolean {
+  const normalized = this.normalizeText(value);
+
+  if (!normalized) {
+    return true;
+  }
+
+  return /^[\p{L}\p{M}.'’\-\s]+$/u.test(normalized);
+}
   private createProfileDraft(profile: OrganizationProfile): ProfileDraft {
     return {
       company_name: profile.company_name ?? '',
@@ -530,7 +623,7 @@ export class CompanyPageComponent implements OnInit {
       city: profile.city ?? '',
       website: profile.website ?? '',
       timezone: profile.timezone ?? '',
-      default_language: profile.default_language ?? ''
+      default_language: 'en'
     };
   }
 
@@ -566,7 +659,7 @@ export class CompanyPageComponent implements OnInit {
       city: '',
       website: '',
       timezone: '',
-      default_language: ''
+      default_language: 'en'
     };
   }
 
