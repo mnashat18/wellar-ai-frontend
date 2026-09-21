@@ -68,7 +68,8 @@ describe('SettingsPageComponent', () => {
         }
       }),
     activateFromMembership: () => Promise.resolve(),
-    applyCurrentUserPatch: vi.fn()
+    applyCurrentUserPatch: vi.fn(),
+    publishCurrentUser: vi.fn()
     };
   };
 
@@ -246,6 +247,94 @@ describe('SettingsPageComponent', () => {
     expect((component as any).reloadCurrentUser).toHaveBeenCalled();
   });
 
+it('uploads an avatar through the protected avatar endpoint and patches only profile fields', async () => {
+  await createComponent();
+
+  // Avoid depending on browser blob URL support in the unit-test environment.
+  vi
+    .spyOn(component as any, 'updateAvatarPreview')
+    .mockImplementation(() => undefined);
+
+  const avatar = new File(
+    ['avatar-content'],
+    'avatar.png',
+    { type: 'image/png' }
+  );
+
+  component.onAvatarSelected({
+    target: {
+      files: [avatar],
+      value: ''
+    }
+  } as unknown as Event);
+
+  expect(component.avatarFile).toBe(avatar);
+  expect(component.avatarFileLabel).toBe('avatar.png');
+  expect(component.avatarUploadError).toBe('');
+  expect(component.hasAccountChanges()).toBe(true);
+
+  const savePromise = component.saveAccountChanges();
+
+  await Promise.resolve();
+
+  const uploadRequest = httpMock.expectOne((req) => req.url.endsWith('/wellar/avatar'));
+
+  expect(uploadRequest.request.method).toBe('POST');
+
+  const formData = uploadRequest.request.body as FormData;
+
+  expect(formData).toBeInstanceOf(FormData);
+  expect(Array.from(formData.keys())).toEqual(['file']);
+  const uploadedFile = formData.get('file');
+
+expect(uploadedFile).toBeInstanceOf(File);
+expect((uploadedFile as File).name).toBe('avatar.png');
+expect((uploadedFile as File).type).toBe('image/png');
+expect((uploadedFile as File).size).toBe(avatar.size);
+
+  uploadRequest.flush({ data: { id: 'avatar-file-1' } });
+
+let profileRequest: any;
+
+await vi.waitFor(() => {
+  const requests = httpMock.match(
+    (req) =>
+      req.method === 'PATCH' &&
+      req.url.endsWith('/users/me')
+  );
+
+  expect(requests.length).toBe(1);
+  profileRequest = requests[0];
+});
+
+  expect(profileRequest.request.method).toBe('PATCH');
+
+  expect(profileRequest.request.body).toEqual({
+    first_name: 'Owner',
+    last_name: 'User',
+    phone: '555-1000'
+  });
+
+  profileRequest.flush({
+    data: {
+      id: 'user-1'
+    }
+  });
+
+  await savePromise;
+
+  expect(component.profileSaveState).toBe('success');
+  expect(component.savingAccount).toBe(false);
+  expect(component.avatarFile).toBeNull();
+  expect(component.user?.avatar).toBe('avatar-file-1');
+  expect(component.hasAccountChanges()).toBe(false);
+  expect(component.profileSaveMessage).toContain('Account settings saved');
+
+  httpMock.expectNone((req) =>
+    req.url.endsWith('/files') && req.method === 'POST'
+  );
+
+});
   it('clears saving state when the secondary user refresh does not settle', async () => {
     await createComponent();
     component.accountForm = { firstName: 'Owner', lastName: 'Updated', phone: '555-2000' };

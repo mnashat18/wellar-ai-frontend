@@ -216,6 +216,29 @@ export class CompanyContextService {
     });
   }
 
+  publishCurrentUser(user: CompanyContext['currentUser']): void {
+    if (!user?.id) {
+      return;
+    }
+
+    const current = this.stateSubject.value;
+    const nextUser = {
+      ...user,
+      avatar: user.avatar ?? current.context.currentUser?.avatar ?? null
+    };
+    const nextContext = {
+      ...current.context,
+      currentUser: nextUser,
+      userId: nextUser.id,
+      userDisplayName: this.buildDisplayName(nextUser.first_name, nextUser.last_name, nextUser.email),
+      userEmail: nextUser.email,
+      isAuthenticated: true,
+      authInitialized: true
+    };
+    this.persistStoredContext(nextContext);
+    this.stateSubject.next({ ...current, context: nextContext });
+  }
+
   constructor(
     private http: HttpClient,
     private auth: AuthService,
@@ -394,11 +417,16 @@ export class CompanyContextService {
         this.pickString(snapshotContext.currentUser?.last_name) ??
         this.pickString(storedContext.currentUser?.last_name) ??
         this.readStoredValue('user_last_name');
+      const resolvedAvatar =
+        this.pickString(user?.avatar) ??
+        this.pickString(snapshotContext.currentUser?.avatar) ??
+        this.pickString(storedContext.currentUser?.avatar);
       const currentUser = {
         id: currentUserId,
         email: resolvedEmail,
         first_name: resolvedFirstName,
-        last_name: resolvedLastName
+        last_name: resolvedLastName,
+        avatar: resolvedAvatar
       };
       const nextContext: CompanyContext = {
         ...this.snapshot().context,
@@ -944,7 +972,11 @@ export class CompanyContextService {
               this.pickString(user?.last_name) ??
               this.pickString(stored.currentUser?.last_name) ??
               this.readStoredValue('user_last_name');
-            const resolvedAvatar = this.pickString(user?.avatar) ?? null;
+            const resolvedAvatar =
+              this.pickString(user?.avatar) ??
+              this.pickString(stored.currentUser?.avatar) ??
+              this.pickString(this.snapshot().context.currentUser?.avatar) ??
+              null;
 
             return ({
               currentUser: userId
@@ -1216,13 +1248,15 @@ export class CompanyContextService {
     const storedEmail = this.readStoredValue('user_email');
     const storedFirstName = this.readStoredValue('user_first_name');
     const storedLastName = this.readStoredValue('user_last_name');
+    const storedAvatar = this.readStoredValue('user_avatar');
     return {
       currentUser: storedUserId
         ? {
             id: storedUserId,
             email: storedEmail,
             first_name: storedFirstName,
-            last_name: storedLastName
+            last_name: storedLastName,
+            avatar: storedAvatar
           }
         : null,
       userId: storedUserId,
@@ -1254,6 +1288,7 @@ export class CompanyContextService {
       this.persistStoredValue('user_email', currentUser?.email ?? null);
       this.persistStoredValue('user_first_name', currentUser?.first_name ?? null);
       this.persistStoredValue('user_last_name', currentUser?.last_name ?? null);
+      this.persistStoredValue('user_avatar', currentUser?.avatar ?? null);
     }
     if (context.userId !== undefined) {
       this.persistStoredValue('current_user_id', context.userId);
@@ -1358,6 +1393,7 @@ export class CompanyContextService {
     this.persistStoredValue('user_display_name', null);
     this.persistStoredValue('user_first_name', null);
     this.persistStoredValue('user_last_name', null);
+    this.persistStoredValue('user_avatar', null);
     this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, null);
 
     if (reason === 'logout') {
@@ -1698,7 +1734,8 @@ export class CompanyContextService {
       id,
       email: this.pickString(user?.email),
       first_name: this.pickString(user?.first_name),
-      last_name: this.pickString(user?.last_name)
+      last_name: this.pickString(user?.last_name),
+      avatar: this.pickString(user?.avatar)
     };
   }
 

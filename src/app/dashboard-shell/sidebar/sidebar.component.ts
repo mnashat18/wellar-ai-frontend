@@ -72,7 +72,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
       const userDisplayName = this.resolveUserDisplayName(state.context);
       const userEmail = this.resolveUserEmail(state.context);
       const userInitials = this.resolveUserInitials(userDisplayName, userEmail);
-      const userAvatarUrl = protectedFileUrl(environment.API_URL, state.context.currentUser?.avatar) ?? null;
+      const currentUser = state.context.currentUser;
+      const canLoadProtectedAvatar =
+        state.context.authInitialized === true &&
+        state.context.isAuthenticated === true &&
+        Boolean(currentUser?.id);
+      const userAvatarUrl = canLoadProtectedAvatar
+        ? protectedFileUrl(environment.API_URL, currentUser?.avatar) ?? null
+        : null;
       const navGroups = getSidebarNavForRole(role).map((group) => ({
         group: group.group,
         items: group.items

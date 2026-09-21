@@ -7,7 +7,7 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
-import { protectedFileUrl } from '../../shared/utils/protected-file-url';
+import { ProtectedAvatarLoaderService } from '../../shared/services/protected-avatar-loader.service';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
 
 import { CompanyContextService, type ActiveMembershipContext } from '../../core/context/company-context.service';
@@ -72,6 +72,7 @@ type AuthSessionUser = {
   external_identifier?: string | null;
   phone?: string | null;
   role?: string | { id?: string | null; name?: string | null } | null;
+  avatar?: string | { id?: string | null } | null;
 };
 
 type SettingsInvite = {
@@ -160,6 +161,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
   profileSaveMessage = 'No unsaved changes.';
   avatarFile: File | null = null;
   avatarPreviewUrl: string | null = null;
+  protectedAvatarUrl: string | null = null;
   avatarUploadError = '';
   avatarFileLabel = '';
   protectedAvatarWrite = true;
@@ -181,6 +183,8 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     lastName: '',
     phone: ''
   };
+  private knownAvatarId: string | null = null;
+  private accountSaveGeneration = 0;
 
   preferences: UiPreferences = {
     reduceMotion: false,
@@ -199,7 +203,8 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     private auth: AuthService,
     private route: ActivatedRoute,
     private router: Router,
-    private companyContext: CompanyContextService
+    private companyContext: CompanyContextService,
+    private protectedAvatarLoader: ProtectedAvatarLoaderService
   ) {}
 
   ngOnInit(): void {
@@ -208,7 +213,15 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       .subscribe((state) => {
         const current = state.context.currentUser;
         if (!current || !this.user) return;
-        this.user = { ...this.user, ...current };
+        const authoritativeAvatar = this.user.avatar;
+
+        this.user = {
+          ...this.user,
+          ...current,
+          avatar: current.avatar ?? authoritativeAvatar
+        };
+        this.knownAvatarId = this.normalizeId(this.user.avatar) ?? this.knownAvatarId;
+        this.loadProtectedAvatar(this.user.avatar);
       });
     this.loadPreferences();
     const requestedTab = this.normalizeInitialTab(this.route.snapshot.queryParamMap.get('tab'));
@@ -218,6 +231,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.clearAvatarPreview();
+    this.protectedAvatarLoader.clear();
   }
 
   async refreshContext(): Promise<void> {
@@ -252,14 +266,8 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
   }
 
   avatarUrl(): string | null {
-    const avatar = this.pickString(this.user?.avatar);
-    if (!avatar) {
-      return null;
-    }
-
-    return protectedFileUrl(this.apiUrl(), avatar);
+    return this.protectedAvatarUrl;
   }
-
   currentWorkspaceName(): string {
     return this.activeMembership?.businessProfile.companyName ?? 'No active organization';
   }
@@ -363,20 +371,22 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       return;
     }
 
+    const saveGeneration = ++this.accountSaveGeneration;
+    const accountSnapshot = { ...this.accountForm };
+    const avatarFile = this.avatarFile;
     this.savingAccount = true;
     this.profileSaveState = 'saving';
     this.profileSaveMessage = 'Saving account settings...';
 
     try {
-      const avatarId = await this.uploadAvatarIfNeeded();
+      const avatarId = await this.uploadAvatarIfNeeded(avatarFile);
       await firstValueFrom(
         this.http.patch(
           `${this.apiUrl()}/users/me`,
           {
-            first_name: this.accountForm.firstName.trim() || null,
-            last_name: this.accountForm.lastName.trim() || null,
-            phone: this.accountForm.phone.trim() || null,
-            ...(avatarId ? { avatar: avatarId } : {})
+            first_name: accountSnapshot.firstName.trim() || null,
+            last_name: accountSnapshot.lastName.trim() || null,
+            phone: accountSnapshot.phone.trim() || null
           },
           {
             withCredentials: true
@@ -384,31 +394,45 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
         )
       );
 
-      this.accountInitial = { ...this.accountForm };
+      if (saveGeneration !== this.accountSaveGeneration) {
+        return;
+      }
+
+      this.accountInitial = { ...accountSnapshot };
+      this.accountForm = { ...accountSnapshot };
       this.accountTouched = false;
+      if (avatarId) {
+        this.knownAvatarId = avatarId;
+        this.user = {
+          ...this.user,
+          avatar: avatarId
+        };
+      }
       this.clearAvatarSelection();
-      this.companyContext.applyCurrentUserPatch({
-        first_name: this.accountForm.firstName.trim() || null,
-        last_name: this.accountForm.lastName.trim() || null,
-        phone: this.accountForm.phone.trim() || null,
-        ...(avatarId ? { avatar: avatarId } : {})
-      });
+      this.publishCurrentUser(this.user);
       this.profileSaveState = 'success';
       this.profileSaveMessage = 'Account settings saved.';
       // The PATCH response is the primary save contract.  Do not keep the
       // save action in a pending state while the best-effort session refresh
       // waits on auth/context lifecycle work.
       this.savingAccount = false;
-      void this.reloadCurrentUser().catch(() => {
-        this.profileSaveMessage = 'Account settings saved. The profile view could not refresh.';
+      void this.reloadCurrentUser(saveGeneration).catch(() => {
+        if (saveGeneration === this.accountSaveGeneration) {
+          this.profileSaveMessage = 'Account settings saved. The profile view could not refresh.';
+        }
       });
       this.pushToast('success', 'Account profile updated successfully.');
     } catch (error) {
+      if (saveGeneration !== this.accountSaveGeneration) {
+        return;
+      }
       this.profileSaveState = 'error';
       this.profileSaveMessage = this.readError(error, 'Could not save account profile changes.');
       this.pushToast('error', 'Could not save account profile changes.');
     } finally {
-      this.savingAccount = false;
+      if (saveGeneration === this.accountSaveGeneration) {
+        this.savingAccount = false;
+      }
     }
   }
 
@@ -455,12 +479,12 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     this.onAccountChanged();
   }
 
-  private async uploadAvatarIfNeeded(): Promise<string | null> {
-    if (!this.avatarFile) {
+  private async uploadAvatarIfNeeded(file: File | null): Promise<string | null> {
+    if (!file) {
       return null;
     }
 
-    const fileId = await firstValueFrom(this.uploadAvatarWithToken());
+    const fileId = await firstValueFrom(this.uploadAvatarWithToken(file));
     if (!fileId) {
       throw new Error('The avatar upload could not be completed.');
     }
@@ -468,19 +492,32 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     return fileId;
   }
 
-  private uploadAvatarWithToken(): Observable<string | null> {
+  private uploadAvatarWithToken(file: File): Observable<string> {
     const formData = new FormData();
-    formData.append('file', this.avatarFile as Blob);
+    formData.append('file', file, file.name);
 
     return this.http.post<{ data?: { id?: string } }>(
-      `${this.apiUrl()}/files`,
-      formData,
-      {
-        withCredentials: true
-      }
+      `${this.apiUrl()}/wellar/avatar`,
+    formData,
+    {
+      withCredentials: true
+    }
     ).pipe(
-      map((res) => this.pickString(res?.data?.id) ?? null)
+      map((res) => this.pickString(res?.data?.id) ?? '')
     );
+  }
+
+  private loadProtectedAvatar(avatar: string | null | undefined): void {
+    const avatarId = this.normalizeId(avatar);
+    if (!avatarId) {
+      this.protectedAvatarUrl = null;
+      this.protectedAvatarLoader.clear();
+      return;
+    }
+
+    this.protectedAvatarLoader.load(avatarId).subscribe((url) => {
+      this.protectedAvatarUrl = url;
+    });
   }
 
   private updateAvatarPreview(file: File | null): void {
@@ -631,6 +668,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
 
       await this.companyContext.ensureActiveContext();
       this.user = await this.loadCurrentUserProfile(sessionUser);
+      this.publishCurrentUser(this.user);
       this.applyAccountForm();
 
       const workspaceContext = (
@@ -676,12 +714,6 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const err = error as any;
-      console.warn('[Settings] failed request', {
-        status: err?.status ?? err?.error?.status ?? null,
-        code: err?.error?.errors?.[0]?.extensions?.code ?? null,
-        message: err?.message ?? null
-      });
       this.loadError = this.readWorkspaceContextError(error, 'Failed to load settings.');
       this.viewState = 'error';
     } finally {
@@ -744,10 +776,30 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     await firstValueFrom(this.companyContext.ensureLoaded(true));
   }
 
-  private async reloadCurrentUser(): Promise<void> {
+  private async reloadCurrentUser(saveGeneration: number): Promise<void> {
     const sessionUser = await this.auth.getCurrentUserAfterRestore();
-    this.user = await this.loadCurrentUserProfile(sessionUser);
+    const user = await this.loadCurrentUserProfile(sessionUser);
+    if (saveGeneration !== this.accountSaveGeneration) {
+      return;
+    }
+    this.user = user;
+    this.publishCurrentUser(user);
     this.applyAccountForm();
+  }
+
+  private publishCurrentUser(user: DirectusUserRow | null): void {
+    if (!user?.id) {
+      return;
+    }
+    this.knownAvatarId = this.normalizeId(user.avatar) ?? this.knownAvatarId;
+    this.companyContext.publishCurrentUser({
+      id: String(user.id),
+      email: user.email ?? null,
+      first_name: user.first_name ?? null,
+      last_name: user.last_name ?? null,
+      avatar: this.normalizeId(user.avatar) ?? this.knownAvatarId,
+      phone: user.phone ?? null
+    });
   }
 
   private async loadCurrentUserProfile(sessionUser: AuthSessionUser | null): Promise<DirectusUserRow> {
@@ -791,7 +843,7 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       first_name: this.pickString(record['first_name']),
       last_name: this.pickString(record['last_name']),
       email: this.pickString(record['email']),
-      avatar: this.pickString(record['avatar']),
+      avatar: this.normalizeId(record['avatar']),
       provider: this.pickString(record['provider']),
       external_identifier: this.pickString(record['external_identifier']),
       phone: this.pickString(record['phone']),
@@ -875,7 +927,11 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       this.pickString(sessionUser?.email) ??
       this.pickString(context.userEmail) ??
       this.readStorageString('user_email');
-    const avatar = this.pickString(directusUser?.avatar);
+    const avatar =
+      this.normalizeId(directusUser?.avatar) ??
+      this.normalizeId(sessionUser?.avatar) ??
+      this.knownAvatarId ??
+      this.normalizeId(context.currentUser?.avatar);
     const provider =
       this.pickString(directusUser?.provider) ??
       this.pickString(sessionUser?.provider);
