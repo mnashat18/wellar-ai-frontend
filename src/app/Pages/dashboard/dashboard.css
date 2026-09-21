@@ -143,26 +143,22 @@
   display: grid;
   gap: 0.95rem;
   grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
-  align-items: start;
+  align-items: stretch;
 }
 
 .dashboard-summary-grid > .dashboard-card {
   display: block;
   min-width: 0;
-  align-self: start;
+  align-self: stretch;
 }
 
 .dashboard-kpi-card {
-  position: relative;
+  display: block;
   min-width: 0;
   height: 100%;
 }
 
 .dashboard-kpi-card__icon {
-  position: absolute;
-  top: 1.1rem;
-  right: 1.1rem;
-  z-index: 2;
   display: grid;
   width: 2rem;
   height: 2rem;

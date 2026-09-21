@@ -5,7 +5,9 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  box-sizing: border-box;
   min-height: 0;
   overflow: hidden;
   padding: 0.85rem;
@@ -73,7 +75,7 @@
   min-width: 0;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .app-sidebar__company {
@@ -152,6 +154,12 @@
 .app-sidebar__nav {
   display: grid;
   gap: 0.55rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  padding-bottom: 0.25rem;
 }
 
 .app-sidebar__group {
@@ -277,7 +285,8 @@
   position: static;
   z-index: auto;
   margin-top: auto;
-  padding-top: 0.45rem;
+  flex: 0 0 auto;
+  padding-top: 0.8rem;
 }
 
 .app-sidebar__account-control {
@@ -741,5 +750,83 @@
   .app-sidebar__nav-item:hover {
     transform: none;
     transition: none;
+  }
+}
+
+@media (max-height: 760px) {
+  .sidebar {
+    gap: 0.6rem;
+    padding: 0.7rem;
+  }
+
+  .app-sidebar__brand {
+    padding-bottom: 0.7rem;
+  }
+
+  .app-sidebar__body {
+    gap: 0.55rem;
+  }
+
+  .app-sidebar__company {
+    padding: 0.6rem 0.7rem;
+  }
+
+  .app-sidebar__company-meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-sidebar__nav {
+    gap: 0.35rem;
+  }
+
+  .app-sidebar__nav-item {
+    min-height: 2.35rem;
+    padding-block: 0.4rem;
+  }
+
+  .app-sidebar__footer {
+    padding-top: 0.65rem;
+  }
+
+  .app-sidebar__account-control {
+    min-height: 2.75rem;
+    padding-block: 0.4rem;
+  }
+}
+
+@media (max-height: 680px) {
+  .sidebar {
+    gap: 0.45rem;
+    padding: 0.55rem;
+  }
+
+  .app-sidebar__brand {
+    gap: 0.55rem;
+    padding: 0.2rem 0.2rem 0.55rem;
+  }
+
+  .app-sidebar__logo-wrap {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .app-sidebar__company {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .app-sidebar__company-avatar {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .app-sidebar__nav-item {
+    min-height: 2.1rem;
+    padding-block: 0.3rem;
+  }
+
+  .app-sidebar__footer {
+    padding-top: 0.5rem;
   }
 }

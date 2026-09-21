@@ -132,7 +132,6 @@
         <div
           *ngFor="let card of vm.kpis; trackBy: trackByKpi"
           class="dashboard-kpi-card">
-          <span class="dashboard-kpi-card__icon" aria-hidden="true"></span>
           <app-kpi-card
             class="dashboard-card"
             [label]="card.label"
@@ -140,7 +139,9 @@
             [helper]="card.description"
             [tone]="card.tone"
             [toneLabel]="card.toneLabel"
-            [showToneLabel]="true">
+            [showToneLabel]="true"
+            [attr.title]="card.description">
+            <span kpiAction class="dashboard-kpi-card__icon" aria-hidden="true"></span>
           </app-kpi-card>
         </div>
       </div>

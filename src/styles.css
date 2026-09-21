@@ -2554,6 +2554,15 @@ body::selection {
   gap: 1rem;
 }
 
+.kpi-card-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .kpi-card-copy {
   min-width: 0;
 }
@@ -2677,7 +2686,35 @@ body::selection {
 }
 
 .app-kpi-card .kpi-helper {
-  max-width: 28ch;
+  max-width: none;
+}
+
+.dashboard-page .app-kpi-card .kpi-helper {
+  -webkit-line-clamp: 3;
+}
+
+.dashboard-page app-page-header .app-page-header__breadcrumbs,
+.dashboard-page app-page-header .app-page-header__layout {
+  width: 100%;
+}
+
+.dashboard-page app-page-header .app-page-header__layout {
+  grid-template-columns: minmax(0, 1fr) minmax(24rem, 1.1fr);
+}
+
+.dashboard-page app-page-header h1 {
+  max-width: 32ch;
+  font-size: clamp(1.65rem, 2.4vw, 2.45rem);
+}
+
+.dashboard-page app-page-header .app-page-header__actions {
+  min-width: 0;
+}
+
+@media (max-width: 1199px) {
+  .dashboard-page app-page-header .app-page-header__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .dashboard-action-title {
