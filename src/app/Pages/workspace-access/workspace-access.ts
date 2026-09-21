@@ -43,7 +43,7 @@ export class WorkspaceAccessPageComponent implements OnInit {
   inviteCodeError = '';
   createCompanyOpen = false;
   createCompanyLoading = false;
-  createCompanyLocked = this.readCreateCompanyLock();
+  createCompanyLocked = false;
   createCompanyError = '';
   createCompanyErrorCode = '';
   createCompanySuccessMessage = '';
@@ -159,6 +159,7 @@ export class WorkspaceAccessPageComponent implements OnInit {
         if (!payload) {
           return;
         }
+        this.syncCreateCompanyLock(payload.currentUser?.id);
         const state = payload.workspaceState;
         if (payload.currentUser?.email && !this.createCompanyForm.workEmail) {
           this.createCompanyForm.workEmail = String(payload.currentUser.email);
@@ -740,14 +741,26 @@ export class WorkspaceAccessPageComponent implements OnInit {
     await new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private readCreateCompanyLock(): boolean {
+  private syncCreateCompanyLock(userId: unknown): void {
+    const normalizedUserId = this.normalizeText(String(userId ?? ''), 120);
+    this.createCompanyLocked = Boolean(normalizedUserId && this.readCreateCompanyLock(normalizedUserId));
+  }
+
+  private readCreateCompanyLock(userId: string): boolean {
     if (typeof sessionStorage === 'undefined') {
       return false;
     }
 
     try {
-      return sessionStorage.getItem('wellar_workspace_creation_lock_v1') === '1';
+      const raw = sessionStorage.getItem('wellar_workspace_creation_lock_v1');
+      if (!raw) {
+        return false;
+      }
+
+      const parsed = JSON.parse(raw) as { userId?: unknown };
+      return this.normalizeText(String(parsed?.userId ?? ''), 120) === userId;
     } catch {
+      sessionStorage.removeItem('wellar_workspace_creation_lock_v1');
       return false;
     }
   }
@@ -759,7 +772,11 @@ export class WorkspaceAccessPageComponent implements OnInit {
 
     try {
       if (locked) {
-        sessionStorage.setItem('wellar_workspace_creation_lock_v1', '1');
+        const userId = this.normalizeText(String(this.companyContext.snapshot().context.currentUser?.id ?? ''), 120);
+        if (!userId) {
+          return;
+        }
+        sessionStorage.setItem('wellar_workspace_creation_lock_v1', JSON.stringify({ userId }));
       } else {
         sessionStorage.removeItem('wellar_workspace_creation_lock_v1');
       }
