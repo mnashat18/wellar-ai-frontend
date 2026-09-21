@@ -380,14 +380,15 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
 
     try {
       const avatarId = await this.uploadAvatarIfNeeded(avatarFile);
-      await firstValueFrom(
-        this.http.patch(
+      const payload = {
+        first_name: accountSnapshot.firstName.trim() || null,
+        last_name: accountSnapshot.lastName.trim() || null,
+        phone: accountSnapshot.phone.trim() || null
+      };
+      const response = await firstValueFrom(
+        this.http.patch<{ data?: DirectusUserRow } | DirectusUserRow>(
           `${this.apiUrl()}/users/me`,
-          {
-            first_name: accountSnapshot.firstName.trim() || null,
-            last_name: accountSnapshot.lastName.trim() || null,
-            phone: accountSnapshot.phone.trim() || null
-          },
+          payload,
           {
             withCredentials: true
           }
@@ -398,6 +399,13 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
         return;
       }
 
+      const savedUser = this.objectRecord((response as any)?.data) ?? this.objectRecord(response);
+      this.user = {
+        ...this.user,
+        first_name: payload.first_name,
+        last_name: payload.last_name,
+        phone: this.pickString(savedUser?.['phone']) ?? payload.phone
+      };
       this.accountInitial = { ...accountSnapshot };
       this.accountForm = { ...accountSnapshot };
       this.accountTouched = false;
@@ -833,9 +841,10 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
       'role.name'
     ].join(',');
 
+    const url = `${this.apiUrl()}/users/me?fields=${encodeURIComponent(fields)}&_ts=${Date.now()}`;
     const response = await firstValueFrom(
       this.http.get<{ data?: DirectusUserRow } | DirectusUserRow>(
-        `${this.apiUrl()}/users/me?fields=${encodeURIComponent(fields)}&_ts=${Date.now()}`,
+        url,
         {
           withCredentials: true
         }
@@ -943,7 +952,11 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     const externalIdentifier =
       this.pickString(directusUser?.external_identifier) ??
       this.pickString(sessionUser?.external_identifier);
-    const phone = this.pickString(directusUser?.phone) ?? this.pickString(sessionUser?.phone);
+    const phone =
+      this.pickString(directusUser?.phone) ??
+      this.pickString(sessionUser?.phone) ??
+      this.pickString(context.currentUser?.phone) ??
+      (directusUser ? null : this.pickString(this.user?.phone));
 
     return {
       id,

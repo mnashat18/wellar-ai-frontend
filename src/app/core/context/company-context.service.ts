@@ -417,6 +417,10 @@ export class CompanyContextService {
         this.pickString(snapshotContext.currentUser?.last_name) ??
         this.pickString(storedContext.currentUser?.last_name) ??
         this.readStoredValue('user_last_name');
+      const resolvedPhone =
+        this.pickString(user?.phone) ??
+        this.pickString(snapshotContext.currentUser?.phone) ??
+        this.pickString(storedContext.currentUser?.phone);
       const resolvedAvatar =
         this.pickString(user?.avatar) ??
         this.pickString(snapshotContext.currentUser?.avatar) ??
@@ -426,7 +430,8 @@ export class CompanyContextService {
         email: resolvedEmail,
         first_name: resolvedFirstName,
         last_name: resolvedLastName,
-        avatar: resolvedAvatar
+        avatar: resolvedAvatar,
+        phone: resolvedPhone
       };
       const nextContext: CompanyContext = {
         ...this.snapshot().context,
@@ -917,6 +922,7 @@ export class CompanyContextService {
       'email',
       'first_name',
       'last_name',
+      'phone',
       'avatar',
       'active_business_profile',
       'active_department',
@@ -972,6 +978,11 @@ export class CompanyContextService {
               this.pickString(user?.last_name) ??
               this.pickString(stored.currentUser?.last_name) ??
               this.readStoredValue('user_last_name');
+            const resolvedPhone =
+              this.pickString(user?.phone) ??
+              this.pickString(stored.currentUser?.phone) ??
+              this.pickString(this.snapshot().context.currentUser?.phone) ??
+              this.readStoredValue('user_phone');
             const resolvedAvatar =
               this.pickString(user?.avatar) ??
               this.pickString(stored.currentUser?.avatar) ??
@@ -985,6 +996,7 @@ export class CompanyContextService {
                     email: resolvedEmail,
                     first_name: resolvedFirstName,
                     last_name: resolvedLastName,
+                    phone: resolvedPhone,
                     avatar: resolvedAvatar
                   }
                 : null,
@@ -1068,6 +1080,10 @@ export class CompanyContextService {
       this.pickString(user.currentUser?.last_name) ??
       (isSameUser ? this.pickString(storedContext.currentUser?.last_name) : null) ??
       this.readStoredValue('user_last_name');
+    const resolvedPhone =
+      this.pickString(user.currentUser?.phone) ??
+      (isSameUser ? this.pickString(storedContext.currentUser?.phone) : null) ??
+      this.readStoredValue('user_phone');
     const resolvedUserId = user.userId ?? (isSameUser ? storedContext.userId : null);
     const context: CompanyContext = {
       currentUser: resolvedUserId
@@ -1076,6 +1092,7 @@ export class CompanyContextService {
             email: resolvedUserEmail,
             first_name: resolvedFirstName,
             last_name: resolvedLastName,
+            phone: resolvedPhone,
             avatar: this.pickString(user.currentUser?.avatar) ?? null
           }
         : null,
@@ -1248,6 +1265,7 @@ export class CompanyContextService {
     const storedEmail = this.readStoredValue('user_email');
     const storedFirstName = this.readStoredValue('user_first_name');
     const storedLastName = this.readStoredValue('user_last_name');
+    const storedPhone = this.readStoredValue('user_phone');
     const storedAvatar = this.readStoredValue('user_avatar');
     return {
       currentUser: storedUserId
@@ -1256,6 +1274,7 @@ export class CompanyContextService {
             email: storedEmail,
             first_name: storedFirstName,
             last_name: storedLastName,
+            phone: storedPhone,
             avatar: storedAvatar
           }
         : null,
@@ -1288,6 +1307,7 @@ export class CompanyContextService {
       this.persistStoredValue('user_email', currentUser?.email ?? null);
       this.persistStoredValue('user_first_name', currentUser?.first_name ?? null);
       this.persistStoredValue('user_last_name', currentUser?.last_name ?? null);
+      this.persistStoredValue('user_phone', currentUser?.phone ?? null);
       this.persistStoredValue('user_avatar', currentUser?.avatar ?? null);
     }
     if (context.userId !== undefined) {
@@ -1393,6 +1413,7 @@ export class CompanyContextService {
     this.persistStoredValue('user_display_name', null);
     this.persistStoredValue('user_first_name', null);
     this.persistStoredValue('user_last_name', null);
+    this.persistStoredValue('user_phone', null);
     this.persistStoredValue('user_avatar', null);
     this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, null);
 
@@ -1735,7 +1756,8 @@ export class CompanyContextService {
       email: this.pickString(user?.email),
       first_name: this.pickString(user?.first_name),
       last_name: this.pickString(user?.last_name),
-      avatar: this.pickString(user?.avatar)
+      avatar: this.pickString(user?.avatar),
+      phone: this.pickString(user?.phone)
     };
   }
 

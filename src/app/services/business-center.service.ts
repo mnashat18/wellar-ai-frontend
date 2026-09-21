@@ -2059,7 +2059,7 @@ export class BusinessCenterService {
     const stored = this.readStoredAccessContext();
 
     return this.http.get<any>(
-      `${this.api}/users/me?fields=id,email,first_name,last_name`,
+      `${this.api}/users/me?fields=id,email,first_name,last_name,phone`,
       this.requestOptions(token)
     ).pipe(
       switchMap((res) => {

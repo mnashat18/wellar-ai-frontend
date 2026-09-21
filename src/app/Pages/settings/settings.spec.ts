@@ -73,7 +73,11 @@ describe('SettingsPageComponent', () => {
     };
   };
 
-  async function createComponent(tab: string | null = null, role: 'owner' | 'manager' | 'hr' = 'owner'): Promise<void> {
+  async function createComponent(
+    tab: string | null = null,
+    role: 'owner' | 'manager' | 'hr' = 'owner',
+    mockReload = true
+  ): Promise<void> {
     TestBed.resetTestingModule();
     await TestBed.configureTestingModule({
       imports: [SettingsPageComponent],
@@ -125,7 +129,9 @@ describe('SettingsPageComponent', () => {
     fixture = TestBed.createComponent(SettingsPageComponent);
     component = fixture.componentInstance;
     vi.spyOn(component as any, 'loadSettings').mockResolvedValue(undefined);
-    vi.spyOn(component as any, 'reloadCurrentUser').mockResolvedValue(undefined);
+    if (mockReload) {
+      vi.spyOn(component as any, 'reloadCurrentUser').mockResolvedValue(undefined);
+    }
     component.loading = false;
     component.loadError = '';
     component.viewState = 'ready';
@@ -244,7 +250,56 @@ describe('SettingsPageComponent', () => {
     expect(component.savingAccount).toBe(false);
     expect(component.hasAccountChanges()).toBe(false);
     expect(component.profileSaveMessage).toContain('Account settings saved');
+    expect(component.user?.phone).toBe('555-2000');
     expect((component as any).reloadCurrentUser).toHaveBeenCalled();
+  });
+
+  it('restores the phone from the Directus user response after reload', async () => {
+    await createComponent(null, 'owner', false);
+    (component as any).accountSaveGeneration = 1;
+
+    const reloadPromise = (component as any).reloadCurrentUser(1);
+    let request: any;
+    await vi.waitFor(() => {
+      const requests = httpMock.match((req) => req.method === 'GET' && req.url.includes('/users/me'));
+      expect(requests.length).toBe(1);
+      request = requests[0];
+    });
+
+    expect(request.request.urlWithParams).toContain('phone');
+    request.flush({
+      data: {
+        id: 'user-1',
+        first_name: 'Owner',
+        last_name: 'User',
+        email: 'owner@example.com',
+        phone: '+201018320789'
+      }
+    });
+
+    await reloadPromise;
+
+    expect(component.user?.phone).toBe('+201018320789');
+    expect(component.accountForm.phone).toBe('+201018320789');
+  });
+
+  it('maps a missing Directus phone to null and keeps the form safely empty', async () => {
+    await createComponent(null, 'owner', false);
+    (component as any).accountSaveGeneration = 1;
+
+    const reloadPromise = (component as any).reloadCurrentUser(1);
+    let request: any;
+    await vi.waitFor(() => {
+      const requests = httpMock.match((req) => req.method === 'GET' && req.url.includes('/users/me'));
+      expect(requests.length).toBe(1);
+      request = requests[0];
+    });
+    request.flush({ data: { id: 'user-1', first_name: 'Owner', last_name: 'User' } });
+
+    await reloadPromise;
+
+    expect(component.user?.phone).toBeNull();
+    expect(component.accountForm.phone).toBe('');
   });
 
 it('uploads an avatar through the protected avatar endpoint and patches only profile fields', async () => {
