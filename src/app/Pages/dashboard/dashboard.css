@@ -3,7 +3,13 @@
 }
 
 .dashboard-hero {
-  margin-bottom: 0.35rem;
+  margin-bottom: 0.2rem;
+}
+
+@media (max-width: 1199px) {
+  .dashboard-hero {
+    margin-bottom: 0.1rem;
+  }
 }
 
 .dashboard-loading-state {

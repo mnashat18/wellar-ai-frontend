@@ -255,12 +255,55 @@
   </ng-container>
 
   <ng-template #sidebarLoading>
-    <div class="app-sidebar__loading">
-      <div class="app-sidebar__loading-line app-sidebar__loading-line--title">Loading organization...</div>
-      <div class="app-sidebar__loading-line">Loading access level...</div>
-      <div class="app-sidebar__loading-line app-sidebar__loading-line--body">
-        Restoring your organization context.
+    <div class="app-sidebar__loading-shell" aria-busy="true">
+      <div class="app-sidebar__body">
+        <section class="app-sidebar__company app-sidebar__company--loading" aria-hidden="true">
+          <div class="app-sidebar__company-identity">
+            <span class="app-sidebar__company-avatar app-sidebar__skeleton-block"></span>
+
+            <div class="app-sidebar__company-copy">
+              <span class="app-sidebar__skeleton-line app-sidebar__skeleton-line--eyebrow"></span>
+              <span class="app-sidebar__skeleton-line app-sidebar__skeleton-line--company"></span>
+              <span class="app-sidebar__skeleton-line app-sidebar__skeleton-line--meta"></span>
+            </div>
+
+            <span class="app-sidebar__skeleton-pill"></span>
+          </div>
+        </section>
+
+        <nav class="app-sidebar__nav sidebar-nav app-sidebar__nav--loading" aria-hidden="true">
+          <section class="app-sidebar__group">
+            <span class="app-sidebar__skeleton-line app-sidebar__skeleton-line--label"></span>
+            <div class="app-sidebar__group-items">
+              <span class="app-sidebar__skeleton-nav-item"></span>
+              <span class="app-sidebar__skeleton-nav-item app-sidebar__skeleton-nav-item--medium"></span>
+              <span class="app-sidebar__skeleton-nav-item"></span>
+            </div>
+          </section>
+
+          <section class="app-sidebar__group">
+            <span class="app-sidebar__skeleton-line app-sidebar__skeleton-line--label"></span>
+            <div class="app-sidebar__group-items">
+              <span class="app-sidebar__skeleton-nav-item app-sidebar__skeleton-nav-item--short"></span>
+              <span class="app-sidebar__skeleton-nav-item"></span>
+              <span class="app-sidebar__skeleton-nav-item app-sidebar__skeleton-nav-item--medium"></span>
+            </div>
+          </section>
+        </nav>
       </div>
+
+      <div class="app-sidebar__footer" aria-hidden="true">
+        <div class="app-sidebar__account-control app-sidebar__account-control--loading">
+          <span class="app-sidebar__account-avatar app-sidebar__skeleton-block"></span>
+          <span class="app-sidebar__account-copy">
+            <span class="app-sidebar__skeleton-line app-sidebar__skeleton-line--account-name"></span>
+            <span class="app-sidebar__skeleton-line app-sidebar__skeleton-line--account-email"></span>
+          </span>
+          <span class="app-sidebar__skeleton-pill app-sidebar__skeleton-pill--account"></span>
+        </div>
+      </div>
+
+      <span class="app-sidebar__loading-status" role="status">Restoring organization context</span>
     </div>
   </ng-template>
 </aside>
