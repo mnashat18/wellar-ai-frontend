@@ -396,6 +396,10 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
+.profile-details-grid {
+  align-items: stretch;
+}
+
 .settings-field,
 .settings-preference-row,
 .settings-detail-row {
@@ -408,6 +412,23 @@
 .settings-field {
   display: grid;
   gap: 0.42rem;
+  min-height: 5.55rem;
+  box-sizing: border-box;
+}
+
+.settings-field--readonly {
+  cursor: default;
+}
+
+.settings-field--readonly strong {
+  display: flex;
+  align-items: center;
+  min-height: 2.2rem;
+  color: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 700;
+  line-height: 1.35;
+  user-select: text;
 }
 
 .settings-field span,

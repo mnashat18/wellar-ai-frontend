@@ -507,6 +507,11 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     );
   }
 
+  onPhoneChanged(value: string): void {
+    this.accountForm.phone = value.replace(/[^0-9\s()+-]/g, '');
+    this.onAccountChanged();
+  }
+
   private loadProtectedAvatar(avatar: string | null | undefined): void {
     const avatarId = this.normalizeId(avatar);
     if (!avatarId) {

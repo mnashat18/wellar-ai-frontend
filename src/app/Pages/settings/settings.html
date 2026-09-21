@@ -119,42 +119,49 @@
           <header class="settings-block__header">
             <div>
               <p class="settings-section-eyebrow">Personal details</p>
-              <h3>Writable profile fields</h3>
+              <h3>Personal details</h3>
             </div>
             <p class="settings-block__meta">
               Save is disabled until the form changes.
             </p>
           </header>
 
-          <div class="settings-grid two-col">
-            <label class="settings-field">
+          <div class="settings-grid two-col profile-details-grid">
+            <div class="settings-field settings-field--readonly">
               <span>First name</span>
-              <input type="text" [ngModel]="accountForm.firstName" (ngModelChange)="accountForm.firstName = $event; onAccountChanged()" />
-            </label>
+              <strong>{{ user?.first_name || 'Not available' }}</strong>
+            </div>
 
-            <label class="settings-field">
+            <div class="settings-field settings-field--readonly">
               <span>Last name</span>
-              <input type="text" [ngModel]="accountForm.lastName" (ngModelChange)="accountForm.lastName = $event; onAccountChanged()" />
-            </label>
+              <strong>{{ user?.last_name || 'Not available' }}</strong>
+            </div>
 
             <label class="settings-field">
               <span>Phone</span>
-              <input type="text" [ngModel]="accountForm.phone" (ngModelChange)="accountForm.phone = $event; onAccountChanged()" />
+              <input
+                type="tel"
+                inputmode="tel"
+                autocomplete="tel"
+                pattern="[0-9 ()+\-]*"
+                [ngModel]="accountForm.phone"
+                (ngModelChange)="onPhoneChanged($event)"
+              />
             </label>
 
-            <div class="settings-detail-stack">
-              <div class="settings-detail-row">
-                <span>Email</span>
-                <strong>{{ user?.email || 'Not available' }}</strong>
-              </div>
-              <div class="settings-detail-row">
-                <span>Sign-in provider</span>
-                <strong>{{ providerLabel() }}</strong>
-              </div>
-              <div class="settings-detail-row" *ngIf="activeAccessRoleLabel()">
-                <span>Access role</span>
-                <strong>{{ activeAccessRoleLabel() }}</strong>
-              </div>
+            <div class="settings-field settings-field--readonly">
+              <span>Email</span>
+              <strong>{{ user?.email || 'Not available' }}</strong>
+            </div>
+
+            <div class="settings-field settings-field--readonly">
+              <span>Sign-in provider</span>
+              <strong>{{ providerLabel() }}</strong>
+            </div>
+
+            <div class="settings-field settings-field--readonly">
+              <span>Access role</span>
+              <strong>{{ activeAccessRoleLabel() || 'Not available' }}</strong>
             </div>
           </div>
         </section>
