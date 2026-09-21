@@ -217,6 +217,7 @@ export class ProfileMobileComponent implements OnInit {
       'email',
       'first_name',
       'last_name',
+      'phone',
       'title',
       'role',
       'avatar',
@@ -253,7 +254,8 @@ export class ProfileMobileComponent implements OnInit {
       lastAccess,
       avatarUrl,
       firstName: (user.first_name ?? '').trim(),
-      lastName: (user.last_name ?? '').trim()
+      lastName: (user.last_name ?? '').trim(),
+      phone: user.phone ?? null
     };
   }
 
@@ -404,6 +406,7 @@ type ProfileUser = {
   email?: string;
   first_name?: string;
   last_name?: string;
+  phone?: string | null;
   title?: string;
   role?: string | { id?: string; name?: string };
   avatar?: string;
@@ -425,6 +428,7 @@ type ProfileView = {
   avatarUrl: string;
   firstName: string;
   lastName: string;
+  phone: string | null;
 };
 
 type ProfileForm = {
