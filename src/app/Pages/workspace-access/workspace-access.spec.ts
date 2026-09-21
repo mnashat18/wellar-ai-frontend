@@ -186,6 +186,19 @@ describe('WorkspaceAccessPageComponent', () => {
     expect(fixture.nativeElement.textContent).toContain('Request organization access');
   });
 
+  it('ignores a workspace creation lock left by a different user in the same browser session', async () => {
+    sessionStorage.setItem('wellar_workspace_creation_lock_v1', JSON.stringify({ userId: 'user-2' }));
+
+    loadPage();
+    await fixture.whenStable();
+
+    const component = fixture.componentInstance;
+    component.openCreateCompany();
+
+    expect(component.createCompanyLocked).toBe(false);
+    expect(component.createCompanyOpen).toBe(true);
+  });
+
   it('clears workspace loading without navigation or an error for a superseded completion', async () => {
     workspaceAccessSpy.openWorkspace.mockReturnValueOnce(EMPTY);
 
