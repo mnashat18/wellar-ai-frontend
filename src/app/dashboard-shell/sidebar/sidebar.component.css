@@ -5,7 +5,9 @@
 .sidebar {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  height: 100dvh;
+  max-height: 100dvh;
+  box-sizing: border-box;
   min-height: 0;
   overflow: hidden;
   padding: 0.85rem;
@@ -73,7 +75,7 @@
   min-width: 0;
   flex: 1 1 auto;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .app-sidebar__company {
@@ -152,6 +154,12 @@
 .app-sidebar__nav {
   display: grid;
   gap: 0.55rem;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  padding-bottom: 0.25rem;
 }
 
 .app-sidebar__group {
@@ -273,11 +281,140 @@
   width: 88%;
 }
 
+.app-sidebar__loading-shell {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-sidebar__loading-shell .app-sidebar__body {
+  overflow: hidden;
+}
+
+.app-sidebar__company--loading {
+  flex: 0 0 auto;
+}
+
+.app-sidebar__skeleton-block,
+.app-sidebar__skeleton-line,
+.app-sidebar__skeleton-pill,
+.app-sidebar__skeleton-nav-item {
+  display: block;
+  background: linear-gradient(
+    90deg,
+    rgba(148, 163, 184, 0.12),
+    rgba(226, 232, 240, 0.2),
+    rgba(148, 163, 184, 0.12)
+  );
+  background-size: 220% 100%;
+  animation: app-sidebar-skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+.app-sidebar__skeleton-line {
+  height: 0.55rem;
+  border-radius: 999px;
+}
+
+.app-sidebar__skeleton-line--eyebrow {
+  width: 5.5rem;
+  height: 0.42rem;
+}
+
+.app-sidebar__skeleton-line--company {
+  width: min(100%, 10rem);
+  height: 0.7rem;
+}
+
+.app-sidebar__skeleton-line--meta {
+  width: min(100%, 7.5rem);
+  height: 0.42rem;
+}
+
+.app-sidebar__skeleton-line--label {
+  width: 4.25rem;
+  height: 0.42rem;
+  margin: 0 0.2rem;
+}
+
+.app-sidebar__skeleton-line--account-name {
+  width: 5.75rem;
+}
+
+.app-sidebar__skeleton-line--account-email {
+  width: 7.5rem;
+  height: 0.42rem;
+}
+
+.app-sidebar__skeleton-pill {
+  width: 3.4rem;
+  height: 1.15rem;
+  border-radius: 999px;
+}
+
+.app-sidebar__skeleton-pill--account {
+  width: 2.6rem;
+}
+
+.app-sidebar__skeleton-nav-item {
+  width: 82%;
+  height: 2.35rem;
+  border-radius: 0.85rem;
+}
+
+.app-sidebar__skeleton-nav-item--medium {
+  width: 92%;
+}
+
+.app-sidebar__skeleton-nav-item--short {
+  width: 72%;
+}
+
+.app-sidebar__nav--loading {
+  align-content: start;
+}
+
+.app-sidebar__account-control--loading {
+  pointer-events: none;
+}
+
+.app-sidebar__loading-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@keyframes app-sidebar-skeleton-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-sidebar__skeleton-block,
+  .app-sidebar__skeleton-line,
+  .app-sidebar__skeleton-pill,
+  .app-sidebar__skeleton-nav-item {
+    animation: none;
+  }
+}
+
 .app-sidebar__footer {
   position: static;
   z-index: auto;
   margin-top: auto;
-  padding-top: 0.45rem;
+  flex: 0 0 auto;
+  padding-top: 0.8rem;
 }
 
 .app-sidebar__account-control {
@@ -741,5 +878,83 @@
   .app-sidebar__nav-item:hover {
     transform: none;
     transition: none;
+  }
+}
+
+@media (max-height: 760px) {
+  .sidebar {
+    gap: 0.6rem;
+    padding: 0.7rem;
+  }
+
+  .app-sidebar__brand {
+    padding-bottom: 0.7rem;
+  }
+
+  .app-sidebar__body {
+    gap: 0.55rem;
+  }
+
+  .app-sidebar__company {
+    padding: 0.6rem 0.7rem;
+  }
+
+  .app-sidebar__company-meta {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-sidebar__nav {
+    gap: 0.35rem;
+  }
+
+  .app-sidebar__nav-item {
+    min-height: 2.35rem;
+    padding-block: 0.4rem;
+  }
+
+  .app-sidebar__footer {
+    padding-top: 0.65rem;
+  }
+
+  .app-sidebar__account-control {
+    min-height: 2.75rem;
+    padding-block: 0.4rem;
+  }
+}
+
+@media (max-height: 680px) {
+  .sidebar {
+    gap: 0.45rem;
+    padding: 0.55rem;
+  }
+
+  .app-sidebar__brand {
+    gap: 0.55rem;
+    padding: 0.2rem 0.2rem 0.55rem;
+  }
+
+  .app-sidebar__logo-wrap {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .app-sidebar__company {
+    padding: 0.5rem 0.6rem;
+  }
+
+  .app-sidebar__company-avatar {
+    width: 1.8rem;
+    height: 1.8rem;
+  }
+
+  .app-sidebar__nav-item {
+    min-height: 2.1rem;
+    padding-block: 0.3rem;
+  }
+
+  .app-sidebar__footer {
+    padding-top: 0.5rem;
   }
 }

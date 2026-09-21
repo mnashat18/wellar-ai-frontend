@@ -608,6 +608,17 @@ export class AuthService {
     );
   }
 
+  checkEmailAvailability(email: string) {
+    return this.http.post<{ data: { available: boolean } }>(
+      `${this.api}/wellar/auth/email-availability`,
+      { email: email.trim() },
+      {
+        headers: new HttpHeaders({ 'Content-Type': 'application/json' }),
+        withCredentials: true
+      }
+    );
+  }
+
   private storeAuthError(err: any) {
     const detail = mapSafeError(err).userMessage;
 

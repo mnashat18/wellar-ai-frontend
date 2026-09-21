@@ -16,12 +16,15 @@ import { Component, Input } from '@angular/core';
           <p *ngIf="helper" class="kpi-helper">{{ helper }}</p>
         </div>
 
-        <span
-          *ngIf="toneLabel && showToneLabel"
-          class="kpi-tone-badge"
-          [ngClass]="toneClass()">
-          {{ toneLabel }}
-        </span>
+        <div class="kpi-card-actions">
+          <span
+            *ngIf="toneLabel && showToneLabel"
+            class="kpi-tone-badge"
+            [ngClass]="toneClass()">
+            {{ toneLabel }}
+          </span>
+          <ng-content select="[kpiAction]"></ng-content>
+        </div>
       </div>
 
       <div *ngIf="footer" class="kpi-footer">

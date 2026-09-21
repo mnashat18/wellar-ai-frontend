@@ -2554,6 +2554,15 @@ body::selection {
   gap: 1rem;
 }
 
+.kpi-card-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .kpi-card-copy {
   min-width: 0;
 }
@@ -2677,7 +2686,85 @@ body::selection {
 }
 
 .app-kpi-card .kpi-helper {
-  max-width: 28ch;
+  max-width: none;
+}
+
+.dashboard-page .app-kpi-card .kpi-helper {
+  -webkit-line-clamp: 3;
+}
+
+.dashboard-page app-page-header .app-page-header__breadcrumbs,
+.dashboard-page app-page-header .app-page-header__layout {
+  width: 100%;
+}
+
+.dashboard-page app-page-header .app-page-header__layout {
+  grid-template-columns: minmax(0, 1.15fr) minmax(19rem, 0.85fr);
+  align-items: center;
+  gap: 1.25rem 1.5rem;
+}
+
+.dashboard-page app-page-header .app-page-header {
+  padding: 1.05rem 1.25rem 1.15rem;
+}
+
+.dashboard-page app-page-header .app-page-header__intro {
+  max-width: 44rem;
+}
+
+.dashboard-page app-page-header .app-page-header__title-block {
+  gap: 0.4rem;
+}
+
+.dashboard-page app-page-header h1 {
+  max-width: 34ch;
+  font-size: clamp(1.55rem, 2.2vw, 2.2rem);
+  line-height: 1.08;
+  text-wrap: balance;
+}
+
+.dashboard-page app-page-header .app-page-header__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-self: center;
+  justify-self: end;
+  width: min(100%, 30rem);
+  min-width: 0;
+  gap: 0.55rem;
+}
+
+.dashboard-page app-page-header .app-page-header__actions > * {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
+@media (max-width: 1199px) {
+  .dashboard-page app-page-header .app-page-header__layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-page app-page-header .app-page-header__actions {
+    justify-self: stretch;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .dashboard-page app-page-header .app-page-header {
+    padding: 0.95rem 1rem 1rem;
+  }
+
+  .dashboard-page app-page-header .app-page-header__actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-page app-page-header .app-page-header__actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .dashboard-action-title {

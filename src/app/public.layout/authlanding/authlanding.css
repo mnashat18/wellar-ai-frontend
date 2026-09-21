@@ -995,6 +995,66 @@
   line-height: 1.32;
 }
 
+.auth-field__availability {
+  color: rgba(226, 232, 240, 0.72);
+  display: block;
+  font-size: 0.74rem;
+  line-height: 1.32;
+}
+
+.auth-field__availability--error {
+  color: #fca5a5;
+}
+
+.auth-duplicate-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.62rem;
+  border: 1px solid rgba(248, 113, 113, 0.62);
+  border-radius: 0.82rem;
+  padding: 0.72rem 0.78rem;
+  background: rgba(127, 29, 29, 0.24);
+  color: #fecaca;
+  line-height: 1.42;
+}
+
+.auth-duplicate-error__icon {
+  display: inline-grid;
+  flex: 0 0 1.1rem;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  background: #f87171;
+  color: #450a0a;
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.auth-duplicate-error__body {
+  display: grid;
+  gap: 0.48rem;
+  min-width: 0;
+}
+
+.auth-duplicate-error__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.42rem;
+}
+
+.auth-duplicate-error__action {
+  border: 1px solid rgba(254, 202, 202, 0.48);
+  border-radius: 0.58rem;
+  padding: 0.34rem 0.56rem;
+  background: rgba(127, 29, 29, 0.42);
+  color: #fff1f2;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
 .auth-password-checklist {
   display: grid;
   gap: 0.22rem;

@@ -471,6 +471,80 @@ describe('CompanyPageComponent department controls', () => {
     expect(component.feedback?.text).toBe('Deactivate the department after reassigning its active members.');
   });
 
+it('rejects invalid phone text without submitting the organization profile', () => {
+  component.profileDraft.phone = 'hgthhh';
+
+  component.saveProfile();
+
+  expect(profileCalls).toHaveLength(0);
+  expect(component.feedback?.text).toBe('Please enter a valid phone number.');
+});
+
+it('accepts a valid international phone number', async () => {
+  component.profileDraft.phone = '+20 10 1234 5678';
+
+  component.saveProfile();
+  await fixture.whenStable();
+
+  expect(profileCalls[0]?.['phone']).toBe('+20 10 1234 5678');
+});
+
+it('always saves English as the organization default language', async () => {
+  component.profileDraft.company_name = 'Northwind';
+  component.profileDraft.default_language = 'ar';
+
+  component.saveProfile();
+  await fixture.whenStable();
+
+  expect(profileCalls[0]?.['default_language']).toBe('en');
+});
+
+it('renders a controlled timezone selector with supported timezone options', () => {
+  component.activeTab = 'overview';
+  fixture.detectChanges();
+
+  const select = document.body.querySelector(
+    'select[name="timezone"]'
+  ) as HTMLSelectElement | null;
+
+  expect(select).toBeTruthy();
+
+  const values = Array.from(select!.options).map((option) => option.value);
+
+  expect(values).toContain('UTC');
+  expect(values).toContain('Africa/Cairo');
+});
+it('rejects an invalid organization website without submitting', () => {
+  component.profileDraft.website = 'not-a-website';
+
+  component.saveProfile();
+
+  expect(profileCalls).toHaveLength(0);
+  expect(component.feedback?.text).toBe(
+    'Please enter a valid website URL.'
+  );
+});
+
+it('accepts a valid organization website URL', async () => {
+  component.profileDraft.website = 'https://example.com';
+
+  component.saveProfile();
+  await fixture.whenStable();
+
+  expect(profileCalls[0]?.['website']).toBe('https://example.com');
+});
+
+it('rejects numeric contact names without submitting', () => {
+  component.profileDraft.contact_name = '123456';
+
+  component.saveProfile();
+
+  expect(profileCalls).toHaveLength(0);
+  expect(component.feedback?.text).toBe(
+    'Please enter a valid contact name.'
+  );
+});
+
   it('clears the busy state and hides raw backend text on unexpected deactivation failures', async () => {
     deactivateError = new Error('SQL timeout while writing activity log');
 

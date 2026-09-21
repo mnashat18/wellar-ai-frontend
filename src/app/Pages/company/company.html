@@ -101,17 +101,38 @@
                 <input name="contact_name" [(ngModel)]="profileDraft.contact_name" [disabled]="!canEditCompanyProfile || savingProfile" />
               </label>
               <label class="company-field">
-                <span>Phone</span>
-                <input name="phone" [(ngModel)]="profileDraft.phone" [disabled]="!canEditCompanyProfile || savingProfile" />
-              </label>
+  <span>Phone</span>
+  <input
+    name="phone"
+    type="tel"
+    inputmode="tel"
+    autocomplete="tel"
+    maxlength="24"
+    placeholder="+20 10 1234 5678"
+    [(ngModel)]="profileDraft.phone"
+    [disabled]="!canEditCompanyProfile || savingProfile"
+  />
+  <span class="company-field__help">
+    Use digits with optional +, spaces, parentheses or hyphens.
+  </span>
+</label>
               <label class="company-field">
                 <span>Industry</span>
                 <input name="industry" [(ngModel)]="profileDraft.industry" [disabled]="!canEditCompanyProfile || savingProfile" />
               </label>
               <label class="company-field">
-                <span>Team size</span>
-                <input name="team_size" inputmode="numeric" [(ngModel)]="profileDraft.team_size" [disabled]="!canEditCompanyProfile || savingProfile" />
-              </label>
+  <span>Team size</span>
+  <input
+    name="team_size"
+    type="number"
+    inputmode="numeric"
+    min="1"
+    step="1"
+    placeholder="e.g. 25"
+    [(ngModel)]="profileDraft.team_size"
+    [disabled]="!canEditCompanyProfile || savingProfile"
+  />
+</label>
               <label class="company-field">
                 <span>Country</span>
                 <input name="country" [(ngModel)]="profileDraft.country" [disabled]="!canEditCompanyProfile || savingProfile" />
@@ -121,17 +142,30 @@
                 <input name="city" [(ngModel)]="profileDraft.city" [disabled]="!canEditCompanyProfile || savingProfile" />
               </label>
               <label class="company-field">
-                <span>Website</span>
-                <input name="website" [(ngModel)]="profileDraft.website" [disabled]="!canEditCompanyProfile || savingProfile" />
-              </label>
+  <span>Website</span>
+  <input
+    name="website"
+    type="url"
+    inputmode="url"
+    autocomplete="url"
+    placeholder="https://example.com"
+    [(ngModel)]="profileDraft.website"
+    [disabled]="!canEditCompanyProfile || savingProfile"
+  />
+</label>
               <label class="company-field">
-                <span>Timezone</span>
-                <input name="timezone" [(ngModel)]="profileDraft.timezone" [disabled]="!canEditCompanyProfile || savingProfile" />
-              </label>
-              <label class="company-field">
-                <span>Default language</span>
-                <input name="default_language" [(ngModel)]="profileDraft.default_language" [disabled]="!canEditCompanyProfile || savingProfile" />
-              </label>
+  <span>Timezone</span>
+  <select
+    name="timezone"
+    [(ngModel)]="profileDraft.timezone"
+    [disabled]="!canEditCompanyProfile || savingProfile"
+  >
+    <option value="">Select timezone</option>
+    <option *ngFor="let timezone of timezoneOptions" [value]="timezone">
+      {{ timezone }}
+    </option>
+  </select>
+</label>
 
               <div class="company-form-actions company-form-actions--full">
                 <button
