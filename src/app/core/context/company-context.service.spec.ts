@@ -60,6 +60,28 @@ describe('CompanyContextService canonical organization context', () => {
     httpMock.verify();
   });
 
+  it('does not let an incomplete context publish erase the hydrated phone', () => {
+    service.publishCurrentUser({
+      id: 'user-1',
+      email: 'owner@example.com',
+      first_name: 'Avery',
+      last_name: 'Owner',
+      phone: '+201018320789',
+      avatar: null
+    });
+
+    service.publishCurrentUser({
+      id: 'user-1',
+      email: 'owner@example.com',
+      first_name: 'Avery',
+      last_name: 'Owner',
+      phone: null,
+      avatar: null
+    });
+
+    expect(service.snapshot().context.currentUser?.phone).toBe('+201018320789');
+  });
+
   it('refreshCurrentUser preserves auth and workspace refresh for an established session', async () => {
     const auth = TestBed.inject(AuthService) as any;
     const restored = vi.spyOn(service, 'restoreWorkspaceContext').mockReturnValue(of({

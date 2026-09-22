@@ -224,7 +224,8 @@ export class CompanyContextService {
     const current = this.stateSubject.value;
     const nextUser = {
       ...user,
-      avatar: user.avatar ?? current.context.currentUser?.avatar ?? null
+      avatar: user.avatar ?? current.context.currentUser?.avatar ?? null,
+      phone: user.phone ?? current.context.currentUser?.phone ?? null
     };
     const nextContext = {
       ...current.context,
