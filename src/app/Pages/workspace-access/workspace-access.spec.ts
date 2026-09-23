@@ -640,4 +640,57 @@ describe('WorkspaceAccessPageComponent', () => {
     expect(component.createCompanyErrorCode).toBe('VALIDATION');
     expect(component.createCompanyError).toBe('Company name is required.');
   });
+
+  it('rejects a phone number with fewer than seven digits before calling the backend', async () => {
+    const component = fixture.componentInstance;
+    component.openCreateCompany();
+    component.createCompanyForm.companyName = 'Northwind Logistics';
+    component.createCompanyForm.firstName = 'Jane';
+    component.createCompanyForm.lastName = 'Owner';
+    component.createCompanyForm.workEmail = 'jane.owner@example.com';
+    component.createCompanyForm.country = 'Egypt';
+    component.createCompanyForm.phone = '8';
+
+    component.createCompany();
+
+    expect(workspaceCreationSpy.createWorkspace).not.toHaveBeenCalled();
+    expect(component.createCompanyErrorCode).toBe('VALIDATION');
+    expect(component.createCompanyError).toBe('Phone number must include at least 7 digits.');
+  });
+
+  it('rejects an unselected country before calling the backend', async () => {
+    const component = fixture.componentInstance;
+    component.openCreateCompany();
+    component.createCompanyForm.companyName = 'Northwind Logistics';
+    component.createCompanyForm.firstName = 'Jane';
+    component.createCompanyForm.lastName = 'Owner';
+    component.createCompanyForm.workEmail = 'jane.owner@example.com';
+    component.createCompanyForm.country = '';
+    component.createCompanyForm.phone = '+1 555 010 1234';
+
+    component.createCompany();
+
+    expect(workspaceCreationSpy.createWorkspace).not.toHaveBeenCalled();
+    expect(component.createCompanyErrorCode).toBe('VALIDATION');
+    expect(component.createCompanyError).toBe('Country is required.');
+  });
+
+  it('rejects a digits-only company name before calling the backend', async () => {
+    const component = fixture.componentInstance;
+    component.openCreateCompany();
+    component.createCompanyForm.companyName = '888888';
+    component.createCompanyForm.firstName = 'Jane';
+    component.createCompanyForm.lastName = 'Owner';
+    component.createCompanyForm.workEmail = 'jane.owner@example.com';
+    component.createCompanyForm.country = 'Egypt';
+    component.createCompanyForm.phone = '+1 555 010 1234';
+
+    component.createCompany();
+
+    expect(workspaceCreationSpy.createWorkspace).not.toHaveBeenCalled();
+    expect(component.createCompanyErrorCode).toBe('VALIDATION');
+    expect(component.createCompanyError).toBe(
+      'Company name must contain letters and be at least 3 characters.'
+    );
+  });
 });
