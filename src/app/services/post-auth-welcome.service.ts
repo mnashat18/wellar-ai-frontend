@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 
 export type PostAuthWelcomeKind = 'returning' | 'workspace' | 'invite';
@@ -11,10 +11,23 @@ export type PostAuthWelcomeIntent = {
 };
 
 @Injectable({ providedIn: 'root' })
-export class PostAuthWelcomeService {
+export class PostAuthWelcomeService implements OnDestroy {
   private readonly intentSubject = new BehaviorSubject<PostAuthWelcomeIntent | null>(null);
+  private readonly logoutResetHandler = (): void => this.reset();
 
   readonly intent$ = this.intentSubject.asObservable();
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
 
   queueReturningWelcome(firstName: string | null | undefined, destinationRoute: string): void {
     this.queueIntent({
@@ -54,6 +67,10 @@ export class PostAuthWelcomeService {
   }
 
   clear(): void {
+    this.reset();
+  }
+
+  reset(): void {
     this.intentSubject.next(null);
   }
 

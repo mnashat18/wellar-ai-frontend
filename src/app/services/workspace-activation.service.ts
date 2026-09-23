@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 
 export type PendingWorkspaceActivation = {
   businessProfileId: string;
@@ -7,9 +7,27 @@ export type PendingWorkspaceActivation = {
 };
 
 @Injectable({ providedIn: 'root' })
-export class WorkspaceActivationService {
+export class WorkspaceActivationService implements OnDestroy {
   private readonly storageKey = 'wellar_workspace_activation_v1';
   private readonly maxAgeMs = 10 * 60 * 1000;
+
+  private readonly logoutResetHandler = (): void => this.reset();
+
+  constructor() {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  reset(): void {
+    this.clearActivation();
+  }
 
   startActivation(input: { businessProfileId: string; companyName?: string | null }): void {
     const businessProfileId = this.normalizeText(input.businessProfileId);

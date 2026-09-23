@@ -13,6 +13,7 @@ describe('CompanyContextService canonical organization context', () => {
   let service: CompanyContextService;
   let httpMock: HttpTestingController;
   let storedAccessToken: string;
+  let authGeneration = 0;
 
   const settleAsync = async (): Promise<void> => {
     await Promise.resolve();
@@ -24,6 +25,7 @@ describe('CompanyContextService canonical organization context', () => {
     TestBed.resetTestingModule();
     localStorage.clear();
     storedAccessToken = 'access-token';
+    authGeneration = 0;
 
     await TestBed.configureTestingModule({
       providers: [
@@ -45,6 +47,8 @@ describe('CompanyContextService canonical organization context', () => {
             ),
             isLoggedIn: vi.fn(() => true),
             isSessionEstablished: vi.fn(() => true),
+            getAuthGeneration: vi.fn(() => authGeneration),
+            isAuthGenerationCurrent: vi.fn((generation: number) => generation === authGeneration),
             ensureSession: vi.fn(() => of(true)),
             clearAuthState: vi.fn(),
           }
@@ -130,6 +134,27 @@ describe('CompanyContextService canonical organization context', () => {
     expect(firstResult.state.context.userId).toBe('user-1');
     expect(secondResult).toBe(firstResult);
     httpMock.expectNone((req) => req.url.includes('/wellar/workspaces/context') && req !== contextRequest.request);
+  });
+
+  it('ignores a restoration response that completes after reset', async () => {
+    const restoration = firstValueFrom(service.restoreWorkspaceContext(true));
+    await settleAsync();
+
+    const contextRequest = httpMock.expectOne((req) => req.url.includes('/wellar/workspaces/context'));
+    contextRequest.flush({ data: { active: null, memberships: [], invitations: [] } });
+    await settleAsync();
+
+    const userRequest = httpMock.expectOne((req) => req.url.includes('/users/me'));
+    authGeneration += 1;
+    service.reset();
+    userRequest.flush({ data: { id: 'old-user', email: 'old@example.com' } });
+    await restoration;
+
+    expect(service.snapshot().context.userId).toBeNull();
+    expect(service.snapshot().context.currentUser).toBeNull();
+    expect(service.snapshot().context.activeBusinessProfileId).toBeNull();
+    expect(localStorage.getItem('user_email')).toBeNull();
+    expect(localStorage.getItem('current_user_id')).toBeNull();
   });
 
   it('maps two active memberships from the canonical context into availableCompanies and makes no collection read', async () => {

@@ -18,6 +18,13 @@ type StoredTokens = {
   authenticated: boolean;
 };
 
+export class AuthGenerationChangedError extends Error {
+  constructor() {
+    super('Authentication generation changed while the request was in flight.');
+    this.name = 'AuthGenerationChangedError';
+  }
+}
+
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly api = environment.API_URL;
@@ -26,6 +33,7 @@ export class AuthService {
   private sessionEstablished = false;
   private sessionCheck$: Observable<boolean> | null = null;
   private logoutInFlight = false;
+  private authGeneration = 0;
 
   constructor(private http: HttpClient) {}
 
@@ -307,6 +315,14 @@ export class AuthService {
     return this.sessionEstablished;
   }
 
+  getAuthGeneration(): number {
+    return this.authGeneration;
+  }
+
+  isAuthGenerationCurrent(generation: number): boolean {
+    return generation === this.authGeneration;
+  }
+
   /** Shared server verification for guards and authenticated initialization. */
   ensureSession(): Observable<boolean> {
     return this.ensureSessionToken();
@@ -339,6 +355,7 @@ export class AuthService {
     fields: string[] | null,
     accessToken?: string
   ): Observable<any | null> {
+    const authGeneration = this.authGeneration;
     const normalizedFields = Array.isArray(fields)
       ? fields.map((field) => String(field ?? '').trim()).filter(Boolean)
       : [];
@@ -356,6 +373,10 @@ export class AuthService {
       timeout(12000),
       map((res) => res?.data ?? null),
       switchMap((user) => {
+        if (authGeneration !== this.authGeneration) {
+          return of(null);
+        }
+
         if (!user) {
           return of(null);
         }
@@ -410,6 +431,10 @@ export class AuthService {
         return of(user);
       }),
       catchError((err) => {
+        if (authGeneration !== this.authGeneration) {
+          return of(null);
+        }
+
         sessionStorage.removeItem('is_logged_in');
         // Invalid/unauthorized token: clear stale auth state so the app
         // does not keep retrying /users/me on every public-page load.
@@ -429,12 +454,14 @@ export class AuthService {
     this.clearInviteFlowState();
     sessionStorage.removeItem('post_auth_redirect');
     sessionStorage.removeItem(this.refreshEndpointMissingSessionKey);
+    sessionStorage.removeItem('wellar_workspace_activation_v1');
+    sessionStorage.removeItem('wellar_workspace_creation_lock_v1');
+    sessionStorage.removeItem('wellar_workspace_recovery_return_url');
     this.notifyAuthStateReset('auth-cleared');
   }
 
   clearAuthRecoveryState(): void {
-    this.sessionEstablished = false;
-    this.sessionCheck$ = null;
+    this.reset();
     localStorage.removeItem('auth_error');
     localStorage.removeItem('user_email');
     localStorage.removeItem('current_user_id');
@@ -471,10 +498,17 @@ export class AuthService {
     return this.sessionEstablished;
   }
 
-  logout() {
+  reset(): void {
+    this.sessionEstablished = false;
+    this.sessionCheck$ = null;
+  }
+
+  logout(): void {
     if (this.logoutInFlight) return;
+    this.authGeneration += 1;
     this.logoutInFlight = true;
     this.clearAuthState();
+    this.clearIdentityStorage();
 
     this.http.post(
       `${this.api}/auth/logout`,
@@ -485,9 +519,44 @@ export class AuthService {
       }
     ).pipe(
       catchError(() => of(null))
-    ).subscribe(() => {
-      this.logoutInFlight = false;
+    ).subscribe({
+      next: () => undefined,
+      complete: () => {
+        this.logoutInFlight = false;
+        this.reset();
+        this.notifyAuthLogoutComplete();
+        if (typeof window !== 'undefined') {
+          window.location.href = '/';
+        }
+      }
     });
+  }
+
+  private clearIdentityStorage(): void {
+    [
+      'user_email',
+      'current_user_id',
+      'current_user_org_id',
+      'user_role_id',
+      'user_role_name',
+      'user_display_name',
+      'user_first_name',
+      'user_last_name',
+      'user_phone',
+      'user_avatar',
+      'active_member_id',
+      'active_member_role',
+      'active_business_profile_id',
+      'active_business_profile',
+      'active_business_profile_name',
+      'active_company',
+      'active_department',
+      'active_department_name',
+      'active_workspace',
+      'active_workspace_membership_user_id',
+      'active_workspace_membership_sync_v1',
+      'active_workspace_membership_v1'
+    ].forEach((key) => localStorage.removeItem(key));
   }
 
   ensureTrialAccess() {
@@ -780,5 +849,17 @@ export class AuthService {
     }
 
     return false;
+  }
+
+  private notifyAuthLogoutComplete(): void {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    try {
+      window.dispatchEvent(new Event('wellar-auth-logout-complete'));
+    } catch {
+      // ignore browser event errors
+    }
   }
 }

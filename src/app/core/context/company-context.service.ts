@@ -6,7 +6,7 @@ import { catchError, finalize, map, shareReplay, switchMap, tap, timeout } from 
 import { environment } from '../../../environments/environment';
 
 import { type ActiveMemberRole } from '../../ia/wellar-ia';
-import { AuthService } from '../../services/auth';
+import { AuthGenerationChangedError, AuthService } from '../../services/auth';
 import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 import {
   WorkspaceContextApiError,
@@ -196,6 +196,7 @@ export class CompanyContextService {
   private restorationResult: WorkspaceRestorationResult | null = null;
   private restorationStatus: WorkspaceRestorationStatus = 'idle';
   private verifiedWorkspaceContext: VerifiedWorkspaceContext | null = null;
+  private restorationGeneration = 0;
   private switchGeneration = 0;
   private switchPipeline: Promise<void> = Promise.resolve();
 
@@ -247,8 +248,10 @@ export class CompanyContextService {
   ) {
     if (typeof window !== 'undefined') {
       window.addEventListener('wellar-auth-state-reset', this.onAuthStateReset);
+      window.addEventListener('wellar-auth-logout-complete', this.onAuthLogoutComplete);
       this.destroyRef.onDestroy(() => {
         window.removeEventListener('wellar-auth-state-reset', this.onAuthStateReset);
+        window.removeEventListener('wellar-auth-logout-complete', this.onAuthLogoutComplete);
       });
     }
   }
@@ -703,6 +706,11 @@ export class CompanyContextService {
       return of(this.restorationResult);
     }
 
+    const restorationGeneration = this.restorationGeneration;
+    const isCurrent = () =>
+      restorationGeneration === this.restorationGeneration &&
+      (!options.commitGuard || options.commitGuard());
+
     this.restorationStatus = 'restoring';
     if (!options.commitGuard) {
       this.stateSubject.next({
@@ -711,16 +719,27 @@ export class CompanyContextService {
         error: null
       });
     }
-    const request$ = from(this.runWorkspaceRestoration(options)).pipe(
+    const request$ = from(this.runWorkspaceRestoration({ ...options, commitGuard: isCurrent })).pipe(
       tap((result) => {
-        if (!options.commitGuard || options.commitGuard()) {
+        if (isCurrent()) {
           this.restorationResult = result;
           this.restorationStatus = 'success';
         }
       }),
       catchError((error) => {
-        this.restorationResult = null;
-        this.restorationStatus = 'failed';
+        if (error instanceof AuthGenerationChangedError) {
+          return of({
+            state: this.snapshot(),
+            workspaceContext: null,
+            memberships: [],
+            verifiedContext: null
+          });
+        }
+
+        if (restorationGeneration === this.restorationGeneration) {
+          this.restorationResult = null;
+          this.restorationStatus = 'failed';
+        }
         return throwError(() => error);
       }),
       finalize(() => {
@@ -736,7 +755,14 @@ export class CompanyContextService {
   private async runWorkspaceRestoration(
     options: EnsureLoadedOptions = {}
   ): Promise<WorkspaceRestorationResult> {
+    const authGeneration = this.auth.getAuthGeneration();
+    const assertAuthGeneration = (): void => {
+      if (!this.auth.isAuthGenerationCurrent(authGeneration)) {
+        throw new AuthGenerationChangedError();
+      }
+    };
     const established = await firstValueFrom(this.auth.ensureSession());
+    assertAuthGeneration();
     if (!established) {
       if (options.commitGuard && !options.commitGuard()) {
         const state = this.snapshot();
@@ -751,6 +777,7 @@ export class CompanyContextService {
     const workspaceContext = await firstValueFrom(
       this.workspaceContextApi.getContext().pipe(timeout(10000))
     );
+    assertAuthGeneration();
     const activeMembershipId = this.normalizeId(workspaceContext.active?.membership?.id);
     const syncedMembershipId = this.readStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY);
 
@@ -760,6 +787,7 @@ export class CompanyContextService {
     }
 
     const user = await firstValueFrom(this.fetchCurrentUserContext().pipe(timeout(15000)));
+    assertAuthGeneration();
     if (!user.userId) {
       throw new Error('Workspace restoration returned no authenticated user.');
     }
@@ -796,9 +824,14 @@ export class CompanyContextService {
   }
 
   private ensureLoadedInternal(forceRefresh = false, options: EnsureLoadedOptions = {}): Observable<CompanyContextState> {
+    const authGeneration = this.auth.getAuthGeneration();
     return this.restoreWorkspaceContextInternal(forceRefresh, options).pipe(
       map((result) => result.state),
       catchError((error) => {
+        if (error instanceof AuthGenerationChangedError || !this.auth.isAuthGenerationCurrent(authGeneration)) {
+          return of(this.snapshot());
+        }
+
         if (this.isUnauthorizedError(error)) {
           this.auth.clearAuthState();
           const signedOutState = this.buildSignedOutState(true, true);
@@ -917,6 +950,7 @@ export class CompanyContextService {
   }
 
   private fetchCurrentUserContext(): Observable<UserContextResponse> {
+    const authGeneration = this.auth.getAuthGeneration();
     const stored = this.readStoredContext();
     const fields = [
       'id',
@@ -937,6 +971,10 @@ export class CompanyContextService {
       }
     ).pipe(
       switchMap((response) => {
+        if (!this.auth.isAuthGenerationCurrent(authGeneration)) {
+          throw new AuthGenerationChangedError();
+        }
+
         const user = response?.data ?? response ?? {};
         const hasActiveBusinessProfileField = Object.prototype.hasOwnProperty.call(user, 'active_business_profile');
         const hasActiveMemberRoleField = Object.prototype.hasOwnProperty.call(user, 'active_member_role');
@@ -1021,7 +1059,11 @@ export class CompanyContextService {
           })
         );
       }),
-      tap((user) => this.persistStoredContext(user))
+      tap((user) => {
+        if (this.auth.isAuthGenerationCurrent(authGeneration)) {
+          this.persistStoredContext(user);
+        }
+      })
     );
   }
 
@@ -1406,8 +1448,13 @@ export class CompanyContextService {
     localStorage.removeItem(key);
   }
 
-  private onAuthStateReset = (event?: Event): void => {
-    const reason = (event as CustomEvent<{ reason?: string }>)?.detail?.reason ?? '';
+  reset(): void {
+    this.restorationGeneration += 1;
+    this.switchGeneration += 1;
+    this.restorationInFlight$ = null;
+    this.restorationResult = null;
+    this.restorationStatus = 'idle';
+    this.verifiedWorkspaceContext = null;
     this.clearActiveWorkspaceContext();
     this.persistStoredValue('current_user_id', null);
     this.persistStoredValue('user_email', null);
@@ -1417,13 +1464,15 @@ export class CompanyContextService {
     this.persistStoredValue('user_phone', null);
     this.persistStoredValue('user_avatar', null);
     this.persistStoredValue(ACTIVE_MEMBERSHIP_SYNC_SIGNATURE_KEY, null);
-
-    if (reason === 'logout') {
-      this.stateSubject.next(this.buildSignedOutState(true, true));
-      return;
-    }
-
     this.stateSubject.next(INITIAL_STATE);
+  }
+
+  private onAuthStateReset = (): void => {
+    this.reset();
+  };
+
+  private onAuthLogoutComplete = (): void => {
+    this.reset();
   };
 
   private normalizeBusinessProfile(

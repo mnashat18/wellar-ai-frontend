@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 
 import { CompanyContextService, type ActiveMembershipContext } from '../core/context/company-context.service';
@@ -7,18 +7,35 @@ import { InviteService } from './invites';
 import { PostAuthWelcomeService } from './post-auth-welcome.service';
 
 @Injectable({ providedIn: 'root' })
-export class PostLoginRoutingService {
+export class PostLoginRoutingService implements OnDestroy {
   private readonly resolveTimeoutMs = 12000;
   private inviteClaimInProgress = false;
   private claimFlowPromise: Promise<string> | null = null;
   private inviteClaimGeneration = 0;
+  private readonly logoutResetHandler = (): void => this.reset();
 
   constructor(
     private auth: AuthService,
     private companyContext: CompanyContextService,
     private invites: InviteService,
     private postAuthWelcome: PostAuthWelcomeService
-  ) {}
+  ) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  reset(): void {
+    this.inviteClaimGeneration += 1;
+    this.inviteClaimInProgress = false;
+    this.claimFlowPromise = null;
+  }
 
   async resolveDestination(): Promise<string> {
     const user = await this.auth.getCurrentUserAfterRestore();
@@ -177,9 +194,7 @@ export class PostLoginRoutingService {
   }
 
   cancelPendingInviteClaim(): void {
-    this.inviteClaimGeneration += 1;
-    this.inviteClaimInProgress = false;
-    this.claimFlowPromise = null;
+    this.reset();
   }
 
   async refreshAuthTokenAfterInviteRoleChange(): Promise<void> {
