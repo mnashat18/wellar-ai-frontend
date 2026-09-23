@@ -641,7 +641,6 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     this.loggingOut = true;
     this.companyContext.clearActiveWorkspaceContext();
     this.auth.logout();
-    void this.router.navigateByUrl('/');
   }
 
   clearError(): void {

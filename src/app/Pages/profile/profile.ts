@@ -3,7 +3,6 @@ import { ChangeDetectorRef, Component, DestroyRef, OnInit, inject } from '@angul
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
@@ -40,7 +39,6 @@ export class Profile implements OnInit {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private auth: AuthService,
-    private router: Router,
     private companyContext: CompanyContextService
   ) {}
 
@@ -62,7 +60,6 @@ export class Profile implements OnInit {
 
   logout() {
     this.auth.logout();
-    this.router.navigateByUrl('/');
   }
 
   startEdit() {
