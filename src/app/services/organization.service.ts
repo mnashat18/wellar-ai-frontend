@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { environment } from '../../environments/environment';
 import { Observable, of } from 'rxjs';
@@ -13,11 +13,26 @@ export type Organization = {
 };
 
 @Injectable({ providedIn: 'root' })
-export class OrganizationService {
+export class OrganizationService implements OnDestroy {
   private api = environment.API_URL;
   private endpointForbidden = false;
+  private readonly logoutResetHandler = (): void => this.reset();
 
-  constructor(private http: HttpClient, private auth: AuthService) {}
+  constructor(private http: HttpClient, private auth: AuthService) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  reset(): void {
+    this.endpointForbidden = false;
+  }
 
   getUserOrganization(): Observable<Organization | null> {
     if (this.endpointForbidden) {

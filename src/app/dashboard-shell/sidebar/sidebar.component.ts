@@ -285,7 +285,6 @@ export class SidebarComponent implements OnInit, OnDestroy {
   logout(): void {
     this.closeAccountMenu();
     this.auth.logout();
-    void this.router.navigateByUrl('/');
   }
 
   onAccountAvatarError(vm: SidebarVm): void {

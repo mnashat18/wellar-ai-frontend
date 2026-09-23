@@ -122,6 +122,7 @@ export class NotificationsService implements OnDestroy {
   private currentUserId: string | null = null;
   private loadVersion = 0;
   private readonly pendingReadRequests = new Map<string, PendingReadRequest>();
+  private readonly logoutResetHandler = (): void => this.reset();
 
   readonly state$ = this.stateSubject.asObservable();
 
@@ -129,6 +130,9 @@ export class NotificationsService implements OnDestroy {
     private http: HttpClient,
     private companyContext: CompanyContextService
   ) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
     this.contextSub = this.companyContext.state$.pipe(
       map((state) => this.toContextSnapshot(state.context)),
       distinctUntilChanged((left, right) =>
@@ -146,6 +150,9 @@ export class NotificationsService implements OnDestroy {
 
   ngOnDestroy(): void {
     this.contextSub.unsubscribe();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
   }
 
   initialize(): void {
@@ -206,6 +213,14 @@ export class NotificationsService implements OnDestroy {
       error: null,
       activeWorkspaceId: null
     });
+  }
+
+  reset(): void {
+    this.loadVersion += 1;
+    this.schemaCache.clear();
+    this.pendingReadRequests.clear();
+    this.initialized = false;
+    this.clear();
   }
 
   private handleContextChange(context: ContextSnapshot): void {

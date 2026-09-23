@@ -7,7 +7,7 @@ const USER_MESSAGES: Record<AppErrorKind, string> = {
   timeout: 'The request took too long. Please try again.',
   authentication: 'Your session has expired. Please sign in again.',
   authorization: 'You don’t have permission to perform this action.',
-  validation: 'Please check the highlighted fields and try again.',
+  validation: 'Please review your entries and try again.',
   conflict: 'This change conflicts with the current workspace state.',
   not_found: 'The requested item could not be found.',
   server: 'Something went wrong on our end. Please try again later.',

@@ -43,6 +43,9 @@ describe('AuthService', () => {
     sessionStorage.setItem('auth_session_established_at', '1');
     sessionStorage.setItem('pending_invite_token', 'invite-token');
     sessionStorage.setItem('post_auth_redirect', '/invites/claim?token=invite-token');
+    sessionStorage.setItem('wellar_workspace_activation_v1', '{"businessProfileId":"profile-1"}');
+    sessionStorage.setItem('wellar_workspace_creation_lock_v1', '{"userId":"user-1"}');
+    sessionStorage.setItem('wellar_workspace_recovery_return_url', '/app/workspace-request');
 
     service.clearAuthRecoveryState();
 
@@ -55,6 +58,18 @@ describe('AuthService', () => {
     expect(sessionStorage.getItem('auth_session_established_at')).toBeNull();
     expect(sessionStorage.getItem('pending_invite_token')).toBe('invite-token');
     expect(sessionStorage.getItem('post_auth_redirect')).toBe('/invites/claim?token=invite-token');
+  });
+
+  it('clears workspace transition state with the auth session', () => {
+    sessionStorage.setItem('wellar_workspace_activation_v1', '{"businessProfileId":"profile-1"}');
+    sessionStorage.setItem('wellar_workspace_creation_lock_v1', '{"userId":"user-1"}');
+    sessionStorage.setItem('wellar_workspace_recovery_return_url', '/app/workspace-request');
+
+    service.clearAuthState();
+
+    expect(sessionStorage.getItem('wellar_workspace_activation_v1')).toBeNull();
+    expect(sessionStorage.getItem('wellar_workspace_creation_lock_v1')).toBeNull();
+    expect(sessionStorage.getItem('wellar_workspace_recovery_return_url')).toBeNull();
   });
 
   it('maps provider callback failures to the exact safe Google notice', () => {
@@ -126,6 +141,54 @@ describe('AuthService', () => {
     expect(service.isSessionEstablished()).toBe(false);
     expect(localStorage.getItem('user_email')).toBeNull();
     expect(sessionStorage.getItem('is_logged_in')).toBeNull();
+  });
+
+  it('discards a delayed account A response across logout before account B signs in', async () => {
+    localStorage.setItem('user_email', 'account-a@example.com');
+    const accountARequest = firstValueFrom(service.getCurrentUser());
+
+    service.logout();
+    const logoutRequest = httpMock.expectOne((req) => req.url.endsWith('/auth/logout'));
+    logoutRequest.flush({ data: {} });
+
+    const accountAResponse = httpMock.expectOne((req) => req.url.endsWith('/users/me'));
+    accountAResponse.flush({
+      data: {
+        id: 'account-a',
+        email: 'account-a@example.com',
+        first_name: 'Account',
+        last_name: 'A'
+      }
+    });
+
+    await expect(accountARequest).resolves.toBeNull();
+    expect(localStorage.getItem('user_email')).toBeNull();
+    expect(localStorage.getItem('current_user_id')).toBeNull();
+
+    const signupRequestPromise = firstValueFrom(service.signup({
+      email: 'account-b@example.com',
+      password: 'CorrectPassword123',
+      first_name: 'Account',
+      last_name: 'B'
+    }));
+    httpMock.expectOne((req) => req.url.endsWith('/users/register')).flush({ data: { id: 'account-b' } });
+    await signupRequestPromise;
+
+    const accountBLogin = firstValueFrom(service.login('account-b@example.com', 'CorrectPassword123'));
+    httpMock.expectOne((req) => req.url.endsWith('/auth/login')).flush({ data: {} });
+    const accountBResponse = httpMock.expectOne((req) => req.url.endsWith('/users/me'));
+    accountBResponse.flush({
+      data: {
+        id: 'account-b',
+        email: 'account-b@example.com',
+        first_name: 'Account',
+        last_name: 'B'
+      }
+    });
+
+    await expect(accountBLogin).resolves.toBeTruthy();
+    expect(localStorage.getItem('user_email')).toBe('account-b@example.com');
+    expect(localStorage.getItem('user_email')).not.toBe('account-a@example.com');
   });
 
   it('times out login requests after the bounded auth timeout', async () => {

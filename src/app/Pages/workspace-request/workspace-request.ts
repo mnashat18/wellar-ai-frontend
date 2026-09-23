@@ -949,7 +949,6 @@ export class WorkspaceRequestPageComponent implements OnInit {
 
   logout(): void {
     this.auth.logout();
-    this.router.navigateByUrl('/');
   }
 
   startNewRequest(): void {

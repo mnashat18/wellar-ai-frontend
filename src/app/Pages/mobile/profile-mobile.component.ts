@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
-import { Router, RouterModule } from '@angular/router';
+import { RouterModule } from '@angular/router';
 import { of } from 'rxjs';
 import { catchError, finalize, map, switchMap } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
@@ -38,8 +38,7 @@ export class ProfileMobileComponent implements OnInit {
     private http: HttpClient,
     private cdr: ChangeDetectorRef,
     private auth: AuthService,
-    private subscriptions: SubscriptionService,
-    private router: Router
+    private subscriptions: SubscriptionService
   ) {}
 
   ngOnInit() {
@@ -390,7 +389,6 @@ export class ProfileMobileComponent implements OnInit {
 
   private finishLogout() {
     this.auth.logout();
-    this.router.navigateByUrl('/');
   }
 
   private loadPlanState() {

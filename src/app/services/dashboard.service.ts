@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { BehaviorSubject, Observable, firstValueFrom, forkJoin, of, throwError } from 'rxjs';
 import { catchError, map, switchMap, timeout } from 'rxjs/operators';
@@ -314,7 +314,7 @@ type QueryConfig = {
 };
 
 @Injectable({ providedIn: 'root' })
-export class DashboardService {
+export class DashboardService implements OnDestroy {
   private static readonly stateKeys = {
     stable: 'stable',
     lowFocus: 'low_focus',
@@ -337,6 +337,8 @@ export class DashboardService {
     message: null,
     missingFields: []
   });
+  private scanResultsLoadVersion = 0;
+  private readonly logoutResetHandler = (): void => this.reset();
   private readonly scanResultsFieldVariants: string[][] = [
     [
       'id',
@@ -380,7 +382,26 @@ export class DashboardService {
     private auth: AuthService,
     private companyContext: CompanyContextService,
     private workforceRosterApi: WorkforceRosterApiService
-  ) {}
+  ) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  reset(): void {
+    this.scanResultsLoadVersion += 1;
+    this.scanResultsAccessSubject.next({
+      state: 'available',
+      message: null,
+      missingFields: []
+    });
+  }
 
   getDashboardSnapshot(limit = 20): Observable<DashboardSnapshot> {
     return this.getRecentScans(limit).pipe(
@@ -394,6 +415,7 @@ export class DashboardService {
   }
 
   getRecentScans(limit = 20): Observable<ScanResult[]> {
+    const scanResultsLoadVersion = this.scanResultsLoadVersion;
     return this.companyContext.ensureLoaded().pipe(
       switchMap((state) => {
         const profileId = state.context.activeBusinessProfileId;
@@ -406,7 +428,7 @@ export class DashboardService {
         }
 
         return this.fetchWellnessScans(profileId, role, departmentId, token, limit).pipe(
-          switchMap((wellnessScans) => this.fetchScanResultsForScans(wellnessScans, token)),
+          switchMap((wellnessScans) => this.fetchScanResultsForScans(wellnessScans, token, scanResultsLoadVersion)),
           map((rows) => this.normalizeScans(rows))
         );
       }),
@@ -426,6 +448,7 @@ export class DashboardService {
   }
 
   getOperationalDashboardSummary(): Observable<OperationalDashboardSummary> {
+    const scanResultsLoadVersion = this.scanResultsLoadVersion;
     return this.companyContext.ensureLoaded().pipe(
       switchMap((contextState) => {
         const token = '';
@@ -464,7 +487,7 @@ export class DashboardService {
 
         return summaryRequests$.pipe(
           switchMap((payload) =>
-            this.fetchScanResultsForScans(payload.wellnessRecent, token).pipe(
+            this.fetchScanResultsForScans(payload.wellnessRecent, token, scanResultsLoadVersion).pipe(
               map((scanResultsRecent) =>
                 this.buildOperationalSummary(activeRole, context, {
                   ...payload,
@@ -574,24 +597,32 @@ export class DashboardService {
     }, token);
   }
 
-  private fetchScanResultsForScans(wellnessScans: WellnessScanRecord[], token: string): Observable<ScanResult[]> {
+  private fetchScanResultsForScans(
+    wellnessScans: WellnessScanRecord[],
+    token: string,
+    scanResultsLoadVersion: number
+  ): Observable<ScanResult[]> {
     const scanIds = this.uniqueScanIds(wellnessScans);
     if (!scanIds.length) {
       this.updateScanResultsAccess({
         state: 'available',
         message: null,
         missingFields: []
-      });
+      }, scanResultsLoadVersion);
       return of([]);
     }
 
     return of(null).pipe(
-      switchMap(() => this.loadScanResultsForScans(scanIds, token)),
+      switchMap(() => this.loadScanResultsForScans(scanIds, token, scanResultsLoadVersion)),
       map((rows) => this.normalizeScans(rows))
     );
   }
 
-  private async loadScanResultsForScans(scanIds: string[], token: string): Promise<ScanResult[]> {
+  private async loadScanResultsForScans(
+    scanIds: string[],
+    token: string,
+    scanResultsLoadVersion: number
+  ): Promise<ScanResult[]> {
     const missingFields = new Set<string>();
     console.info('[SCAN_RESULTS_FETCH_START]', {
       scanCount: scanIds.length,
@@ -622,7 +653,7 @@ export class DashboardService {
           state: degradedFields.length ? 'degraded' : 'available',
           message: degradedFields.length ? 'Some scan result enrichment fields are unavailable.' : null,
           missingFields: degradedFields
-        });
+        }, scanResultsLoadVersion);
         console.info('[SCAN_RESULTS_FETCH_SUCCESS]', {
           scanCount: scanIds.length,
           resultCount: rows.length,
@@ -641,7 +672,7 @@ export class DashboardService {
             state: 'permission_blocked',
             message: 'Result data is unavailable due to permissions',
             missingFields: []
-          });
+          }, scanResultsLoadVersion);
           return [];
         }
 
@@ -667,7 +698,7 @@ export class DashboardService {
           state: 'degraded',
           message: 'Some scan result enrichment fields are unavailable.',
           missingFields: Array.from(missingFields)
-        });
+        }, scanResultsLoadVersion);
         return [];
       }
     }
@@ -680,7 +711,7 @@ export class DashboardService {
       state: 'degraded',
       message: 'Some scan result enrichment fields are unavailable.',
       missingFields: Array.from(missingFields)
-    });
+    }, scanResultsLoadVersion);
     return [];
   }
 
@@ -1208,7 +1239,10 @@ export class DashboardService {
     }));
   }
 
-  private updateScanResultsAccess(access: ScanResultsAccessInfo): void {
+  private updateScanResultsAccess(access: ScanResultsAccessInfo, scanResultsLoadVersion: number): void {
+    if (scanResultsLoadVersion !== this.scanResultsLoadVersion) {
+      return;
+    }
     this.scanResultsAccessSubject.next(access);
   }
 

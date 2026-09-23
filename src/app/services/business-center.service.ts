@@ -1,5 +1,5 @@
 import { take } from 'rxjs/operators';
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable, forkJoin, of } from 'rxjs';
 import { catchError, finalize, map, shareReplay, switchMap, tap, timeout } from 'rxjs/operators';
@@ -206,7 +206,7 @@ export type ActivityQueryOptions = {
 };
 
 @Injectable({ providedIn: 'root' })
-export class BusinessCenterService {
+export class BusinessCenterService implements OnDestroy {
   private api = environment.API_URL;
   private readonly requestTimeoutMs = 15000;
   readonly dailyRequestLimit = 5;
@@ -215,8 +215,23 @@ export class BusinessCenterService {
   private readonly hubAccessCacheTtlMs = 30000;
   private readonly hubAccessStateStorageKey = 'wellar_business_hub_access_state_v1';
   private hubAccessInFlight$: Observable<BusinessHubAccessState> | null = null;
+  private readonly logoutResetHandler = (): void => this.reset();
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient) {
+    if (typeof window !== 'undefined') {
+      window.addEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('wellar-auth-logout-complete', this.logoutResetHandler);
+    }
+  }
+
+  reset(): void {
+    this.notifyAuthStateChanged();
+  }
 
   notifyAuthStateChanged(): void {
     this.lastHubAccessState = null;

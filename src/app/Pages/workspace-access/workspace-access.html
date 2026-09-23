@@ -198,7 +198,16 @@
                       [(ngModel)]="createCompanyForm.companyName"
                       name="companyName"
                       maxlength="120"
+                      minlength="3"
+                      pattern="(?=.*[A-Za-zÀ-ÖØ-öø-ÿ]).{3,120}"
+                      #companyNameControl="ngModel"
+                      [class.workspace-access-input--invalid]="companyNameControl.invalid && (companyNameControl.dirty || companyNameControl.touched)"
                       required />
+                    <small
+                      class="workspace-access-field-error"
+                      *ngIf="companyNameControl.invalid && (companyNameControl.dirty || companyNameControl.touched)">
+                      Company name must contain letters and be at least {{ minimumCompanyNameLength }} characters.
+                    </small>
                   </label>
                   <label>
                     <span>First name</span>
@@ -234,16 +243,76 @@
                       class="workspace-access-input"
                       [(ngModel)]="createCompanyForm.phone"
                       name="phone"
-                      maxlength="30" />
+                      maxlength="30"
+                      minlength="7"
+                      pattern="^(?=(?:[^\d]*\d){7,}[^\d]*$)[+()\d\s.-]+$"
+                      #phoneControl="ngModel"
+                      [class.workspace-access-input--invalid]="phoneControl.invalid && (phoneControl.dirty || phoneControl.touched)" />
+                    <small
+                      class="workspace-access-field-error"
+                      *ngIf="phoneControl.invalid && (phoneControl.dirty || phoneControl.touched)">
+                      Phone number must include at least 7 digits.
+                    </small>
                   </label>
                   <label>
                     <span>Country</span>
-                    <input
-                      class="workspace-access-input"
-                      [(ngModel)]="createCompanyForm.country"
-                      name="country"
-                      maxlength="80"
-                      required />
+                    <div class="workspace-access-country-combobox">
+                      <input
+                        class="workspace-access-input"
+                        [(ngModel)]="countrySearch"
+                        (ngModelChange)="onCountrySearchChange($event)"
+                        (focus)="openCountryMenu()"
+                        (click)="openCountryMenu()"
+                        (keydown)="onCountrySearchKeydown($event)"
+                        name="countrySearch"
+                        type="text"
+                        autocomplete="off"
+                        role="combobox"
+                        aria-label="Country"
+                        aria-autocomplete="list"
+                        [attr.aria-expanded]="countryMenuOpen"
+                        [attr.aria-controls]="countryMenuOpen ? 'workspace-country-options' : null"
+                        [attr.aria-activedescendant]="countryMenuOpen && filteredCountries[countryHighlightIndex] ? countryOptionId(filteredCountries[countryHighlightIndex]) : null"
+                        placeholder="Search countries"
+                        #countrySearchControl="ngModel"
+                        [class.workspace-access-input--invalid]="countryControl.invalid && (countrySearchControl.dirty || countrySearchControl.touched)" />
+                      <input
+                        class="workspace-access-country-value"
+                        [(ngModel)]="createCompanyForm.country"
+                        name="country"
+                        type="text"
+                        tabindex="-1"
+                        aria-hidden="true"
+                        required
+                        #countryControl="ngModel" />
+                      <div
+                        *ngIf="countryMenuOpen"
+                        id="workspace-country-options"
+                        class="workspace-access-country-options"
+                        role="listbox">
+                        <button
+                          *ngFor="let country of filteredCountries; let index = index"
+                          type="button"
+                          class="workspace-access-country-option"
+                          [class.workspace-access-country-option--highlighted]="index === countryHighlightIndex"
+                          [id]="countryOptionId(country)"
+                          [attr.aria-selected]="createCompanyForm.country === country.name"
+                          role="option"
+                          (mouseenter)="countryHighlightIndex = index"
+                          (click)="selectCountry(country)">
+                          <span>{{ country.name }}</span>
+                          <span class="workspace-access-country-option__code">{{ country.code }}</span>
+                        </button>
+                        <p *ngIf="!filteredCountries.length" class="workspace-access-country-empty">
+                          No countries match your search.
+                        </p>
+                      </div>
+                    </div>
+                    <small
+                      class="workspace-access-field-error"
+                      *ngIf="countryControl.invalid && (countrySearchControl.dirty || countrySearchControl.touched)">
+                      Please select a valid country.
+                    </small>
                   </label>
                 </div>
 

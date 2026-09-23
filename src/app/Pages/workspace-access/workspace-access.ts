@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, NgZone, OnInit } from '@angular/core';
+import { Component, HostListener, NgZone, OnInit } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { firstValueFrom } from 'rxjs';
@@ -23,6 +23,7 @@ import {
 import { WorkspaceActivationService } from '../../services/workspace-activation.service';
 import { MotionVisibilityDirective } from '../../shared/motion/motion-visibility.directive';
 import { mapSafeError } from '../../shared/errors/safe-error.mapper';
+import { COUNTRY_OPTIONS, type CountryOption } from '../../shared/constants/countries';
 
 @Component({
   selector: 'app-workspace-access-page',
@@ -32,6 +33,8 @@ import { mapSafeError } from '../../shared/errors/safe-error.mapper';
   styleUrl: './workspace-access.css'
 })
 export class WorkspaceAccessPageComponent implements OnInit {
+  readonly countries = COUNTRY_OPTIONS;
+  readonly minimumCompanyNameLength = 3;
   state: WorkspaceAccessState = this.createEmptyState();
   loading = true;
   errorMessage = '';
@@ -47,6 +50,9 @@ export class WorkspaceAccessPageComponent implements OnInit {
   createCompanyError = '';
   createCompanyErrorCode = '';
   createCompanySuccessMessage = '';
+  countrySearch = '';
+  countryMenuOpen = false;
+  countryHighlightIndex = 0;
   readonly createCompanyActivationPendingMessage =
     'Your company was created, but access is still activating. Please refresh this page in a moment.';
   private recoveryReturnUrl: string | null = null;
@@ -239,7 +245,6 @@ export class WorkspaceAccessPageComponent implements OnInit {
 
   logout(): void {
     this.auth.logout();
-    this.router.navigateByUrl('/');
   }
 
   toggleInviteDetails(): void {
@@ -260,6 +265,88 @@ export class WorkspaceAccessPageComponent implements OnInit {
     this.createCompanyErrorCode = '';
     this.createCompanySuccessMessage = '';
     this.ensureCreateCompanyIdempotencyKey();
+  }
+
+  get filteredCountries(): readonly CountryOption[] {
+    const query = this.countrySearch.trim().toLocaleLowerCase();
+    return this.countries.filter((country) => country.name.toLocaleLowerCase().startsWith(query));
+  }
+
+  openCountryMenu(): void {
+    if (this.createCompanyLoading || this.createCompanyLocked) {
+      return;
+    }
+
+    if (!this.countrySearch && this.createCompanyForm.country) {
+      this.countrySearch = this.createCompanyForm.country;
+    }
+
+    this.countryMenuOpen = true;
+    this.countryHighlightIndex = 0;
+  }
+
+  closeCountryMenu(): void {
+    this.countryMenuOpen = false;
+  }
+
+  onCountrySearchChange(value: string): void {
+    this.countrySearch = value;
+    if (this.createCompanyForm.country !== value) {
+      this.createCompanyForm.country = '';
+    }
+    this.countryMenuOpen = true;
+    this.countryHighlightIndex = 0;
+  }
+
+  onCountrySearchKeydown(event: KeyboardEvent): void {
+    const countries = this.filteredCountries;
+
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      this.countryMenuOpen = true;
+      if (countries.length) {
+        this.countryHighlightIndex = (this.countryHighlightIndex + 1) % countries.length;
+      }
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      this.countryMenuOpen = true;
+      if (countries.length) {
+        this.countryHighlightIndex = (this.countryHighlightIndex - 1 + countries.length) % countries.length;
+      }
+      return;
+    }
+
+    if (event.key === 'Enter' && this.countryMenuOpen && countries[this.countryHighlightIndex]) {
+      event.preventDefault();
+      this.selectCountry(countries[this.countryHighlightIndex]);
+      return;
+    }
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      this.closeCountryMenu();
+    }
+  }
+
+  selectCountry(country: CountryOption): void {
+    this.createCompanyForm.country = country.name;
+    this.countrySearch = country.name;
+    this.countryMenuOpen = false;
+  }
+
+  countryOptionId(country: CountryOption): string {
+    return `workspace-country-${country.code.toLowerCase()}`;
+  }
+
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    const target = event.target;
+    if (!(target instanceof HTMLElement) || !target.closest('.workspace-access-country-combobox')) {
+      this.closeCountryMenu();
+    }
   }
 
   createCompany(): void {
@@ -834,6 +921,20 @@ export class WorkspaceAccessPageComponent implements OnInit {
         payload: this.emptyCreateCompanyPayload()
       };
     }
+    if (companyName.length < this.minimumCompanyNameLength) {
+      return {
+        ok: false,
+        message: `Company name must contain letters and be at least ${this.minimumCompanyNameLength} characters.`,
+        payload: this.emptyCreateCompanyPayload()
+      };
+    }
+    if (!this.hasAlphabeticCharacter(companyName)) {
+      return {
+        ok: false,
+        message: `Company name must contain letters and be at least ${this.minimumCompanyNameLength} characters.`,
+        payload: this.emptyCreateCompanyPayload()
+      };
+    }
     if (!firstName) {
       return { ok: false, message: 'First name is required.', payload: this.emptyCreateCompanyPayload() };
     }
@@ -899,6 +1000,13 @@ export class WorkspaceAccessPageComponent implements OnInit {
         payload: this.emptyCreateCompanyPayload()
       };
     }
+    if (!this.isSupportedCountry(country)) {
+      return {
+        ok: false,
+        message: 'Please select a valid country.',
+        payload: this.emptyCreateCompanyPayload()
+      };
+    }
     if (!this.isValidCountry(country)) {
       return {
         ok: false,
@@ -911,7 +1019,9 @@ export class WorkspaceAccessPageComponent implements OnInit {
     if (phone === null && this.createCompanyForm.phone.trim()) {
       return {
         ok: false,
-        message: 'Phone number must contain only valid characters and at least 7 digits.',
+        message: this.countDigits(this.createCompanyForm.phone) < 7
+          ? 'Phone number must include at least 7 digits.'
+          : 'Phone number must contain only valid characters.',
         payload: this.emptyCreateCompanyPayload()
       };
     }
@@ -952,7 +1062,19 @@ export class WorkspaceAccessPageComponent implements OnInit {
       return null;
     }
 
+    if (this.countDigits(normalized) < 7) {
+      return null;
+    }
+
     return normalized.replace(/\s+/g, ' ');
+  }
+
+  private countDigits(value: string): number {
+    return (value.match(/\d/g) ?? []).length;
+  }
+
+  private hasAlphabeticCharacter(value: string): boolean {
+    return /[\p{L}\p{M}]/u.test(value);
   }
 
   private isValidCompanyName(value: string): boolean {
@@ -969,6 +1091,10 @@ export class WorkspaceAccessPageComponent implements OnInit {
 
   private isValidCountry(value: string): boolean {
     return /^[\p{L}\p{M}\p{N}\s.'/-]+$/u.test(value) && !this.isPlaceholderValue(value);
+  }
+
+  private isSupportedCountry(value: string): boolean {
+    return this.countries.some((country) => country.name === value || country.code === value);
   }
 
   private isPlaceholderValue(value: string): boolean {
