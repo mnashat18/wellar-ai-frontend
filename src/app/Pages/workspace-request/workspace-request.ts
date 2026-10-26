@@ -209,7 +209,7 @@ type DirectusUser = {
                 <p class="request-shell__eyebrow">Organization Setup</p>
                 <h1>Organization setup request under review</h1>
                 <p class="request-shell__copy">
-                  Your organization setup request is being reviewed by the Wellar team.
+                  Your organization setup request is being reviewed by the Wisebase team.
                 </p>
               </div>
               <a routerLink="/app/workspace-access" class="request-shell__button">
@@ -235,7 +235,7 @@ type DirectusUser = {
                 <p class="request-shell__eyebrow">Organization Setup</p>
                 <h1>More information needed</h1>
                 <p class="request-shell__copy">
-                  The Wellar team needs more information before approving your organization setup request.
+                  The Wisebase team needs more information before approving your organization setup request.
                 </p>
               </div>
               <a routerLink="/app/workspace-access" class="request-shell__button">
@@ -244,7 +244,7 @@ type DirectusUser = {
             </div>
 
             <p class="request-shell__note" *ngIf="existingApplication">
-              {{ existingApplication.reviewNote || 'Please review the note from the Wellar team below.' }}
+              {{ existingApplication.reviewNote || 'Please review the note from the Wisebase team below.' }}
             </p>
 
             <form class="request-form" (ngSubmit)="submit()" #formRef="ngForm">
@@ -343,7 +343,7 @@ type DirectusUser = {
                 <p class="request-shell__eyebrow">Organization Setup</p>
                 <h1>Organization setup request not approved</h1>
                 <p class="request-shell__copy">
-                  Your organization setup request was not approved. Contact the Wellar team for more information.
+                  Your organization setup request was not approved. Contact the Wisebase team for more information.
                 </p>
               </div>
               <a routerLink="/app/workspace-access" class="request-shell__button">
@@ -376,7 +376,7 @@ type DirectusUser = {
                 <p class="request-shell__eyebrow">Organization Setup</p>
                 <h1>Your organization setup request was approved</h1>
                 <p class="request-shell__copy">
-                  Your organization setup request was approved by the Wellar team. Continue to Organization Access to open it when membership is active.
+                  Your organization setup request was approved by the Wisebase team. Continue to Organization Access to open it when membership is active.
                 </p>
               </div>
               <a routerLink="/app/workspace-access" class="request-shell__button">
@@ -401,7 +401,7 @@ type DirectusUser = {
                 <p class="request-shell__eyebrow">Organization Setup</p>
                 <h1>Organization setup request closed</h1>
                 <p class="request-shell__copy">
-                  This organization setup request is closed. Contact the Wellar team if you need to reopen it, or submit a new request.
+                  This organization setup request is closed. Contact the Wisebase team if you need to reopen it, or submit a new request.
                 </p>
               </div>
               <a routerLink="/app/workspace-access" class="request-shell__button">
@@ -444,7 +444,7 @@ type DirectusUser = {
                 <p class="request-shell__eyebrow">Organization Setup</p>
                 <h1>Organization setup request submitted</h1>
                 <p class="request-shell__copy">
-                  Your request is under review. The Wellar team will contact you before activating organization access.
+                  Your request is under review. The Wisebase team will contact you before activating organization access.
                 </p>
               </div>
               <a routerLink="/app/workspace-access" class="request-shell__button">
@@ -457,7 +457,7 @@ type DirectusUser = {
                 <p class="request-card__eyebrow">Submitted</p>
                 <h3>What happens next</h3>
                 <ol class="request-next-steps">
-                  <li>Your request is now <strong>under review</strong> by the Wellar team.</li>
+                  <li>Your request is now <strong>under review</strong> by the Wisebase team.</li>
                   <li>We'll contact you by email at
                     <strong>{{ existingApplication?.workEmail || 'your work email' }}</strong>
                     with the outcome or any follow-up questions.</li>
@@ -565,7 +565,11 @@ type DirectusUser = {
     </section>
   `,
   styles: [`
-    :host { display: block; }
+    :host {
+      display: block;
+      color: var(--wb-text-primary, #F8FAFC);
+      font-family: var(--wb-font-body, 'Inter', sans-serif);
+    }
 
     .request-shell {
       position: relative;
@@ -580,8 +584,8 @@ type DirectusUser = {
       position: absolute;
       inset: 0;
       background:
-        radial-gradient(800px at 15% 10%, rgba(56, 189, 248, 0.16), transparent 45%),
-        radial-gradient(700px at 80% 0%, rgba(99, 102, 241, 0.15), transparent 42%),
+        radial-gradient(800px at 15% 10%, rgba(16, 185, 129, 0.12), transparent 45%),
+        radial-gradient(700px at 80% 0%, rgba(16, 185, 129, 0.07), transparent 42%),
         linear-gradient(180deg, rgba(5, 8, 22, 0), rgba(5, 8, 22, 0.2));
       pointer-events: none;
     }
@@ -593,8 +597,8 @@ type DirectusUser = {
       padding: 1.4rem;
       border-radius: 1.8rem;
       background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.1), transparent 46%),
-        rgba(9, 14, 28, 0.92);
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 46%),
+        color-mix(in srgb, var(--wb-slate, #1E293B) 88%, var(--wb-obsidian-navy, #0B131E));
     }
 
     .request-shell__header {
@@ -606,7 +610,7 @@ type DirectusUser = {
 
     .request-shell__eyebrow {
       margin: 0;
-      color: rgba(125, 211, 252, 0.88);
+      color: #6ee7b7;
       font-size: 0.72rem;
       font-weight: 800;
       letter-spacing: 0.22em;
@@ -616,7 +620,7 @@ type DirectusUser = {
     h1, h3 {
       margin: 0.35rem 0 0;
       color: #f8fafc;
-      font-family: 'Space Grotesk', 'Manrope', sans-serif;
+      font-family: var(--wb-font-heading, 'Sora', sans-serif);
       letter-spacing: -0.05em;
     }
 
@@ -634,8 +638,8 @@ type DirectusUser = {
     .request-shell__note {
       padding: 0.85rem 1rem;
       border-radius: 1rem;
-      border: 1px solid rgba(56, 189, 248, 0.16);
-      background: rgba(56, 189, 248, 0.08);
+      border: 1px solid rgba(16, 185, 129, 0.2);
+      background: rgba(16, 185, 129, 0.08);
     }
 
     .request-shell__note--error {
@@ -696,6 +700,16 @@ type DirectusUser = {
       outline: none;
     }
 
+    .request-input:focus-visible,
+    .request-shell__button:focus-visible {
+      outline: 2px solid var(--wb-focus, #34D399);
+      outline-offset: 3px;
+    }
+
+    .request-input:focus-visible {
+      border-color: var(--wb-action-primary, #10B981);
+    }
+
     .request-input--textarea {
       min-height: 7.5rem;
       resize: vertical;
@@ -724,14 +738,21 @@ type DirectusUser = {
     }
 
     .request-shell__button:hover {
-      border-color: rgba(56, 189, 248, 0.28);
+      border-color: rgba(16, 185, 129, 0.36);
       background: rgba(255, 255, 255, 0.08);
     }
 
     .request-shell__button--primary {
-      border-color: rgba(56, 189, 248, 0.2);
-      background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(20, 184, 166, 0.22));
+      border-color: var(--wb-action-primary, #10B981);
+      background: var(--wb-action-primary, #10B981);
       color: #f8fafc;
+    }
+
+    .request-shell__button:disabled,
+    .request-shell__button:disabled:hover {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
     }
 
     .request-shell__loading {
@@ -741,9 +762,9 @@ type DirectusUser = {
       margin-top: 1.1rem;
       padding: 1.1rem 1.2rem;
       border-radius: 1.4rem;
-      border: 1px solid rgba(56, 189, 248, 0.16);
+      border: 1px solid rgba(16, 185, 129, 0.2);
       background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.1), transparent 46%),
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 46%),
         rgba(255, 255, 255, 0.03);
       color: rgba(226, 232, 240, 0.78);
       font-size: 0.92rem;
@@ -755,7 +776,7 @@ type DirectusUser = {
       flex: 0 0 auto;
       border-radius: 999px;
       border: 2px solid rgba(148, 163, 184, 0.25);
-      border-top-color: #7dd3fc;
+      border-top-color: var(--wb-intelligence-emerald, #10B981);
     }
 
     .request-next-steps {
@@ -788,14 +809,14 @@ type DirectusUser = {
       border-radius: 1.4rem;
       border: 1px solid rgba(148, 163, 184, 0.12);
       background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 42%),
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.06), transparent 42%),
         rgba(255, 255, 255, 0.03);
     }
 
     .request-card--success {
-      border-color: rgba(56, 189, 248, 0.3);
+      border-color: rgba(16, 185, 129, 0.32);
       background:
-        radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 48%),
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.1), transparent 48%),
         rgba(255, 255, 255, 0.04);
     }
 

@@ -1,5 +1,10 @@
 .reports-page {
   overflow-x: hidden;
+  font-family: var(--wb-font-body);
+}
+
+.reports-page :is(h1, h2, h3) {
+  font-family: var(--wb-font-heading);
 }
 
 .reports-scope-strip {
@@ -49,7 +54,7 @@
 .reports-state-card__title,
 .reports-inline-empty p {
   margin: 0;
-  color: #f8fafc;
+  color: var(--wb-ice-white);
   font-weight: 800;
 }
 
@@ -135,8 +140,13 @@
 
 .reports-export-control__item:hover,
 .reports-export-control__item:focus-visible {
-  background: rgba(14, 165, 233, 0.14);
-  color: #f8fafc;
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--wb-ice-white);
+}
+
+.reports-export-control__item:focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
 }
 
 .reports-export-control__item:disabled {
@@ -306,12 +316,12 @@
 }
 
 .reports-table-row:hover {
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .reports-primary-text {
   margin: 0;
-  color: #f8fafc;
+  color: var(--wb-ice-white);
   font-weight: 800;
 }
 
@@ -357,6 +367,11 @@
   border-color: rgba(148, 163, 184, 0.34);
   background: rgba(71, 85, 105, 0.3);
   color: rgb(203 213 225);
+}
+
+.reports-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
 }
 
 @media (max-width: 760px) {

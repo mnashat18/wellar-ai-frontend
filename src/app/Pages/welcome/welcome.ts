@@ -294,7 +294,7 @@ export class WelcomePageComponent implements OnInit, OnDestroy {
 
     const firstName = this.intent.firstName ?? 'there';
     return this.intent.kind === 'workspace'
-      ? `Welcome to Wellar, ${firstName}`
+      ? `Welcome to Wisebase, ${firstName}`
       : `Welcome back, ${firstName}`;
   }
 

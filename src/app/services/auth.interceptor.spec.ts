@@ -3,6 +3,9 @@ import { HttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
 import { AuthInterceptor } from './auth.interceptor';
+import { environment } from '../../environments/environment';
+
+const API_URL = environment.API_URL;
 
 describe('AuthInterceptor', () => {
   let http: HttpClient;
@@ -23,15 +26,15 @@ describe('AuthInterceptor', () => {
   afterEach(() => httpMock.verify());
 
   it('adds cookie credentials to Directus requests', () => {
-    http.get('https://dash.conntinuity.com/users/me').subscribe();
-    const request = httpMock.expectOne('https://dash.conntinuity.com/users/me');
+    http.get(`${API_URL}/users/me`).subscribe();
+    const request = httpMock.expectOne(`${API_URL}/users/me`);
     expect(request.request.withCredentials).toBe(true);
     request.flush({ data: { id: 'user-1' } });
   });
 
   it('removes stale Authorization headers without constructing a replacement', () => {
-    http.get('https://dash.conntinuity.com/users/me', { headers: { Authorization: 'Bearer stale' } }).subscribe();
-    const request = httpMock.expectOne('https://dash.conntinuity.com/users/me');
+    http.get(`${API_URL}/users/me`, { headers: { Authorization: 'Bearer stale' } }).subscribe();
+    const request = httpMock.expectOne(`${API_URL}/users/me`);
     expect(request.request.withCredentials).toBe(true);
     expect(request.request.headers.has('Authorization')).toBe(false);
     request.flush({ data: { id: 'user-1' } });
@@ -45,8 +48,8 @@ describe('AuthInterceptor', () => {
   });
 
   it('preserves query parameters and request body', () => {
-    http.post('https://dash.conntinuity.com/items/events?limit=1', { value: 'ok' }).subscribe();
-    const request = httpMock.expectOne('https://dash.conntinuity.com/items/events?limit=1');
+    http.post(`${API_URL}/items/events?limit=1`, { value: 'ok' }).subscribe();
+    const request = httpMock.expectOne(`${API_URL}/items/events?limit=1`);
     expect(request.request.withCredentials).toBe(true);
     expect(request.request.body).toEqual({ value: 'ok' });
     request.flush({ data: { id: 'event-1' } });

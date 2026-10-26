@@ -245,7 +245,7 @@ export class Profile implements OnInit {
   private mapProfile(user: ProfileUser, roleLabelOverride?: string): ProfileView {
     const fullName = this.buildName(user.first_name, user.last_name);
     const email = user.email ?? '';
-    const displayName = fullName || email || 'Wellar User';
+    const displayName = fullName || email || 'Wisebase User';
     const initials = this.buildInitials(displayName);
     const avatarUrl = user.avatar ? this.buildAvatarUrl(user.avatar) : '';
     const status = this.formatStatus(user.status);

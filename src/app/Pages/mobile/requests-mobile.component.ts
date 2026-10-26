@@ -31,6 +31,7 @@ import { mapSafeError } from '../../shared/errors/safe-error.mapper';
   templateUrl: './requests-mobile.html'
 })
 export class RequestsMobileComponent implements OnInit, OnDestroy {
+  requestLoadState: 'loading' | 'loaded' | 'authentication_required' | 'permission_denied' | 'unavailable' = 'loading';
   readonly maxRecipientEmails = 5;
   readonly dailyRequestLimit: number;
   readonly memberRoleOptions: TeamMemberRoleOption[] = [
@@ -348,6 +349,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
   }
 
   private loadRequests(retryAttempt = 0) {
+    this.requestLoadState = 'loading';
     if (this.hasBusinessAccess && this.canViewAllBusinessRequests) {
       this.loadBusinessRequests(retryAttempt);
       return;
@@ -360,11 +362,13 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
     if (!this.auth.isSessionEstablished()) {
       this.tryRecoverSessionAndReload();
       this.applyRequests([]);
+      this.setRequestLoadState('authentication_required');
       return;
     }
 
     if (!this.currentBusinessProfileId) {
       this.applyRequests([]);
+      this.setRequestLoadState('unavailable');
       return;
     }
 
@@ -372,13 +376,17 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
       businessProfileId: this.currentBusinessProfileId,
       bustCache: true
     }).subscribe({
-      next: (requests) => this.applyRequests(requests),
+      next: (requests) => {
+        this.applyRequests(requests);
+        this.setRequestLoadState('loaded');
+      },
       error: (fetchErr) => {
         console.error('[requests-mobile] requests error:', mapSafeError(fetchErr).kind);
-        if (fetchErr?.status === 401 || fetchErr?.status === 403) {
+        if (fetchErr?.status === 401) {
           this.tryRecoverSessionAndReload();
         }
         this.applyRequests([]);
+        this.setRequestLoadState(this.requestFailureState(fetchErr));
       }
     });
   }
@@ -389,6 +397,7 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
     if (!this.auth.isSessionEstablished() || !userId) {
       this.tryRecoverSessionAndReload();
       this.applyRequests([]);
+      this.setRequestLoadState('authentication_required');
       return;
     }
 
@@ -398,16 +407,18 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
     }).subscribe({
       next: (requests) => {
         this.applyRequests(requests);
+        this.setRequestLoadState('loaded');
         if (this.shouldRetryEmptyResult(requests.length, retryAttempt)) {
           this.scheduleEmptyResultRetry(retryAttempt + 1);
         }
       },
       error: (fetchErr) => {
         console.error('[requests-mobile] own requests error:', mapSafeError(fetchErr).kind);
-        if (fetchErr?.status === 401 || fetchErr?.status === 403) {
+        if (fetchErr?.status === 401) {
           this.tryRecoverSessionAndReload();
         }
         this.applyRequests([]);
+        this.setRequestLoadState(this.requestFailureState(fetchErr));
       }
     });
   }
@@ -768,6 +779,17 @@ export class RequestsMobileComponent implements OnInit, OnDestroy {
 
   private describeHttpError(error: unknown, fallback: string): string {
     return mapSafeError(error).userMessage || fallback;
+  }
+
+  private requestFailureState(error: { status?: number }): 'authentication_required' | 'permission_denied' | 'unavailable' {
+    if (error?.status === 401) return 'authentication_required';
+    if (error?.status === 403) return 'permission_denied';
+    return 'unavailable';
+  }
+
+  private setRequestLoadState(state: RequestsMobileComponent['requestLoadState']): void {
+    this.requestLoadState = state;
+    this.cdr.detectChanges();
   }
 
   private isValidEmail(value: string): boolean {

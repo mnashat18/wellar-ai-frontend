@@ -400,7 +400,7 @@ describe('CompanyPageComponent department controls', () => {
     await fixture.whenStable();
 
     expect(component.savingDepartment).toBe(false);
-    expect(component.feedback?.text).toBe('Please check the highlighted fields and try again.');
+    expect(component.feedback?.text).toBe('Please review your entries and try again.');
     expect(component.feedback?.text).not.toContain('Directus');
 
     createDepartmentError = null;

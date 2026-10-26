@@ -33,6 +33,6 @@ describe('BusinessCenterService mutation safety', () => {
 
     httpMock.expectNone('https://dash.conntinuity.com/items/requests');
     expect(result?.ok).toBe(false);
-    expect(result?.message).toContain('Invalid field in payload.');
+    expect(result?.message).toBe('Please review your entries and try again.');
   });
 });

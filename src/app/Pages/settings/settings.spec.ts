@@ -38,9 +38,10 @@ describe('SettingsPageComponent', () => {
     return {
     state$: new BehaviorSubject(state),
     snapshot: () => state,
-    clearActiveWorkspaceContext: () => undefined,
+    clearActiveWorkspaceContext: vi.fn(),
     ensureActiveContext: () => Promise.resolve(),
     ensureLoaded: () => of(null),
+    getActiveMembership: () => ({ id: 'membership-1' }),
     restoreWorkspaceContext: () =>
       of({
         workspaceContext: {
@@ -67,7 +68,7 @@ describe('SettingsPageComponent', () => {
           }
         }
       }),
-    activateFromMembership: () => Promise.resolve(),
+    activateFromMembership: vi.fn(() => Promise.resolve()),
     applyCurrentUserPatch: vi.fn(),
     publishCurrentUser: vi.fn()
     };
@@ -179,6 +180,21 @@ describe('SettingsPageComponent', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Refresh');
   });
 
+  it('uses a browser-valid phone pattern without changing the accepted character set', async () => {
+    await createComponent();
+
+    const phoneInput = fixture.nativeElement.querySelector('input[type="tel"]') as HTMLInputElement;
+    const pattern = phoneInput.getAttribute('pattern');
+    expect(pattern).toBe('(?:[0-9 ]|\\(|\\)|\\+|-)*');
+    const browserPattern = new RegExp(`^(?:${pattern})$`, 'v');
+
+    for (const value of ['+20 (10) 1234-5678', '201012345678', '+20-10-1234-5678', '']) {
+      expect(browserPattern.test(value)).toBe(true);
+    }
+
+    expect(browserPattern.test('020/12345678')).toBe(false);
+  });
+
   it('switches to Preferences and Security through the tab controls', async () => {
     await createComponent();
 
@@ -196,6 +212,33 @@ describe('SettingsPageComponent', () => {
     tabs[2].click();
     fixture.detectChanges();
     expect(component.activeTab).toBe('security');
+  });
+
+  it('keeps the already restored active membership without reactivating workspace context', async () => {
+    await createComponent();
+    const context = TestBed.inject(CompanyContextService) as any;
+    component.memberships = [{
+      id: 'membership-1',
+      status: 'active',
+      memberRoleRaw: 'owner',
+      businessProfile: {
+        id: 'profile-1',
+        companyName: 'Wellar',
+        isActive: true,
+        planCode: 'pilot',
+        billingStatus: 'trial',
+        dateCreated: null,
+        dateUpdated: null
+      },
+      department: null
+    }];
+
+    await (component as any).ensureActiveMembershipConsistency({
+      active: { membership: { id: 'membership-1' } }
+    }, false);
+
+    expect(context.clearActiveWorkspaceContext).not.toHaveBeenCalled();
+    expect(context.activateFromMembership).not.toHaveBeenCalled();
   });
 
   it('keeps the save action disabled until the profile is dirty and rejects invalid avatar files', async () => {

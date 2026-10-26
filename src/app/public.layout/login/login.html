@@ -2,13 +2,12 @@
   <section class="auth-brand">
     <div class="brand-content">
       <picture>
-        <source srcset="assets/logo/wellar-wordmark-512.webp" type="image/webp" />
-        <img class="brand-mark" src="assets/logo/wellar-wordmark-512.png" alt="Wellar AI" width="512" height="341" decoding="async" />
+        <img class="brand-mark" src="/branding/wisebase-landing.png" alt="Wisebase logo" width="512" height="512" decoding="async" />
       </picture>
       <p class="brand-kicker">{{ inviteMode ? 'Workspace invite' : 'Enterprise wellness intelligence' }}</p>
       <h1>{{ inviteMode ? 'Log in to join your workspace' : 'Secure AI Healthcare Access' }}</h1>
       <p *ngIf="inviteMode">
-        You were invited to join a Wellar AI workspace. Sign in or create an account to continue.
+        You were invited to join a Wisebase workspace. Sign in or create an account to continue.
       </p>
       <p *ngIf="!inviteMode">
         Monitor cognitive wellness, detect risks early,
@@ -26,8 +25,8 @@
     <div class="auth-card animate-auth">
       <p class="auth-eyebrow">Welcome back</p>
       <h2>{{ inviteMode ? 'Log in to join your workspace' : 'Log in' }}</h2>
-      <p class="auth-subtitle" *ngIf="!inviteMode">Login to continue with Wellar AI.</p>
-      <p class="auth-subtitle" *ngIf="inviteMode">You were invited to join a Wellar AI workspace. Sign in or create an account to continue.</p>
+      <p class="auth-subtitle" *ngIf="!inviteMode">Login to continue with Wisebase.</p>
+      <p class="auth-subtitle" *ngIf="inviteMode">You were invited to join a Wisebase workspace. Sign in or create an account to continue.</p>
 
       <p class="auth-subtitle" *ngIf="authNotice" role="status" aria-live="polite">{{ authNotice }}</p>
       <p class="auth-subtitle error" *ngIf="errorMessage" role="alert" aria-live="assertive" aria-atomic="true">{{ errorMessage }}</p>

@@ -1,9 +1,18 @@
 .workforce-page {
-  --workforce-border: rgba(148, 163, 184, 0.24);
-  --workforce-panel: rgba(9, 14, 28, 0.9);
+  --workforce-border: color-mix(in srgb, var(--wb-mist) 18%, transparent);
+  --workforce-panel: color-mix(in srgb, var(--wb-obsidian-navy) 86%, var(--wb-slate));
   min-width: 0;
   max-width: 100%;
   box-sizing: border-box;
+  font-family: var(--wb-font-body);
+}
+
+.workforce-page .dashboard-action-button--primary:disabled,
+.workforce-page .dashboard-action-button--primary[aria-disabled='true'] {
+  background: color-mix(in srgb, var(--wb-intelligence-emerald) 55%, var(--wb-obsidian-navy));
+  color: var(--wb-obsidian-navy);
+  opacity: 0.78;
+  cursor: not-allowed;
 }
 
 .workforce-hero {
@@ -17,7 +26,7 @@
   border: 1px solid rgba(148, 163, 184, 0.14);
   border-radius: 1.6rem;
   background:
-    radial-gradient(520px at 0% 0%, rgba(56, 189, 248, 0.1), transparent 58%),
+    radial-gradient(520px at 0% 0%, rgba(16, 185, 129, 0.1), transparent 58%),
     rgba(9, 14, 28, 0.8);
 }
 
@@ -28,7 +37,7 @@
 
 .workforce-loading-state__eyebrow {
   margin: 0;
-  color: rgba(125, 211, 252, 0.82);
+  color: var(--wb-intelligence-emerald);
   font-size: 0.68rem;
   font-weight: 800;
   letter-spacing: 0.14em;
@@ -37,8 +46,8 @@
 
 .workforce-loading-state h2 {
   margin: 0;
-  color: #f8fafc;
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  color: var(--wb-ice-white);
+  font-family: var(--wb-font-heading);
   font-size: 1.08rem;
   letter-spacing: -0.03em;
 }
@@ -98,17 +107,17 @@
   width: 2rem;
   height: 2rem;
   place-items: center;
-  border: 1px solid rgba(125, 211, 252, 0.24);
+  border: 1px solid rgba(16, 185, 129, 0.32);
   border-radius: 0.7rem;
-  background: rgba(56, 189, 248, 0.1);
-  color: #7dd3fc;
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--wb-intelligence-emerald);
   font-size: 0.9rem;
   font-weight: 900;
 }
 
 .workforce-summary-grid .app-kpi-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(125, 211, 252, 0.3);
+  border-color: rgba(16, 185, 129, 0.42);
   box-shadow: 0 26px 56px rgba(2, 6, 23, 0.32);
 }
 
@@ -120,7 +129,7 @@
 .workforce-page select:focus-visible,
 .workforce-page button:focus-visible,
 .workforce-page a:focus-visible {
-  outline: 2px solid rgba(125, 211, 252, 0.9);
+  outline: 2px solid var(--wb-focus);
   outline-offset: 2px;
 }
 
@@ -148,10 +157,14 @@
 .workforce-tab:hover,
 .workforce-tab:focus-visible,
 .workforce-tab--active {
-  border-color: rgba(56, 189, 248, 0.55);
-  background: rgba(56, 189, 248, 0.12);
-  color: #f8fafc;
-  outline: none;
+  border-color: rgba(16, 185, 129, 0.52);
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--wb-ice-white);
+}
+
+.workforce-page .workforce-tab:focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
 }
 
 .workforce-tab__count {
@@ -232,12 +245,12 @@
 
 .workforce-table-row:hover,
 .workforce-table-row:focus {
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(16, 185, 129, 0.08);
   outline: none;
 }
 
 .workforce-table-row:focus-visible {
-  box-shadow: inset 3px 0 0 #38bdf8;
+  box-shadow: inset 3px 0 0 var(--wb-intelligence-emerald);
 }
 
 .workforce-member-cell {
@@ -402,11 +415,11 @@
   display: grid;
   place-items: center;
   border-radius: 0.7rem;
-  background: linear-gradient(135deg, #7dd3fc, #34d399);
-  color: #041227;
+  background: linear-gradient(135deg, var(--wb-intelligence-emerald), #34d399);
+  color: var(--wb-obsidian-navy);
   font-size: 0.74rem;
   font-weight: 800;
-  box-shadow: 0 8px 18px rgba(20, 184, 166, 0.18);
+  box-shadow: 0 8px 18px rgba(16, 185, 129, 0.18);
 }
 
 .workforce-table td {
@@ -426,9 +439,9 @@
 
 .workforce-row-action:hover,
 .workforce-row-action:focus {
-  border-color: rgba(56, 189, 248, 0.7);
-  background: rgba(56, 189, 248, 0.1);
-  color: rgb(125 211 252);
+  border-color: rgba(16, 185, 129, 0.7);
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--wb-intelligence-emerald);
   outline: none;
 }
 
@@ -446,8 +459,8 @@
 
 .workforce-row-action--view {
   min-width: 4.5rem;
-  border-color: rgba(56, 189, 248, 0.45);
-  color: rgb(186 230 253);
+  border-color: rgba(16, 185, 129, 0.48);
+  color: var(--wb-intelligence-emerald);
 }
 
 .dashboard-action-button--danger {

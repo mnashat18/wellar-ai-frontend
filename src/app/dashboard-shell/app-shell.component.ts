@@ -117,9 +117,9 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
       position: absolute;
       inset: -22%;
       background:
-        radial-gradient(42rem circle at 14% 18%, rgba(56, 189, 248, 0.2), transparent 62%),
-        radial-gradient(38rem circle at 86% 18%, rgba(99, 102, 241, 0.18), transparent 62%),
-        radial-gradient(34rem circle at 54% 84%, rgba(245, 196, 81, 0.12), transparent 62%);
+        radial-gradient(42rem circle at 14% 18%, rgba(16, 185, 129, 0.2), transparent 62%),
+        radial-gradient(38rem circle at 86% 18%, rgba(16, 185, 129, 0.12), transparent 62%),
+        radial-gradient(34rem circle at 54% 84%, rgba(214, 164, 55, 0.1), transparent 62%);
       filter: blur(8px);
       z-index: 0;
       pointer-events: none;
@@ -133,8 +133,8 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
       border-radius: 1.5rem;
       border: 1px solid rgba(148, 163, 184, 0.2);
       background:
-        radial-gradient(circle at top left, rgba(125, 211, 252, 0.1), transparent 46%),
-        linear-gradient(145deg, rgba(9, 14, 28, 0.92), rgba(8, 12, 24, 0.84));
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.1), transparent 46%),
+        linear-gradient(145deg, rgba(11, 19, 30, 0.96), rgba(11, 19, 30, 0.9));
       box-shadow:
         0 28px 70px rgba(2, 6, 23, 0.48),
         inset 0 1px 0 rgba(255, 255, 255, 0.06);
@@ -160,24 +160,24 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
 
     .app-shell__loader-ring--outer {
       inset: 0;
-      border-top-color: rgba(125, 211, 252, 0.96);
-      border-right-color: rgba(99, 102, 241, 0.88);
+      border-top-color: rgba(16, 185, 129, 0.96);
+      border-right-color: rgba(16, 185, 129, 0.52);
     }
 
     .app-shell__loader-ring--inner {
       inset: 0.82rem;
-      border-top-color: rgba(245, 196, 81, 0.92);
-      border-left-color: rgba(125, 211, 252, 0.72);
+      border-top-color: #D6A437;
+      border-left-color: rgba(16, 185, 129, 0.72);
     }
 
     .app-shell__loader-core {
       width: 1.18rem;
       height: 1.18rem;
       border-radius: 999px;
-      background: radial-gradient(circle at 30% 30%, #f8fafc, #38bdf8 56%, #6366f1 100%);
+      background: radial-gradient(circle at 30% 30%, #F8FAFC, #10B981 72%, #0B131E 100%);
       box-shadow:
-        0 0 22px rgba(56, 189, 248, 0.6),
-        0 0 44px rgba(99, 102, 241, 0.42);
+        0 0 22px rgba(16, 185, 129, 0.52),
+        0 0 44px rgba(16, 185, 129, 0.28);
     }
 
     .app-shell__loading-bars {
@@ -192,7 +192,7 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
       flex: 1;
       height: 0.3rem;
       border-radius: 999px;
-      background: linear-gradient(90deg, rgba(125, 211, 252, 0.35), rgba(99, 102, 241, 0.95), rgba(245, 196, 81, 0.62));
+      background: linear-gradient(90deg, rgba(16, 185, 129, 0.35), rgba(16, 185, 129, 0.95), rgba(214, 164, 55, 0.62));
       opacity: 0.38;
     }
 
@@ -204,15 +204,16 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
 
     .app-shell__loading-copy p {
       margin: 0;
-      color: #f8fafc;
-      font-family: 'Space Grotesk', 'Manrope', sans-serif;
+      color: var(--wb-text-primary);
+      font-family: var(--wb-font-heading);
       font-size: clamp(1.02rem, 2.3vw, 1.3rem);
       font-weight: 700;
       letter-spacing: -0.02em;
     }
 
     .app-shell__loading-copy span {
-      color: rgba(226, 232, 240, 0.78);
+      color: var(--wb-mist);
+      font-family: var(--wb-font-body);
       font-size: 0.86rem;
       line-height: 1.42;
       letter-spacing: 0.01em;
@@ -225,9 +226,10 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
     }
 
     .app-shell__retry-button {
-      border: 1px solid rgba(125, 211, 252, 0.35);
-      background: rgba(15, 23, 42, 0.8);
-      color: #e2e8f0;
+      border: 1px solid rgba(16, 185, 129, 0.42);
+      background: rgba(30, 41, 59, 0.88);
+      color: var(--wb-ice-white);
+      font-family: var(--wb-font-body);
       border-radius: 999px;
       padding: 0.7rem 1.1rem;
       font-size: 0.88rem;
@@ -237,7 +239,7 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
     }
 
     .app-shell__retry-button:focus-visible {
-      outline: 2px solid rgba(125, 211, 252, 0.85);
+      outline: 2px solid var(--wb-focus);
       outline-offset: 2px;
     }
 

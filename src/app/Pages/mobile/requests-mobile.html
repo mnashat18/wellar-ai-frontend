@@ -1,19 +1,19 @@
-﻿<div class="min-h-screen bg-[#0b1020] text-white relative overflow-hidden">
+﻿<div class="min-h-screen bg-wb-obsidian-navy text-wb-ice-white font-[Inter] relative overflow-hidden">
   <div class="absolute inset-0 opacity-30"
-       style="background: radial-gradient(circle at top, rgba(37, 99, 235, 0.55), transparent 60%);"></div>
+       style="background: radial-gradient(circle at top, rgba(16, 185, 129, 0.24), transparent 60%);"></div>
   <div class="absolute inset-0 opacity-20"
-       style="background: radial-gradient(circle at 20% 10%, rgba(96, 165, 250, 0.65), transparent 50%);"></div>
+       style="background: radial-gradient(circle at 20% 10%, rgba(16, 185, 129, 0.16), transparent 50%);"></div>
   <div class="absolute inset-0 opacity-10"
-       style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 40px 40px;"></div>
-  <span class="mobile-orb" style="top: 90px; right: -10px;"></span>
-  <span class="mobile-orb gold" style="bottom: 140px; left: -10px;"></span>
-  <span class="mobile-sparkle" style="top: 160px; left: 36px;"></span>
+       style="background-image: radial-gradient(var(--wb-ice-white) 1px, transparent 1px); background-size: 40px 40px;"></div>
+  <span class="mobile-orb" style="top: 90px; right: -10px; background: radial-gradient(circle, rgba(16, 185, 129, 0.5), transparent 65%);"></span>
+  <span class="mobile-orb gold" style="bottom: 140px; left: -10px; background: radial-gradient(circle, rgba(214, 164, 55, 0.45), transparent 65%);"></span>
+  <span class="mobile-sparkle" style="top: 160px; left: 36px; background: #10B981; box-shadow: 0 0 14px rgba(16, 185, 129, 0.8);"></span>
 
   <div class="relative z-10 px-5 pt-6 pb-28">
     <div class="flex items-start justify-between">
       <div>
         <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Request Center</p>
-        <h1 class="text-2xl font-semibold mt-2">Requests</h1>
+        <h1 class="text-2xl font-semibold mt-2 font-[Sora]">Requests</h1>
         <p class="text-xs text-slate-400 mt-1">Plan: {{ currentPlanName }}</p>
         <a
           *ngIf="isBusinessTrial"
@@ -39,7 +39,7 @@
       <button
         *ngIf="canCreateRequests"
         type="button"
-        class="flex-1 bg-[#f5c451] text-slate-900 py-3 rounded-2xl font-semibold shadow-lg text-center"
+        class="min-h-11 flex-1 bg-wb-intelligence-emerald hover:bg-wb-action-primary text-wb-obsidian-navy py-3 rounded-2xl font-semibold shadow-lg text-center focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald"
         (click)="openCreateModal()">
         Create Scan Request
       </button>
@@ -62,9 +62,39 @@
     <a
       *ngIf="canOpenBusinessCenter"
       routerLink="/business-center"
-      class="mt-3 w-full inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 transition text-white py-3 rounded-2xl border border-white/15">
+      class="mt-3 min-h-11 w-full inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 transition text-white py-3 rounded-2xl border border-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
       <span class="text-sm font-semibold">Open Business Center</span>
     </a>
+    <div
+      *ngIf="requestLoadState === 'loading' && !loadingPlanAccess"
+      role="status"
+      aria-live="polite"
+      class="mt-6 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-200">
+      Loading requests…
+    </div>
+    <div
+      *ngIf="requestLoadState === 'authentication_required'"
+      role="alert"
+      aria-live="assertive"
+      class="mt-6 rounded-2xl border border-amber-300/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+      Your session is not available. Sign in again to load requests.
+    </div>
+    <div
+      *ngIf="requestLoadState === 'permission_denied'"
+      role="alert"
+      aria-live="assertive"
+      class="mt-6 rounded-2xl border border-red-300/30 bg-red-500/10 p-4 text-sm text-red-100">
+      You are signed in, but your account does not have permission to view these requests.
+    </div>
+    <div
+      *ngIf="requestLoadState === 'unavailable'"
+      role="alert"
+      aria-live="assertive"
+      class="mt-6 rounded-2xl border border-amber-300/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+      Requests could not be loaded because the service is unavailable. Please try again later.
+    </div>
+
+    <ng-container *ngIf="requestLoadState === 'loaded'">
     <div class="grid grid-cols-2 gap-3 mt-6">
       <div class="rounded-2xl bg-white/5 border border-white/10 p-4">
         <p class="text-xs text-slate-400">Total</p>
@@ -113,6 +143,10 @@
         </a>
       </div>
     </div>
+    <p *ngIf="!requests.length" class="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-slate-300">
+      No scan requests yet.
+    </p>
+    </ng-container>
   </div>
 
   <app-create-request-modal
@@ -143,7 +177,7 @@
       <div class="flex items-start justify-between">
         <div>
           <p class="text-xs uppercase tracking-wide text-slate-400">Permission Required</p>
-          <h2 class="mt-2 text-xl font-semibold text-slate-100">Business Paid Feature</h2>
+          <h2 class="mt-2 text-xl font-semibold text-slate-100 font-[Sora]">Business Paid Feature</h2>
         </div>
         <button
           class="text-slate-400 hover:text-slate-200"
@@ -156,7 +190,7 @@
         If your account is new, your first 14 days are unlocked for free, then paid features are locked.
       </p>
       <div class="mt-6 flex justify-end gap-3">
-        <a routerLink="/payment" class="bg-[#f5c451] text-slate-900 px-4 py-2 rounded-full">Open Billing</a>
+        <a routerLink="/payment" class="min-h-11 inline-flex items-center bg-wb-intelligence-emerald hover:bg-wb-action-primary text-wb-obsidian-navy px-4 py-2 rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">Open Billing</a>
         <button
           class="px-4 py-2 rounded-full border border-slate-700 text-slate-300"
           (click)="dismissPermissionNotice()">
@@ -166,9 +200,9 @@
     </div>
   </div>
 
-  <nav class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl px-4 py-3 z-20">
+  <nav class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] bg-wb-slate backdrop-blur border border-white/10 rounded-2xl px-4 py-3 z-20">
     <div class="grid grid-cols-5 text-[10px] text-slate-400">
-      <a routerLink="/audit-logs" routerLinkActive="text-white" class="flex flex-col items-center gap-1">
+      <a routerLink="/audit-logs" routerLinkActive="text-wb-intelligence-emerald" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M9 12h6"></path>
           <path d="M9 16h6"></path>
@@ -176,7 +210,7 @@
         </svg>
         <span>Audit logs</span>
       </a>
-      <a routerLink="/requests" routerLinkActive="text-white" class="flex flex-col items-center gap-1">
+      <a routerLink="/requests" routerLinkActive="text-wb-intelligence-emerald" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M4 7h16"></path>
           <path d="M4 12h16"></path>
@@ -184,17 +218,17 @@
         </svg>
         <span>Requests</span>
       </a>
-      <a routerLink="/dashboard" routerLinkActive="text-white" [routerLinkActiveOptions]="{ exact: true }" class="flex flex-col items-center gap-1">
-        <div class="w-11 h-11 rounded-full bg-[#f5c451] text-slate-900 flex items-center justify-center -mt-6 shadow-lg">
+      <a routerLink="/dashboard" routerLinkActive="text-wb-intelligence-emerald" [routerLinkActiveOptions]="{ exact: true }" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
+        <div class="w-11 h-11 rounded-full bg-wb-intelligence-emerald text-wb-obsidian-navy flex items-center justify-center -mt-6 shadow-lg">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M3 11.5L12 4l9 7.5"></path>
             <path d="M5 10.5V20h14v-9.5"></path>
           </svg>
         </div>
-        <span class="mt-2 text-white">Home</span>
+        <span class="mt-2">Home</span>
       </a>
       <ng-container *ngIf="canOpenBusinessCenter; else requestsBusinessPlaceholder">
-        <a routerLink="/business-center" routerLinkActive="text-white" class="flex flex-col items-center gap-1">
+        <a routerLink="/business-center" routerLinkActive="text-wb-intelligence-emerald" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M4 20V8l8-4 8 4v12"></path>
             <path d="M8 20v-5h8v5"></path>
@@ -215,7 +249,7 @@
           <span>Business</span>
         </span>
       </ng-template>
-      <a routerLink="/history" routerLinkActive="text-white" class="flex flex-col items-center gap-1">
+      <a routerLink="/history" routerLinkActive="text-wb-intelligence-emerald" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M3 12a9 9 0 1 0 9-9"></path>
           <path d="M3 4v6h6"></path>

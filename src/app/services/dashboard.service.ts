@@ -37,7 +37,7 @@ export type ScanResult = {
 };
 
 export type ScanResultsAccessInfo = {
-  state: 'available' | 'permission_blocked' | 'degraded';
+  state: 'available' | 'authentication_required' | 'permission_blocked' | 'resource_unavailable' | 'degraded';
   message: string | null;
   missingFields: string[];
 };
@@ -663,14 +663,24 @@ export class DashboardService implements OnDestroy {
       } catch (error) {
         const status = this.httpStatus(error);
 
-        if (status === 401 || status === 403) {
+        if (status === 401) {
+          console.warn('[SCAN_RESULTS_AUTHENTICATION_REQUIRED]', { status });
+          this.updateScanResultsAccess({
+            state: 'authentication_required',
+            message: 'Your session is unavailable. Sign in again to view scan results.',
+            missingFields: []
+          }, scanResultsLoadVersion);
+          return [];
+        }
+
+        if (status === 403) {
           console.warn('[SCAN_RESULTS_PERMISSION_BLOCKED]', {
             status,
             fields: fields.join(',')
           });
           this.updateScanResultsAccess({
             state: 'permission_blocked',
-            message: 'Result data is unavailable due to permissions',
+            message: 'You are signed in, but your account does not have permission to view scan results.',
             missingFields: []
           }, scanResultsLoadVersion);
           return [];
@@ -687,6 +697,16 @@ export class DashboardService implements OnDestroy {
             message: this.httpMessage(error)
           });
           continue;
+        }
+
+        if (status === 404) {
+          console.warn('[SCAN_RESULTS_RESOURCE_UNAVAILABLE]', { status });
+          this.updateScanResultsAccess({
+            state: 'resource_unavailable',
+            message: 'The scan results resource is unavailable.',
+            missingFields: []
+          }, scanResultsLoadVersion);
+          return [];
         }
 
         console.warn('[SCAN_RESULTS_DEGRADED_STATE]', {

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostListener, OnDestroy, OnInit, ViewChild } from '@angular/core';
 import { NavigationEnd, Router, RouterModule, RouterOutlet } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.directive';
@@ -11,7 +11,7 @@ import { MotionVisibilityDirective } from '../shared/motion/motion-visibility.di
   templateUrl: './public.layout.html',
   styleUrl: './public.layout.css'
 })
-export class PublicLayout implements AfterViewInit, OnDestroy {
+export class PublicLayout implements OnInit, AfterViewInit, OnDestroy {
   showScrollTop = false;
   isTransitioning = false;
   mobileMenuOpen = false;
@@ -27,8 +27,11 @@ export class PublicLayout implements AfterViewInit, OnDestroy {
 
   constructor(private router: Router) {}
 
-  ngAfterViewInit() {
+  ngOnInit() {
     this.setupCompactNavigationState();
+  }
+
+  ngAfterViewInit() {
     // Defer first check to the next tick to avoid NG0100 during first render cycle.
     setTimeout(() => this.updateScrollTop(), 0);
 

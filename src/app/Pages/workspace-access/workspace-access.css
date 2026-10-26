@@ -2,6 +2,8 @@
   position: relative;
   display: grid;
   gap: 1.25rem;
+  color: var(--wb-text-primary, #F8FAFC);
+  font-family: var(--wb-font-body, 'Inter', sans-serif);
 }
 
 .workspace-access-page__ambient {
@@ -25,7 +27,7 @@
   height: 16rem;
   top: 0;
   left: -4rem;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.18), transparent 68%);
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.16), transparent 68%);
 }
 
 .workspace-access-page__orb--b {
@@ -33,7 +35,7 @@
   height: 14rem;
   top: 2rem;
   right: 12%;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.16), transparent 68%);
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.08), transparent 68%);
   animation-delay: -4s;
 }
 
@@ -61,7 +63,7 @@
   border-radius: 1.7rem;
   border: 1px solid rgba(148, 163, 184, 0.12);
   background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 50%),
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.07), transparent 50%),
     rgba(9, 14, 28, 0.88);
   box-shadow: 0 18px 42px rgba(2, 6, 23, 0.22);
 }
@@ -86,7 +88,7 @@
   border-radius: 1rem;
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
-  box-shadow: 0 14px 30px rgba(56, 189, 248, 0.18);
+  box-shadow: 0 14px 30px rgba(16, 185, 129, 0.16);
 }
 
 .workspace-access-page__mark img {
@@ -108,7 +110,7 @@
 .workspace-access-page__intro h1 {
   margin: 0.22rem 0 0;
   color: #f8fafc;
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-family: var(--wb-font-heading, 'Sora', sans-serif);
   font-size: clamp(1.6rem, 3vw, 2.25rem);
   line-height: 1.02;
   letter-spacing: -0.05em;
@@ -132,8 +134,8 @@
   min-height: 2.5rem;
   padding: 0.55rem 0.85rem;
   border-radius: 999px;
-  border: 1px solid rgba(56, 189, 248, 0.18);
-  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  background: rgba(16, 185, 129, 0.09);
   color: rgba(226, 232, 240, 0.86);
   font-size: 0.86rem;
   font-weight: 700;
@@ -152,7 +154,7 @@
 
 .workspace-access-page__section-label {
   margin: 0;
-  color: rgba(125, 211, 252, 0.88);
+  color: #6ee7b7;
   font-size: 0.72rem;
   font-weight: 800;
   letter-spacing: 0.2em;
@@ -162,7 +164,7 @@
 .workspace-access-page__header h2 {
   margin: 0.45rem 0 0;
   color: #f8fafc;
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-family: var(--wb-font-heading, 'Sora', sans-serif);
   font-size: clamp(1.5rem, 2.4vw, 2rem);
   line-height: 1.06;
   letter-spacing: -0.04em;
@@ -204,9 +206,9 @@
   margin-top: 1rem;
   padding: 1rem;
   border-radius: 1.35rem;
-  border: 1px solid rgba(56, 189, 248, 0.18);
+  border: 1px solid rgba(16, 185, 129, 0.2);
   background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.12), transparent 45%),
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.1), transparent 45%),
     rgba(255, 255, 255, 0.04);
 }
 
@@ -311,12 +313,12 @@
 
 .workspace-access-country-option:hover,
 .workspace-access-country-option--highlighted {
-  background: rgba(56, 189, 248, 0.14);
+  background: rgba(16, 185, 129, 0.14);
   color: #f8fafc;
 }
 
 .workspace-access-country-option__code {
-  color: rgba(125, 211, 252, 0.78);
+  color: #6ee7b7;
   font-size: 0.75rem;
   font-weight: 800;
 }
@@ -351,8 +353,8 @@
 .workspace-access-page__status {
   padding: 0.7rem 0.9rem;
   border-radius: 1rem;
-  border: 1px solid rgba(56, 189, 248, 0.16);
-  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  background: rgba(16, 185, 129, 0.08);
   color: rgba(226, 232, 240, 0.9);
   font-size: 0.92rem;
   line-height: 1.5;
@@ -393,7 +395,7 @@
   border-radius: 1.4rem;
   border: 1px solid rgba(148, 163, 184, 0.12);
   background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 42%),
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.06), transparent 42%),
     rgba(255, 255, 255, 0.03);
 }
 
@@ -402,23 +404,23 @@
 .workspace-access-card--employee,
 .workspace-access-card--restricted {
   background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.1), transparent 42%),
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 42%),
     rgba(255, 255, 255, 0.03);
 }
 
 .workspace-access-card--primary {
-  border-color: rgba(56, 189, 248, 0.3);
+  border-color: rgba(16, 185, 129, 0.34);
   background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.14), transparent 48%),
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.12), transparent 48%),
     rgba(255, 255, 255, 0.04);
 }
 
 .workspace-access-card__tag {
   justify-self: start;
   border-radius: 999px;
-  border: 1px solid rgba(125, 211, 252, 0.3);
-  background: rgba(56, 189, 248, 0.1);
-  color: #7dd3fc;
+  border: 1px solid rgba(16, 185, 129, 0.32);
+  background: rgba(16, 185, 129, 0.1);
+  color: #6ee7b7;
   font-size: 0.66rem;
   font-weight: 800;
   letter-spacing: 0.16em;
@@ -450,7 +452,7 @@
 .workspace-access-card h3 {
   margin: 0.3rem 0 0;
   color: #f8fafc;
-  font-family: 'Space Grotesk', 'Manrope', sans-serif;
+  font-family: var(--wb-font-heading, 'Sora', sans-serif);
   font-size: 1.08rem;
   line-height: 1.12;
   letter-spacing: -0.03em;
@@ -511,14 +513,19 @@
 
 .workspace-access-button:hover {
   transform: translateY(-1px);
-  border-color: rgba(56, 189, 248, 0.28);
+  border-color: rgba(16, 185, 129, 0.36);
   background: rgba(255, 255, 255, 0.08);
 }
 
 .workspace-access-button--primary {
-  border-color: rgba(56, 189, 248, 0.22);
-  background: linear-gradient(135deg, rgba(14, 165, 233, 0.28), rgba(20, 184, 166, 0.22));
+  border-color: var(--wb-action-primary, #10B981);
+  background: var(--wb-action-primary, #10B981);
   color: #f8fafc;
+}
+
+.workspace-access-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--wb-focus, #34D399);
+  outline-offset: 3px;
 }
 
 .workspace-access-button:disabled,
@@ -568,7 +575,7 @@
 .workspace-access-loading__bar,
 .workspace-access-loading__card {
   border-radius: 1rem;
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(56, 189, 248, 0.1), rgba(255, 255, 255, 0.04));
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), rgba(16, 185, 129, 0.1), rgba(255, 255, 255, 0.04));
   background-size: 200% 100%;
   animation: workspaceAccessShimmer 1.6s ease-in-out infinite;
 }

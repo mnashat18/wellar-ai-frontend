@@ -22,7 +22,7 @@ type AccountDeletionResponse = {
 export class DeleteAccountComponent {
   readonly endpoint = `${environment.API_URL}/wellar/account-deletion-requests`;
   readonly successFallback =
-    'Your account deletion request has been received. If the account information matches our records, the Wellar team will process the request and contact you if additional verification is required.';
+    'Your account deletion request has been received. If the account information matches our records, the Wisebase team will process the request and contact you if additional verification is required.';
   readonly failureMessage =
     'We could not submit your account deletion request right now. Please try again later.';
 

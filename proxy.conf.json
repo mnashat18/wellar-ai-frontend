@@ -1,6 +1,6 @@
 {
   "/api": {
-    "target": "https://dash.conntinuity.com",
+    "target": "https://dash-conntinuity.datac.com",
     "secure": true,
     "changeOrigin": true,
     "pathRewrite": {

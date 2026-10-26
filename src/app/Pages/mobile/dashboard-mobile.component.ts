@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { NotificationsComponent } from '../../components/notifications/notifications';
 import { DashboardService, DashboardSnapshot, DashboardStats, ScanResult, type ScanResultsAccessInfo } from '../../services/dashboard.service';
@@ -47,7 +47,8 @@ export class DashboardMobileComponent implements OnInit {
 
   constructor(
     private dashboardService: DashboardService,
-    private subscriptions: SubscriptionService
+    private subscriptions: SubscriptionService,
+    private cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit() {
@@ -75,11 +76,13 @@ export class DashboardMobileComponent implements OnInit {
       finalize(() => {
         this.loading = false;
         this.refreshing = false;
+        this.cdr.detectChanges();
       })
     ).subscribe((snapshot) => {
       if (snapshot) {
         this.applySnapshot(snapshot);
         this.storeCachedSnapshot(snapshot);
+        this.cdr.detectChanges();
       }
     });
   }

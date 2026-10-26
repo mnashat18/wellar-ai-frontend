@@ -94,7 +94,7 @@ export const PUBLIC_ROUTE_MAP: readonly PublicRouteDefinition[] = [
     id: 'home',
     path: '',
     label: 'Home',
-    title: 'Wellar AI',
+    title: 'Wisebase',
     description: 'Pre-shift readiness and compliance control for operational teams.'
   },
   {
@@ -102,7 +102,7 @@ export const PUBLIC_ROUTE_MAP: readonly PublicRouteDefinition[] = [
     path: 'product',
     label: 'Product',
     title: 'Product',
-    description: 'How Wellar AI connects mobile scans with operational decisions in web.'
+    description: 'How Wisebase connects mobile scans with operational decisions in web.'
   },
   {
     id: 'industries',
@@ -123,7 +123,7 @@ export const PUBLIC_ROUTE_MAP: readonly PublicRouteDefinition[] = [
     path: 'contact',
     label: 'Request Demo',
     title: 'Request Demo',
-    description: 'Contact the Wellar team for rollout planning and organization onboarding.'
+    description: 'Contact the Wisebase team for rollout planning and organization onboarding.'
   },
   {
     id: 'login',

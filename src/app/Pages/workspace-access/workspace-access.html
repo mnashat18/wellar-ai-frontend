@@ -10,18 +10,17 @@
       <div class="workspace-access-page__brand">
         <div class="workspace-access-page__mark">
           <picture>
-            <source srcset="assets/logo/wellar-mark-96.webp" type="image/webp" />
-            <img src="assets/logo/wellar-mark-96.png" alt="Wellar AI" width="96" height="96" decoding="async" />
+            <img src="/branding/wisebase-navigation.png" alt="Wisebase" width="96" height="96" decoding="async" />
           </picture>
         </div>
         <div>
-          <p class="workspace-access-page__eyebrow">Wellar AI</p>
+          <p class="workspace-access-page__eyebrow">Wisebase</p>
           <h1>Start Well. Stay Well.</h1>
         </div>
       </div>
 
       <p class="workspace-access-page__copy">
-        Wellar AI helps companies manage workforce readiness before shifts begin.
+        Wisebase helps companies manage workforce readiness before shifts begin.
       </p>
 
       <p class="workspace-access-page__supporting">
@@ -64,7 +63,7 @@
           <div class="workspace-access-page__header">
             <div>
               <p class="workspace-access-page__section-label">Organization Access</p>
-              <h2 *ngIf="vm.mode === 'no-workspace'">Welcome to Wellar AI</h2>
+              <h2 *ngIf="vm.mode === 'no-workspace'">Welcome to Wisebase</h2>
               <h2 *ngIf="vm.mode === 'pending-application'">Organization access request under review</h2>
               <h2 *ngIf="vm.mode === 'needs-more-info'">More information needed</h2>
               <h2 *ngIf="vm.mode === 'application-rejected'">Organization access request not approved</h2>
@@ -82,16 +81,16 @@
                 {{ vm.pendingApplication?.companyName || 'Your organization access request' }} is under review.
               </p>
               <p class="workspace-access-page__subtitle" *ngIf="vm.mode === 'needs-more-info'">
-                The Wellar team needs more information before approving your organization access request.
+                The Wisebase team needs more information before approving your organization access request.
               </p>
               <p class="workspace-access-page__subtitle" *ngIf="vm.mode === 'application-rejected'">
-                Your organization access request was not approved. Contact the Wellar team for more information.
+                Your organization access request was not approved. Contact the Wisebase team for more information.
               </p>
               <p class="workspace-access-page__subtitle" *ngIf="vm.mode === 'application-approved'">
                 Your organization access request was approved. Refresh access to open the organization when membership is active.
               </p>
               <p class="workspace-access-page__subtitle" *ngIf="vm.mode === 'application-closed'">
-                This organization access request is closed. Contact the Wellar team or submit a new request.
+                This organization access request is closed. Contact the Wisebase team or submit a new request.
               </p>
               <p class="workspace-access-page__subtitle" *ngIf="vm.mode === 'pending-invite'">
                 You have an invitation to join {{ vm.selectedInvite?.companyName || 'your organization' }}.
@@ -173,7 +172,7 @@
                 <article class="workspace-access-card">
                   <span class="workspace-access-card__tag">Alternative</span>
                   <h3>Request organization access</h3>
-                  <p>Ask the Wellar team to review a new organization setup request.</p>
+                  <p>Ask the Wisebase team to review a new organization setup request.</p>
                   <button type="button" class="workspace-access-button workspace-access-button--primary" (click)="startWorkspaceSetup()">
                     Request organization access
                   </button>
@@ -363,7 +362,7 @@
                 </div>
 
                 <p class="workspace-access-card__copy">
-                  Your organization access request is being reviewed by the Wellar team.
+                  Your organization access request is being reviewed by the Wisebase team.
                 </p>
 
                 <div class="workspace-access-card__meta">
@@ -397,7 +396,7 @@
                 </div>
 
                 <p class="workspace-access-card__copy">
-                  The Wellar team needs more information before approving your organization access request.
+                  The Wisebase team needs more information before approving your organization access request.
                 </p>
 
                 <div class="workspace-access-card__meta">
@@ -435,7 +434,7 @@
                 </div>
 
                 <p class="workspace-access-card__copy">
-                  Your organization access request was not approved. Contact the Wellar team for more information.
+                  Your organization access request was not approved. Contact the Wisebase team for more information.
                 </p>
 
                 <div class="workspace-access-card__meta">
@@ -503,7 +502,7 @@
                 </div>
 
                 <p class="workspace-access-card__copy">
-                  This organization access request is closed. Contact the Wellar team to reopen it, or submit a new request.
+                  This organization access request is closed. Contact the Wisebase team to reopen it, or submit a new request.
                 </p>
 
                 <div class="workspace-access-card__meta">
@@ -583,7 +582,7 @@
 
                 <article class="workspace-access-card">
                   <h3>Request organization access</h3>
-                  <p>Not part of this team? Request organization setup instead. The Wellar team reviews each request before activation.</p>
+                  <p>Not part of this team? Request organization setup instead. The Wisebase team reviews each request before activation.</p>
                   <button type="button" class="workspace-access-button workspace-access-button--primary" (click)="startWorkspaceSetup()">
                     Request organization access
                   </button>

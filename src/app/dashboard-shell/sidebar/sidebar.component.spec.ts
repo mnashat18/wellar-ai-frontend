@@ -521,6 +521,6 @@ describe('SidebarComponent', () => {
     signOutButton.click();
 
     expect(authLogoutSpy).toHaveBeenCalledTimes(1);
-    expect(navigateByUrlSpy).toHaveBeenCalledWith('/');
+    expect(navigateByUrlSpy).not.toHaveBeenCalled();
   });
 });

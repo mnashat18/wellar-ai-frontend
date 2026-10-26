@@ -155,7 +155,7 @@
               <td class="invites-table__muted px-5 py-4">{{ row.expires_at ? (row.expires_at | date: 'MMM d, y HH:mm') : 'No expiry' }}</td>
               <td class="px-5 py-4">
                 <div class="flex flex-wrap items-center gap-2">
-                  <button *ngIf="canResend(row)" type="button" (click)="resendInvite(row)" [disabled]="!lifecycleActionsAvailable || isActionBusy(row)" [attr.title]="lifecycleActionsAvailable ? null : 'Resend is not available yet.'" class="invites-table__action text-sm font-semibold text-sky-200 disabled:cursor-not-allowed disabled:opacity-50">
+                  <button *ngIf="canResend(row)" type="button" (click)="resendInvite(row)" [disabled]="!lifecycleActionsAvailable || isActionBusy(row)" [attr.title]="lifecycleActionsAvailable ? null : 'Resend is not available yet.'" class="invites-table__action text-sm font-semibold text-slate-200 disabled:cursor-not-allowed disabled:opacity-50">
                     {{ isActionBusy(row) ? 'Resending...' : (lifecycleActionsAvailable ? 'Resend' : 'Resend unavailable') }}
                   </button>
                   <button *ngIf="canExpire(row)" type="button" (click)="expireInvite(row)" [disabled]="!lifecycleActionsAvailable || isActionBusy(row)" [attr.title]="lifecycleActionsAvailable ? null : 'Expire is not available yet.'" class="invites-table__action text-sm font-semibold text-amber-200 disabled:cursor-not-allowed disabled:opacity-50">

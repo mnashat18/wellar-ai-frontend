@@ -3,10 +3,12 @@
   display: grid;
   place-items: center;
   padding: 2rem;
+  color: var(--wb-text-primary, #F8FAFC);
+  font-family: var(--wb-font-body, 'Inter', sans-serif);
   background:
-    radial-gradient(circle at top left, rgba(56, 189, 248, 0.08), transparent 40%),
+    radial-gradient(circle at top left, rgba(16, 185, 129, 0.08), transparent 40%),
     radial-gradient(circle at bottom right, rgba(245, 196, 81, 0.06), transparent 36%),
-    linear-gradient(180deg, #020617 0%, #0f172a 100%);
+    linear-gradient(180deg, var(--wb-obsidian-navy, #0B131E) 0%, var(--wb-slate, #1E293B) 100%);
 }
 
 .workspace-activating__panel {
@@ -47,10 +49,16 @@
 .workspace-activating__copy h1 {
   margin: 0;
   color: #f8fafc;
+  font-family: var(--wb-font-heading, 'Sora', sans-serif);
   font-size: 1.55rem;
   font-weight: 700;
   letter-spacing: 0;
   text-align: left;
+}
+
+.workspace-activating :is(a, button):focus-visible {
+  outline: 2px solid var(--wb-focus, #34D399);
+  outline-offset: 3px;
 }
 
 .workspace-activating__progress {

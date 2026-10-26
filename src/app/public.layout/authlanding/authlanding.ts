@@ -11,12 +11,11 @@ import { PostAuthWelcomeService } from '../../services/post-auth-welcome.service
 import { PostLoginRoutingService } from '../../services/post-login-routing.service';
 import { isDuplicateEmailRegistrationError, mapSafeError } from '../../shared/errors/safe-error.mapper';
 import { ViewportDialogComponent } from '../../shared/ui/viewport-dialog/viewport-dialog.component';
-import { MotionVisibilityDirective } from '../../shared/motion/motion-visibility.directive';
 
 @Component({
   selector: 'app-authlanding',
   standalone: true,
-  imports: [CommonModule, RouterModule, FormsModule, ViewportDialogComponent, MotionVisibilityDirective],
+  imports: [CommonModule, RouterModule, FormsModule, ViewportDialogComponent],
   templateUrl: './authlanding.html',
   styleUrls: ['./authlanding.css']
 })
@@ -60,6 +59,7 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
   ];
 
   activePresentationIndex = 0;
+  revealEnabled = false;
   authMode: 'signup' | 'login' | null = null;
   submitting = false;
   resolvingOrganizationAccess = false;
@@ -119,6 +119,11 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
   ) {}
 
   ngOnInit() {
+    this.revealEnabled =
+      typeof window !== 'undefined' &&
+      typeof IntersectionObserver !== 'undefined' &&
+      !this.prefersReducedMotion();
+
     this.signupEmailCheckSub = this.signupEmailCheckSubject.pipe(
       switchMap(({ email, delayMs }) => {
         if (!email) {
@@ -954,7 +959,7 @@ export class Authlanding implements AfterViewInit, OnInit, OnDestroy {
       return;
     }
 
-    if (!('IntersectionObserver' in window)) {
+    if (typeof IntersectionObserver === 'undefined') {
       elements.forEach((el) => el.classList.add('visible'));
       return;
     }

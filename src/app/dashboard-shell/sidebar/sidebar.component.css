@@ -958,3 +958,97 @@
     padding-top: 0.5rem;
   }
 }
+
+/* Wisebase dashboard shell tokens; dimensions and responsive behavior stay unchanged. */
+:host,
+.sidebar {
+  color: var(--wb-text-primary);
+  font-family: var(--wb-font-body);
+}
+
+.app-sidebar__logo-wrap,
+.app-sidebar__company,
+.app-sidebar__account-control,
+.app-sidebar__account-menu-panel,
+.app-sidebar__organization-switcher-panel {
+  border-color: color-mix(in srgb, var(--wb-border) 18%, transparent);
+  background: color-mix(in srgb, var(--wb-surface) 78%, var(--wb-bg));
+}
+
+.app-sidebar__brand {
+  gap: 0.68rem;
+}
+
+.app-sidebar__logo-wrap {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.app-sidebar__logo {
+  width: 1.65rem;
+  height: 1.65rem;
+}
+
+.app-sidebar__brand-copy p {
+  color: var(--wb-text-primary);
+  font-size: 0.75rem;
+  letter-spacing: 0.015em;
+  text-transform: none;
+}
+
+.app-sidebar__brand-copy h2 {
+  font-size: 0.88rem;
+}
+
+.app-sidebar__brand-copy h2,
+.app-sidebar__company-copy h3,
+.app-sidebar__account-copy strong,
+.app-sidebar__account-menu-copy p,
+.app-sidebar__organization-switcher-header-copy p,
+.app-sidebar__organization-switcher-item-copy strong {
+  color: var(--wb-text-primary);
+  font-family: var(--wb-font-heading);
+}
+
+.app-sidebar__brand-copy p,
+.app-sidebar__eyebrow,
+.app-sidebar__company-meta,
+.app-sidebar__account-copy small,
+.app-sidebar__account-chevron,
+.app-sidebar__account-menu-copy span,
+.app-sidebar__organization-switcher-header-copy span,
+.app-sidebar__organization-switcher-item-copy small,
+.app-sidebar__organization-switcher-meta em {
+  color: var(--wb-mist);
+}
+
+.app-sidebar__nav-item {
+  color: var(--wb-mist);
+}
+
+.app-sidebar__nav-item:hover,
+.app-sidebar__nav-item.is-active,
+.app-sidebar__organization-switcher-item.is-active {
+  border-color: color-mix(in srgb, var(--wb-intelligence-emerald) 48%, transparent);
+  background: color-mix(in srgb, var(--wb-intelligence-emerald) 16%, var(--wb-bg));
+  color: var(--wb-text-primary);
+}
+
+.app-sidebar__nav-item.is-active {
+  box-shadow: inset 3px 0 0 var(--wb-intelligence-emerald), 0 10px 24px rgba(2, 6, 23, 0.14);
+}
+
+.app-sidebar__nav-item.is-active::after {
+  background: var(--wb-intelligence-emerald);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--wb-intelligence-emerald) 45%, transparent);
+}
+
+.app-sidebar__nav-item:focus-visible,
+.app-sidebar__account-control:focus-visible,
+.app-sidebar__account-menu-item:focus-visible,
+.app-sidebar__organization-switcher-item:focus-visible,
+.app-sidebar__organization-switcher-back:focus-visible {
+  outline: 2px solid var(--wb-intelligence-emerald);
+  outline-offset: 2px;
+  box-shadow: none;
+}

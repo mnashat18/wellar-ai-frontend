@@ -9,7 +9,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
   template: `
     <section class="page-shell mx-auto max-w-6xl px-6 py-16 text-white">
       <div class="page-hero">
-        <p class="text-xs uppercase tracking-[0.22em] text-amber-300">Wellar AI</p>
+        <p class="text-xs uppercase tracking-[0.22em] text-amber-300">Wisebase</p>
         <h1 class="mt-4 text-4xl font-semibold tracking-tight sm:text-5xl">{{ title }}</h1>
         <p class="mt-4 max-w-3xl text-slate-300">{{ description }}</p>
 
@@ -50,7 +50,7 @@ export class MarketingPageComponent {
   private readonly route = inject(ActivatedRoute);
 
   get title(): string {
-    return (this.route.snapshot.data['title'] as string) || 'Wellar AI';
+    return (this.route.snapshot.data['title'] as string) || 'Wisebase';
   }
 
   get description(): string {

@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideRouter } from '@angular/router';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 
 import { RequestsMobileComponent } from './requests-mobile.component';
 import { AuthService } from '../../services/auth';
@@ -64,6 +64,24 @@ describe('RequestsMobileComponent session authentication', () => {
     fixture.detectChanges();
     expect(business.getHubAccessState).toHaveBeenCalled();
     expect((component as any).currentAccessUserId).toBe('user-42');
+  });
+
+  it('does not retry a forbidden requests read as an authentication recovery', () => {
+    (component as any).currentBusinessProfileId = 'profile-1';
+    const fetchRequests = vi.spyOn(component as any, 'fetchRequests').mockReturnValue(
+      throwError(() => ({ status: 403 }))
+    );
+    const recover = vi.spyOn(component as any, 'tryRecoverSessionAndReload');
+    vi.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    (component as any).loadBusinessRequests();
+
+    expect(fetchRequests).toHaveBeenCalledWith({ businessProfileId: 'profile-1', bustCache: true });
+    expect(recover).not.toHaveBeenCalled();
+    expect(component.requestLoadState).toBe('permission_denied');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('does not have permission to view these requests');
+    expect(fixture.nativeElement.textContent).not.toContain('No scan requests yet.');
   });
 
   it('contains no token/JWT authentication helpers or bearer construction', () => {

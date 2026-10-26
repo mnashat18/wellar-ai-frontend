@@ -5,6 +5,9 @@ import { firstValueFrom } from 'rxjs';
 import { vi } from 'vitest';
 
 import { ProtectedAvatarLoaderService } from './protected-avatar-loader.service';
+import { environment } from '../../../environments/environment';
+
+const API_URL = environment.API_URL;
 
 describe('ProtectedAvatarLoaderService', () => {
   let service: ProtectedAvatarLoaderService;
@@ -30,7 +33,7 @@ describe('ProtectedAvatarLoaderService', () => {
 
   it('loads protected avatar blobs with credentials and creates an object URL', async () => {
     const resultPromise = firstValueFrom(service.load('avatar-1'));
-    const request = httpMock.expectOne('https://dash.conntinuity.com/wellar/files/avatar-1');
+    const request = httpMock.expectOne(`${API_URL}/wellar/files/avatar-1`);
 
     expect(request.request.method).toBe('GET');
     expect(request.request.withCredentials).toBe(true);
@@ -43,12 +46,12 @@ describe('ProtectedAvatarLoaderService', () => {
 
   it('revokes the previous object URL when replacing an avatar', async () => {
     const first = firstValueFrom(service.load('avatar-1'));
-    httpMock.expectOne('https://dash.conntinuity.com/wellar/files/avatar-1').flush(new Blob(['one']));
+    httpMock.expectOne(`${API_URL}/wellar/files/avatar-1`).flush(new Blob(['one']));
     await first;
 
     createObjectUrlSpy.mockReturnValue('blob:avatar-2');
     const second = firstValueFrom(service.load('avatar-2'));
-    httpMock.expectOne('https://dash.conntinuity.com/wellar/files/avatar-2').flush(new Blob(['two']));
+    httpMock.expectOne(`${API_URL}/wellar/files/avatar-2`).flush(new Blob(['two']));
     await second;
 
     expect(revokeObjectUrlSpy).toHaveBeenCalledWith('blob:avatar-1');
@@ -56,7 +59,7 @@ describe('ProtectedAvatarLoaderService', () => {
 
   it('returns null on failure and retries the same avatar ID successfully', async () => {
     const failed = firstValueFrom(service.load('avatar-1'));
-    httpMock.expectOne('https://dash.conntinuity.com/wellar/files/avatar-1').flush(null, {
+    httpMock.expectOne(`${API_URL}/wellar/files/avatar-1`).flush(null, {
       status: 403,
       statusText: 'Forbidden'
     });
@@ -64,7 +67,30 @@ describe('ProtectedAvatarLoaderService', () => {
 
     createObjectUrlSpy.mockReturnValue('blob:avatar-retry');
     const retried = firstValueFrom(service.load('avatar-1'));
-    httpMock.expectOne('https://dash.conntinuity.com/wellar/files/avatar-1').flush(new Blob(['retry']));
+    httpMock.expectOne(`${API_URL}/wellar/files/avatar-1`).flush(new Blob(['retry']));
     await expect(retried).resolves.toBe('blob:avatar-retry');
+  });
+
+  it('shares a pending request for repeated loads of the same avatar ID', async () => {
+    const first = firstValueFrom(service.load('avatar-1'));
+    const second = firstValueFrom(service.load('avatar-1'));
+    const request = httpMock.expectOne(`${API_URL}/wellar/files/avatar-1`);
+    expect(request.request.withCredentials).toBe(true);
+    request.flush(new Blob(['avatar'], { type: 'image/png' }));
+
+    await expect(Promise.all([first, second])).resolves.toEqual(['blob:avatar-1', 'blob:avatar-1']);
+    expect(createObjectUrlSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not request the same missing avatar again during the session', async () => {
+    const first = firstValueFrom(service.load('missing-avatar'));
+    httpMock.expectOne(`${API_URL}/wellar/files/missing-avatar`).flush(null, {
+      status: 404,
+      statusText: 'Not Found'
+    });
+    await expect(first).resolves.toBeNull();
+
+    await expect(firstValueFrom(service.load('missing-avatar'))).resolves.toBeNull();
+    httpMock.expectNone(`${API_URL}/wellar/files/missing-avatar`);
   });
 });

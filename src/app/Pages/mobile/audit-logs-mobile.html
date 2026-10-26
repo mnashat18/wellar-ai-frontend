@@ -1,19 +1,19 @@
-<div class="min-h-screen bg-[#0b1020] text-white relative overflow-hidden">
+<div class="min-h-screen bg-wb-obsidian-navy text-wb-ice-white font-[Inter] relative overflow-hidden">
   <div class="absolute inset-0 opacity-30"
-       style="background: radial-gradient(circle at top, rgba(37, 99, 235, 0.55), transparent 60%);"></div>
+       style="background: radial-gradient(circle at top, rgba(16, 185, 129, 0.24), transparent 60%);"></div>
   <div class="absolute inset-0 opacity-20"
-       style="background: radial-gradient(circle at 20% 10%, rgba(96, 165, 250, 0.65), transparent 50%);"></div>
+       style="background: radial-gradient(circle at 20% 10%, rgba(16, 185, 129, 0.16), transparent 50%);"></div>
   <div class="absolute inset-0 opacity-10"
-       style="background-image: radial-gradient(#ffffff 1px, transparent 1px); background-size: 40px 40px;"></div>
-  <span class="mobile-orb" style="top: 90px; right: -12px;"></span>
-  <span class="mobile-orb gold" style="bottom: 140px; left: -12px;"></span>
-  <span class="mobile-sparkle" style="top: 160px; left: 36px;"></span>
+       style="background-image: radial-gradient(var(--wb-ice-white) 1px, transparent 1px); background-size: 40px 40px;"></div>
+  <span class="mobile-orb" style="top: 90px; right: -12px; background: radial-gradient(circle, rgba(16, 185, 129, 0.5), transparent 65%);"></span>
+  <span class="mobile-orb gold" style="bottom: 140px; left: -12px; background: radial-gradient(circle, rgba(214, 164, 55, 0.45), transparent 65%);"></span>
+  <span class="mobile-sparkle" style="top: 160px; left: 36px; background: #10B981; box-shadow: 0 0 14px rgba(16, 185, 129, 0.8);"></span>
 
   <div class="relative z-10 px-5 pt-6 pb-28">
     <div class="flex items-start justify-between">
       <div>
         <p class="text-xs uppercase tracking-[0.2em] text-slate-400">Compliance Center</p>
-        <h1 class="text-2xl font-semibold mt-2">Audit Logs</h1>
+        <h1 class="text-2xl font-semibold mt-2 font-[Sora]">Audit Logs</h1>
         <p class="text-xs text-slate-400 mt-1">Report wellness issues and track responses.</p>
       </div>
       <div class="flex items-center gap-3">
@@ -40,7 +40,7 @@
           <label class="text-xs text-slate-400 uppercase tracking-[0.2em]">Email</label>
           <input
             #emailInput
-            class="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm"
+            class="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-intelligence-emerald"
             [value]="currentUserEmail"
             [readonly]="!canReviewLogs"
             placeholder="name@example.com" />
@@ -53,7 +53,7 @@
           <label class="text-xs text-slate-400 uppercase tracking-[0.2em]">Type</label>
           <input
             #typeInput
-            class="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm"
+            class="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-intelligence-emerald"
             placeholder="Fatigue / Focus / Risk / Other" />
         </div>
 
@@ -62,7 +62,7 @@
           <textarea
             #descriptionInput
             rows="3"
-            class="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm"
+            class="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-intelligence-emerald"
             placeholder="Describe the issue clearly..."></textarea>
         </div>
 
@@ -71,13 +71,13 @@
           <textarea
             #metadataInput
             rows="3"
-            class="mt-2 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-xs font-mono"
+            class="mt-2 min-h-11 w-full rounded-xl border border-white/10 bg-slate-900/60 px-3 py-2 text-xs font-mono focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-wb-intelligence-emerald"
             placeholder='{ "sleep_hours": 4, "stress": "high" }'></textarea>
         </div>
 
         <button
           type="button"
-          class="w-full bg-[#f5c451] text-slate-900 py-3 rounded-2xl font-semibold shadow-lg"
+          class="min-h-11 w-full bg-wb-intelligence-emerald hover:bg-wb-action-primary text-wb-obsidian-navy py-3 rounded-2xl font-semibold shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald"
           (click)="submitLog(emailInput.value, typeInput.value, descriptionInput.value, metadataInput.value)">
           Submit Log
         </button>
@@ -98,10 +98,26 @@
     <div class="mt-6" *ngIf="canViewLogs; else accessDeniedMobile">
       <div class="flex items-center justify-between text-xs text-slate-400 uppercase tracking-[0.2em]">
         <span>{{ canReviewLogs ? 'All Logs' : 'My Logs' }}</span>
-        <span class="text-[10px] tracking-normal">{{ logs.length }} total</span>
+        <span class="text-[10px] tracking-normal" *ngIf="logReadState === 'loaded'">{{ logs.length }} total</span>
       </div>
 
-      <div class="mt-3 space-y-3" *ngIf="logs.length; else emptyLogs">
+      <div *ngIf="logReadState === 'loading'" role="status" aria-live="polite" class="mt-3 rounded-2xl bg-white/5 border border-white/10 p-4 text-sm text-slate-300">
+        Loading audit logs…
+      </div>
+      <div *ngIf="logReadState === 'authentication_required'" role="alert" aria-live="assertive" class="mt-3 rounded-2xl bg-amber-500/10 border border-amber-300/30 p-4 text-sm text-amber-100">
+        Your session is unavailable. Sign in again to load audit logs.
+      </div>
+      <div *ngIf="logReadState === 'permission_denied'" role="alert" aria-live="assertive" class="mt-3 rounded-2xl bg-red-500/10 border border-red-300/30 p-4 text-sm text-red-100">
+        You are signed in, but your account does not have permission to read these audit logs.
+      </div>
+      <div *ngIf="logReadState === 'resource_unavailable'" role="alert" aria-live="assertive" class="mt-3 rounded-2xl bg-amber-500/10 border border-amber-300/30 p-4 text-sm text-amber-100">
+        The audit log resource is unavailable.
+      </div>
+      <div *ngIf="logReadState === 'unavailable'" role="alert" aria-live="assertive" class="mt-3 rounded-2xl bg-amber-500/10 border border-amber-300/30 p-4 text-sm text-amber-100">
+        Audit logs could not be loaded because the service is unavailable.
+      </div>
+
+      <div class="mt-3 space-y-3" *ngIf="logReadState === 'loaded' && logs.length; else emptyLogs">
         <button
           type="button"
           class="w-full text-left rounded-2xl bg-white/5 border border-white/10 p-4"
@@ -121,9 +137,11 @@
     </div>
 
     <ng-template #emptyLogs>
+      <ng-container *ngIf="logReadState === 'loaded'">
       <div class="mt-3 rounded-2xl bg-white/5 border border-white/10 p-4 text-sm text-slate-400">
         No audit logs yet.
       </div>
+      </ng-container>
     </ng-template>
   </div>
 
@@ -132,7 +150,7 @@
     class="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/60 px-4 pb-6">
     <div class="w-full max-w-sm rounded-3xl border border-slate-800 bg-slate-900 p-5 shadow-2xl">
       <div class="flex items-start justify-between">
-        <h3 class="text-lg font-semibold">Log Details</h3>
+        <h3 class="text-lg font-semibold font-[Sora]">Log Details</h3>
         <button class="text-slate-400 hover:text-slate-200" (click)="closeLog()">x</button>
       </div>
 
@@ -169,9 +187,9 @@
     </div>
   </ng-template>
 
-  <nav class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] bg-slate-900/80 backdrop-blur border border-slate-800 rounded-2xl px-4 py-3 z-20">
+  <nav class="fixed bottom-4 left-1/2 -translate-x-1/2 w-[calc(100%-2.5rem)] bg-wb-slate backdrop-blur border border-white/10 rounded-2xl px-4 py-3 z-20">
     <div class="grid grid-cols-5 text-[10px] text-slate-400">
-      <a routerLink="/audit-logs" routerLinkActive="text-white" class="flex flex-col items-center gap-1">
+      <a routerLink="/audit-logs" routerLinkActive="text-wb-intelligence-emerald" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M9 12h6"></path>
           <path d="M9 16h6"></path>
@@ -179,7 +197,7 @@
         </svg>
         <span>Audit logs</span>
       </a>
-      <a routerLink="/requests" routerLinkActive="text-white" class="flex flex-col items-center gap-1">
+      <a routerLink="/requests" routerLinkActive="text-wb-intelligence-emerald" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M4 7h16"></path>
           <path d="M4 12h16"></path>
@@ -187,17 +205,17 @@
         </svg>
         <span>Requests</span>
       </a>
-      <a routerLink="/dashboard" routerLinkActive="text-white" [routerLinkActiveOptions]="{ exact: true }" class="flex flex-col items-center gap-1">
-        <div class="w-11 h-11 rounded-full bg-[#f5c451] text-slate-900 flex items-center justify-center -mt-6 shadow-lg">
+      <a routerLink="/dashboard" routerLinkActive="text-wb-intelligence-emerald" [routerLinkActiveOptions]="{ exact: true }" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
+        <div class="w-11 h-11 rounded-full bg-wb-intelligence-emerald text-wb-obsidian-navy flex items-center justify-center -mt-6 shadow-lg">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M3 11.5L12 4l9 7.5"></path>
             <path d="M5 10.5V20h14v-9.5"></path>
           </svg>
         </div>
-        <span class="mt-2 text-white">Home</span>
+        <span class="mt-2">Home</span>
       </a>
       <ng-container *ngIf="hasBusinessAccess; else auditBusinessPlaceholder">
-        <a routerLink="/business-center" routerLinkActive="text-white" class="flex flex-col items-center gap-1">
+        <a routerLink="/business-center" routerLinkActive="text-wb-intelligence-emerald" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
           <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M4 20V8l8-4 8 4v12"></path>
             <path d="M8 20v-5h8v5"></path>
@@ -218,7 +236,7 @@
           <span>Business</span>
         </span>
       </ng-template>
-      <a routerLink="/history" routerLinkActive="text-white" class="flex flex-col items-center gap-1">
+      <a routerLink="/history" routerLinkActive="text-wb-intelligence-emerald" class="flex flex-col items-center gap-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-wb-intelligence-emerald">
         <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <path d="M3 12a9 9 0 1 0 9-9"></path>
           <path d="M3 4v6h6"></path>

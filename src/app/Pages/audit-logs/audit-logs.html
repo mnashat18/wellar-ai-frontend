@@ -102,7 +102,23 @@
       </span>
     </div>
 
-    <table class="w-full text-sm">
+    <div *ngIf="logReadState === 'loading'" role="status" aria-live="polite" class="px-6 py-4 text-sm text-slate-500">
+      Loading audit logs…
+    </div>
+    <div *ngIf="logReadState === 'authentication_required'" role="alert" aria-live="assertive" class="mx-6 my-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+      Your session is unavailable. Sign in again to load audit logs.
+    </div>
+    <div *ngIf="logReadState === 'permission_denied'" role="alert" aria-live="assertive" class="mx-6 my-4 rounded-lg border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+      You are signed in, but your account does not have permission to read these audit logs.
+    </div>
+    <div *ngIf="logReadState === 'resource_unavailable'" role="alert" aria-live="assertive" class="mx-6 my-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+      The audit log resource is unavailable.
+    </div>
+    <div *ngIf="logReadState === 'unavailable'" role="alert" aria-live="assertive" class="mx-6 my-4 rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
+      Audit logs could not be loaded because the service is unavailable.
+    </div>
+
+    <table class="w-full text-sm" *ngIf="logReadState === 'loaded'">
       <thead class="bg-slate-50">
         <tr>
           <th class="th">Email</th>

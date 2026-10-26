@@ -242,7 +242,7 @@ export class PostAuthWelcomeComponent implements OnChanges, AfterViewInit, OnDes
 
     const firstName = intent.firstName ?? 'there';
     return intent.kind === 'workspace'
-      ? `Welcome to Wellar, ${firstName}`
+      ? `Welcome to Wisebase, ${firstName}`
       : `Welcome back, ${firstName}`;
   }
 

@@ -30,7 +30,7 @@ export class ReportsPdfExportService {
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
     doc.setTextColor(17, 24, 39);
-    doc.text('Wellar AI', marginX, cursorY);
+    doc.text('Wisebase', marginX, cursorY);
 
     cursorY += 20;
     doc.setFontSize(14);
@@ -224,7 +224,7 @@ export class ReportsPdfExportService {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(9);
       doc.setTextColor(100, 116, 139);
-      doc.text('Wellar AI', marginX, pageHeight - 20);
+      doc.text('Wisebase', marginX, pageHeight - 20);
       doc.text(`Page ${page} of ${totalPages}`, pageWidth / 2, pageHeight - 20, { align: 'center' });
       doc.text(`Generated ${generatedLabel}`, pageWidth - marginX, pageHeight - 20, { align: 'right' });
     }

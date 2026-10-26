@@ -1,5 +1,30 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 @import './styles/motion.css';
+/* Wisebase design foundation. New tokens are opt-in until later phases. */
+:root {
+  --wb-gold: #D6A437;
+  --wb-obsidian-navy: #0B131E;
+  --wb-intelligence-emerald: #10B981;
+  --wb-ice-white: #F8FAFC;
+  --wb-slate: #1E293B;
+  --wb-muted: #64748B;
+  --wb-mist: #E2E8F0;
+
+  --wb-bg: var(--wb-obsidian-navy);
+  --wb-surface: var(--wb-slate);
+  --wb-surface-raised: #27364A;
+  --wb-border: var(--wb-mist);
+  --wb-text-primary: var(--wb-ice-white);
+  --wb-text-secondary: var(--wb-muted);
+  --wb-action-primary: var(--wb-intelligence-emerald);
+  --wb-action-primary-hover: #059669;
+  --wb-focus: #34D399;
+  --wb-success: var(--wb-intelligence-emerald);
+  --wb-warning: #F59E0B;
+  --wb-error: #EF4444;
+  --wb-font-heading: 'Sora', sans-serif;
+  --wb-font-body: 'Inter', sans-serif;
+}
 
 /* =========================
    Tailwind Base
@@ -583,8 +608,8 @@ body {
   height: 2.4rem;
   flex: 0 0 auto;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--app-cyan), var(--app-indigo));
-  box-shadow: 0 0 18px rgba(56, 189, 248, 0.28);
+  background: var(--wb-intelligence-emerald);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.28);
 }
 
 .app-header__eyebrow,
@@ -3040,7 +3065,7 @@ body::selection {
   height: 18rem;
   left: -6rem;
   top: -5rem;
-  background: radial-gradient(circle, rgba(56, 189, 248, 0.18), rgba(56, 189, 248, 0));
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.18), rgba(16, 185, 129, 0));
 }
 
 .app-shell__orb--b {
@@ -3048,7 +3073,7 @@ body::selection {
   height: 16rem;
   right: 8%;
   top: 4rem;
-  background: radial-gradient(circle, rgba(99, 102, 241, 0.18), rgba(99, 102, 241, 0));
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0));
   animation-delay: -4s;
 }
 
@@ -3057,7 +3082,7 @@ body::selection {
   height: 20rem;
   right: 18%;
   bottom: -6rem;
-  background: radial-gradient(circle, rgba(245, 196, 81, 0.16), rgba(245, 196, 81, 0));
+  background: radial-gradient(circle, rgba(214, 164, 55, 0.12), rgba(214, 164, 55, 0));
   animation-delay: -8s;
 }
 
@@ -3178,8 +3203,8 @@ body::selection {
   border-radius: 2rem;
   border: 1px solid rgba(148, 163, 184, 0.08);
   background:
-    linear-gradient(180deg, rgba(9, 14, 28, 0.72), rgba(9, 14, 28, 0.82)),
-    radial-gradient(1200px at 50% 0%, rgba(56, 189, 248, 0.08), transparent 40%);
+    linear-gradient(180deg, rgba(11, 19, 30, 0.72), rgba(11, 19, 30, 0.82)),
+    radial-gradient(1200px at 50% 0%, rgba(16, 185, 129, 0.06), transparent 40%);
   box-shadow: 0 30px 80px rgba(2, 6, 23, 0.28);
   overflow: hidden;
 }
@@ -3190,7 +3215,7 @@ body::selection {
   inset: 0;
   background:
     linear-gradient(135deg, rgba(255, 255, 255, 0.035), transparent 28%),
-    radial-gradient(600px at 0% 0%, rgba(99, 102, 241, 0.08), transparent 55%);
+    radial-gradient(600px at 0% 0%, rgba(16, 185, 129, 0.05), transparent 55%);
   pointer-events: none;
 }
 
@@ -3961,8 +3986,8 @@ app-table-shell {
   height: 2.2rem;
   flex: 0 0 auto;
   border-radius: 999px;
-  background: linear-gradient(180deg, var(--app-cyan), var(--app-indigo));
-  box-shadow: 0 0 22px rgba(103, 213, 255, 0.32);
+  background: var(--wb-intelligence-emerald);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.28);
 }
 
 .app-header__context-copy {
@@ -4087,7 +4112,7 @@ app-table-shell {
 }
 
 .app-mobile-menu-button:hover {
-  border-color: rgba(103, 213, 255, 0.36);
+  border-color: color-mix(in srgb, var(--wb-intelligence-emerald) 52%, transparent);
   transform: translateY(-1px);
 }
 
@@ -4138,4 +4163,133 @@ app-table-shell {
   .app-mobile-menu-button:hover {
     transform: none;
   }
+}
+
+/* Wisebase design tokens, scoped to the authenticated dashboard shell. */
+.app-shell {
+  background: var(--wb-bg);
+  color: var(--wb-text-primary);
+  font-family: var(--wb-font-body);
+}
+
+.app-shell .app-content-frame {
+  color: var(--wb-text-primary);
+  font-family: var(--wb-font-body);
+}
+
+.app-shell .app-content-frame :is(h1, h2, h3, h4, h5, h6):not([data-wb-font-exempt]):not([aria-hidden='true']),
+.app-shell .app-header__page-title,
+.app-shell .app-header__workspace-context strong {
+  font-family: var(--wb-font-heading);
+}
+
+.app-shell .app-content-frame :is(p, span, label, button, input, select, textarea, a, li, th, td, small, strong, em):not([data-wb-font-exempt]):not([aria-hidden='true']):not([class*='icon']):not([class*='Icon']):not([class*='material-symbols']) {
+  font-family: var(--wb-font-body);
+}
+
+.app-shell .app-header__panel,
+.app-shell .app-header__workspace-context,
+.app-shell .app-dashboard-panel,
+.app-shell .app-table-shell {
+  border-color: color-mix(in srgb, var(--wb-border) 18%, transparent);
+  background: color-mix(in srgb, var(--wb-surface) 78%, var(--wb-bg));
+}
+
+.app-shell .app-header__context-mark {
+  background: var(--wb-intelligence-emerald);
+  box-shadow: 0 0 18px rgba(16, 185, 129, 0.28);
+}
+
+.app-shell .app-header__eyebrow,
+.app-shell .app-header__workspace-label {
+  color: var(--wb-muted);
+  font-family: var(--wb-font-body);
+}
+
+.app-shell .app-header__description {
+  color: var(--wb-mist);
+  font-family: var(--wb-font-body);
+}
+
+.app-shell .app-header__workspace-context strong {
+  color: var(--wb-text-primary);
+}
+
+.app-shell .app-header__account-link {
+  border-color: color-mix(in srgb, var(--wb-border) 24%, transparent);
+  color: var(--wb-mist);
+  font-family: var(--wb-font-body);
+}
+
+.app-shell .app-header__account-link:hover {
+  border-color: color-mix(in srgb, var(--wb-intelligence-emerald) 48%, transparent);
+  background: color-mix(in srgb, var(--wb-intelligence-emerald) 12%, var(--wb-bg));
+  color: var(--wb-ice-white);
+}
+
+.app-shell :focus-visible {
+  outline-color: var(--wb-focus);
+}
+
+.app-shell .app-sidebar__panel,
+.app-shell .app-content-frame {
+  background: var(--wb-bg);
+}
+
+.app-shell .app-header__page-title,
+.app-shell .app-header__workspace-context strong,
+.app-shell .app-page-header h1 {
+  color: var(--wb-text-primary);
+}
+
+.app-shell .app-header__description,
+.app-shell .app-page-header__description,
+.app-shell .app-page-header__breadcrumbs,
+.app-shell .app-page-header__breadcrumbs .is-current {
+  color: var(--wb-mist);
+}
+
+.app-shell .app-page-header__eyebrow,
+.app-shell .app-page-header__breadcrumbs a:hover {
+  color: var(--wb-intelligence-emerald);
+}
+
+.app-shell .btn-primary {
+  border-color: transparent;
+  background: var(--wb-action-primary);
+  color: var(--wb-obsidian-navy);
+  box-shadow: none;
+}
+
+.app-shell .btn-primary:hover {
+  background: var(--wb-action-primary-hover);
+  box-shadow: none;
+  filter: none;
+}
+
+.app-shell .app-content-frame :is(.btn-primary, .dashboard-action-button--primary) {
+  border-color: transparent;
+  background: var(--wb-action-primary);
+  background-image: none;
+  color: var(--wb-obsidian-navy) !important;
+  box-shadow: none;
+}
+
+.app-shell .app-content-frame :is(.btn-primary, .dashboard-action-button--primary):hover {
+  background: var(--wb-action-primary-hover);
+  background-image: none;
+  box-shadow: none;
+}
+
+.app-shell .app-content-frame :is(.btn-primary, .dashboard-action-button--primary):focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+
+.app-shell .app-mobile-menu-button:focus-visible,
+.app-shell .app-header__account-link:focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
+  box-shadow: none;
 }

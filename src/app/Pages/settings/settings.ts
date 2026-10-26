@@ -753,7 +753,10 @@ export class SettingsPageComponent implements OnInit, OnDestroy {
     }
 
     this.activeMembership = selected;
-    await this.activateMembershipInContext(selected);
+    const currentMembershipId = this.normalizeId(this.companyContext.getActiveMembership()?.id);
+    if (currentMembershipId !== selected.id) {
+      await this.activateMembershipInContext(selected);
+    }
 
     if (forceRefresh) {
       await firstValueFrom(this.companyContext.ensureLoaded(true));

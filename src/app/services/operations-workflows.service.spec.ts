@@ -111,7 +111,7 @@ describe('OperationsWorkflowsService', () => {
       responseId = response.request.id;
     });
 
-    const req = httpMock.expectOne('https://dash.conntinuity.com/wellar/scan-requests');
+    const req = httpMock.expectOne('https://dash-conntinuity.datac.com/wellar/scan-requests');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       target_member_id: 'member-1',
@@ -173,10 +173,10 @@ describe('OperationsWorkflowsService', () => {
       responseSummary = `${response.summary.total}:${response.rows.length}`;
     });
 
-    const req = httpMock.expectOne('https://dash.conntinuity.com/wellar/scan-requests');
+    const req = httpMock.expectOne('https://dash-conntinuity.datac.com/wellar/scan-requests');
     expect(req.request.method).toBe('GET');
-    expect(req.request.url).toBe('https://dash.conntinuity.com/wellar/scan-requests');
-    expect(req.request.urlWithParams).toBe('https://dash.conntinuity.com/wellar/scan-requests');
+    expect(req.request.url).toBe('https://dash-conntinuity.datac.com/wellar/scan-requests');
+    expect(req.request.urlWithParams).toBe('https://dash-conntinuity.datac.com/wellar/scan-requests');
     req.flush({
       data: {
         rows: [],
@@ -207,7 +207,7 @@ describe('OperationsWorkflowsService', () => {
       }
     });
 
-    const req = httpMock.expectOne('https://dash.conntinuity.com/wellar/scan-requests');
+    const req = httpMock.expectOne('https://dash-conntinuity.datac.com/wellar/scan-requests');
     req.flush(
       {
         error: {
@@ -297,7 +297,7 @@ describe('OperationsWorkflowsService', () => {
 
   it('posts alert workflow actions through the secured endpoint with only the supported action field', async () => {
     const startPromise = firstValueFrom(service.startAlertReview('alert-1'));
-    const startRequest = httpMock.expectOne('https://dash.conntinuity.com/wellar/alerts/alert-1/workflow');
+    const startRequest = httpMock.expectOne('https://dash-conntinuity.datac.com/wellar/alerts/alert-1/workflow');
     expect(startRequest.request.method).toBe('POST');
     expect(startRequest.request.body).toEqual({ action: 'start_review' });
     startRequest.flush({
@@ -315,7 +315,7 @@ describe('OperationsWorkflowsService', () => {
     expect((await startPromise).status).toBe('seen');
 
     const reviewPromise = firstValueFrom(service.markAlertReviewed('alert-1'));
-    const reviewRequest = httpMock.expectOne('https://dash.conntinuity.com/wellar/alerts/alert-1/workflow');
+    const reviewRequest = httpMock.expectOne('https://dash-conntinuity.datac.com/wellar/alerts/alert-1/workflow');
     expect(reviewRequest.request.method).toBe('POST');
     expect(reviewRequest.request.body).toEqual({ action: 'mark_reviewed' });
     reviewRequest.flush({
@@ -341,7 +341,7 @@ describe('OperationsWorkflowsService', () => {
     expect(reviewed.reviewed_at).toBe('2026-06-28T12:00:00.000Z');
 
     const resolvePromise = firstValueFrom(service.resolveAlert('alert-1'));
-    const resolveRequest = httpMock.expectOne('https://dash.conntinuity.com/wellar/alerts/alert-1/workflow');
+    const resolveRequest = httpMock.expectOne('https://dash-conntinuity.datac.com/wellar/alerts/alert-1/workflow');
     expect(resolveRequest.request.method).toBe('POST');
     expect(resolveRequest.request.body).toEqual({ action: 'resolve' });
     resolveRequest.flush({
@@ -378,7 +378,7 @@ describe('OperationsWorkflowsService', () => {
       }
     });
 
-    const req = httpMock.expectOne('https://dash.conntinuity.com/wellar/alerts/alert-1/workflow');
+    const req = httpMock.expectOne('https://dash-conntinuity.datac.com/wellar/alerts/alert-1/workflow');
     req.flush(
       {
         error: {
@@ -407,7 +407,7 @@ describe('OperationsWorkflowsService', () => {
       }
     });
 
-    const req = httpMock.expectOne('https://dash.conntinuity.com/wellar/alerts/alert-1/workflow');
+    const req = httpMock.expectOne('https://dash-conntinuity.datac.com/wellar/alerts/alert-1/workflow');
     req.flush(
       {
         error: {

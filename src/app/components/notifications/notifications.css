@@ -30,6 +30,12 @@
   box-shadow: 0 10px 22px rgba(15, 23, 42, 0.12);
 }
 
+.notif-button:focus-visible {
+  outline: 2px solid var(--wb-focus, #34d399);
+  outline-offset: 3px;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.22), 0 6px 16px rgba(15, 23, 42, 0.08);
+}
+
 .notif-icon {
   width: 20px;
   height: 20px;

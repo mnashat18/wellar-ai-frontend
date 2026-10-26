@@ -13,7 +13,7 @@ import { GlobalNotificationsPanelComponent } from '../../shared/ui/global-notifi
   templateUrl: './header.html'
 })
 export class HeaderComponent implements OnDestroy {
-  title = 'Wellar';
+  title = 'Wisebase';
   subtitle = 'Operational control center';
 
   private routeSub?: RxSubscription;
@@ -34,7 +34,7 @@ export class HeaderComponent implements OnDestroy {
   private updateHeader() {
     const rawPath = this.router.url.replace(/^\/+/, '').split('?')[0];
     const config = getWorkspaceRouteByPath(rawPath);
-    this.title = config?.title || 'Wellar';
+    this.title = config?.title || 'Wisebase';
     this.subtitle = config?.description || 'Operational control center';
   }
 }

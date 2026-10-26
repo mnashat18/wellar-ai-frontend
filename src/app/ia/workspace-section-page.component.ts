@@ -41,7 +41,7 @@ import { ActivatedRoute, RouterModule } from '@angular/router';
           <span class="chip">{{ routePath }}</span>
         </div>
         <p class="text-sm text-slate-300 leading-7">
-          This section is part of the new Wellar AI information architecture. It reserves the route, shell position,
+          This section is part of the new Wisebase information architecture. It reserves the route, shell position,
           and access model for company-scoped operational workflows tied to the active company and department context.
         </p>
       </div>

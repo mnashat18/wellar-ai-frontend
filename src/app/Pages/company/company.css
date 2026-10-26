@@ -2,6 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  font-family: var(--wb-font-body);
 }
 
 
@@ -92,14 +93,14 @@
 
 .company-tabs button:hover,
 .company-tabs button:focus-visible {
-  background: rgba(148, 163, 184, 0.12);
-  color: #f8fafc;
+  background: rgba(16, 185, 129, 0.08);
+  color: var(--wb-ice-white);
 }
 
 .company-tabs button.active {
-  background: linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(56, 189, 248, 0.14));
-  color: #fff7ed;
-  box-shadow: inset 0 0 0 1px rgba(245, 158, 11, 0.22);
+  background: rgba(16, 185, 129, 0.14);
+  color: var(--wb-ice-white);
+  box-shadow: inset 0 0 0 1px rgba(16, 185, 129, 0.34);
 }
 
 .company-section-stack {
@@ -132,7 +133,7 @@
 
 .company-eyebrow {
   margin: 0 0 6px;
-  color: rgba(56, 189, 248, 0.86);
+  color: var(--wb-intelligence-emerald);
   font-size: 0.76rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -243,8 +244,8 @@
 }
 
 .company-search input:focus {
-  border-color: rgba(56, 189, 248, 0.56);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+  border-color: var(--wb-intelligence-emerald);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
 }
 
 .company-table-shell {
@@ -342,8 +343,8 @@
 }
 
 .company-field input:focus {
-  border-color: rgba(56, 189, 248, 0.56);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+  border-color: var(--wb-intelligence-emerald);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
 }
 
 .company-field input:disabled {
@@ -363,8 +364,8 @@
 }
 
 .company-field select:focus {
-  border-color: rgba(56, 189, 248, 0.56);
-  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.14);
+  border-color: var(--wb-intelligence-emerald);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
 }
 
 .company-field select:disabled {
@@ -481,6 +482,11 @@
 .dashboard-action-button--danger {
   border-color: rgba(248, 113, 113, 0.28);
   background: linear-gradient(135deg, rgba(127, 29, 29, 0.85), rgba(185, 28, 28, 0.72));
+}
+
+.company-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
 }
 
 @media (max-width: 720px) {

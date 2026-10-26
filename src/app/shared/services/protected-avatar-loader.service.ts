@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, of } from 'rxjs';
-import { catchError, map, tap } from 'rxjs/operators';
+import { catchError, finalize, map, shareReplay, tap } from 'rxjs/operators';
 
 import { environment } from '../../../environments/environment';
 import { protectedFileUrl } from '../utils/protected-file-url';
@@ -10,6 +10,9 @@ import { protectedFileUrl } from '../utils/protected-file-url';
 export class ProtectedAvatarLoaderService {
   private objectUrl: string | null = null;
   private avatarId: string | null = null;
+  private loadingAvatarId: string | null = null;
+  private loadingRequest$: Observable<string | null> | null = null;
+  private readonly missingAvatarIds = new Set<string>();
 
   constructor(private readonly http: HttpClient) {}
 
@@ -20,8 +23,16 @@ export class ProtectedAvatarLoaderService {
       return of(null);
     }
 
+    if (this.missingAvatarIds.has(normalizedId)) {
+      return of(null);
+    }
+
     if (this.avatarId === normalizedId && this.objectUrl) {
       return of(this.objectUrl);
+    }
+
+    if (this.loadingAvatarId === normalizedId && this.loadingRequest$) {
+      return this.loadingRequest$;
     }
 
     const url = protectedFileUrl(environment.API_URL, normalizedId);
@@ -30,7 +41,7 @@ export class ProtectedAvatarLoaderService {
       return of(null);
     }
 
-    return this.http.get(url, {
+    const request$ = this.http.get(url, {
       withCredentials: true,
       responseType: 'blob'
     }).pipe(
@@ -40,12 +51,27 @@ export class ProtectedAvatarLoaderService {
         this.avatarId = normalizedId;
         this.objectUrl = nextObjectUrl;
       }),
-      catchError(() => {
+      map(() => this.objectUrl),
+      catchError((error: { status?: number }) => {
         this.revokeObjectUrl();
         this.avatarId = null;
+        if (error?.status === 404) {
+          this.missingAvatarIds.add(normalizedId);
+        }
         return of(null);
-      })
+      }),
+      finalize(() => {
+        if (this.loadingAvatarId === normalizedId) {
+          this.loadingAvatarId = null;
+          this.loadingRequest$ = null;
+        }
+      }),
+      shareReplay({ bufferSize: 1, refCount: false })
     );
+
+    this.loadingAvatarId = normalizedId;
+    this.loadingRequest$ = request$;
+    return request$;
   }
 
   clear(): void {

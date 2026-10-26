@@ -1,8 +1,8 @@
 import { CommonModule } from '@angular/common';
 import { ApplicationRef, EmbeddedViewRef, ElementRef, Component, OnDestroy, OnInit, TemplateRef, ViewChild, inject } from '@angular/core';
 import { IsActiveMatchOptions, NavigationEnd, NavigationStart, Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { firstValueFrom, Subscription, combineLatest } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { firstValueFrom, Subscription, combineLatest, of } from 'rxjs';
+import { map, switchMap } from 'rxjs/operators';
 
 import { CompanyContextService, type CompanyOption } from '../../core/context/company-context.service';
 import {
@@ -13,9 +13,8 @@ import {
   type SidebarNavItem
 } from '../../ia/wellar-ia';
 import { AuthService } from '../../services/auth';
+import { ProtectedAvatarLoaderService } from '../../shared/services/protected-avatar-loader.service';
 import { RoleBadgeComponent } from '../../shared/ui/role-badge/role-badge.component';
-import { protectedFileUrl } from '../../shared/utils/protected-file-url';
-import { environment } from 'src/environments/environment';
 
 type SidebarNavGroupVm = {
   group: SidebarNavGroup['group'];
@@ -33,6 +32,7 @@ type SidebarVm = {
   userDisplayName: string;
   userInitials: string;
   userAvatarUrl: string | null;
+  userAvatarId: string | null;
   userEmail: string | null;
   availableCompanies: CompanyOption[];
   canSwitchOrganizations: boolean;
@@ -55,6 +55,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
   private readonly auth = inject(AuthService);
   private readonly router = inject(Router);
   private readonly appRef = inject(ApplicationRef);
+  private readonly protectedAvatarLoader = inject(ProtectedAvatarLoaderService);
+  private readonly failedAccountAvatarIds = new Set<string>();
 
   readonly vm$ = combineLatest({
     state: this.companyContext.state$,
@@ -77,9 +79,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
         state.context.authInitialized === true &&
         state.context.isAuthenticated === true &&
         Boolean(currentUser?.id);
-      const userAvatarUrl = canLoadProtectedAvatar
-        ? protectedFileUrl(environment.API_URL, currentUser?.avatar) ?? null
+      const userAvatarId = canLoadProtectedAvatar && typeof currentUser?.avatar === 'string'
+        ? currentUser.avatar.trim()
         : null;
+      const userAvatarUrl = null;
       const navGroups = getSidebarNavForRole(role).map((group) => ({
         group: group.group,
         items: group.items
@@ -106,6 +109,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         userDisplayName,
         userInitials,
         userAvatarUrl,
+        userAvatarId,
         userEmail,
         availableCompanies,
         canSwitchOrganizations: availableCompanies.length > 1,
@@ -115,6 +119,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
           ? 'Operational controls are reserved for organization leads.'
           : 'Resolve your organization access to continue.'
       } satisfies SidebarVm;
+    }),
+    switchMap((vm) => {
+      if (!vm.userAvatarId || this.failedAccountAvatarIds.has(vm.userAvatarId)) {
+        return of(vm);
+      }
+      return this.protectedAvatarLoader.load(vm.userAvatarId).pipe(
+        map((userAvatarUrl) => ({ ...vm, userAvatarUrl }))
+      );
     })
   );
 
@@ -288,6 +300,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
   }
 
   onAccountAvatarError(vm: SidebarVm): void {
+    if (vm.userAvatarId) {
+      this.failedAccountAvatarIds.add(vm.userAvatarId);
+    }
     vm.userAvatarUrl = null;
   }
 

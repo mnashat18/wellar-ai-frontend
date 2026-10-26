@@ -1,3 +1,31 @@
+.alerts-page {
+  color: var(--wb-text-primary);
+  font-family: var(--wb-font-body);
+}
+
+.alerts-page :is(h1, h2, h3, h4) {
+  font-family: var(--wb-font-heading);
+}
+
+.alerts-page :is(button, a, input, select, textarea):focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
+}
+
+.alerts-page :is(input, select):focus-visible {
+  border-color: var(--wb-intelligence-emerald);
+}
+
+.alerts-page .dashboard-action-button:hover:not(:disabled) {
+  border-color: rgba(16, 185, 129, 0.45);
+  background-color: rgba(16, 185, 129, 0.08);
+}
+
+.alerts-row-action:focus-visible {
+  outline: 2px solid var(--wb-focus);
+  outline-offset: 2px;
+}
+
 .alerts-scope-strip {
   display: flex;
   flex-wrap: wrap;
@@ -156,7 +184,7 @@
 }
 
 .alerts-table-row:hover {
-  background: rgba(56, 189, 248, 0.08);
+  background: rgba(16, 185, 129, 0.08);
 }
 
 .alerts-primary-text,
@@ -257,20 +285,28 @@
   border-radius: 999px;
   padding: 0.36rem 0.72rem;
   color: rgb(226 232 240);
+  font-family: var(--wb-font-body);
   font-size: 0.74rem;
   font-weight: 800;
   transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
 }
 
 .alerts-row-action:hover {
-  border-color: rgba(56, 189, 248, 0.7);
-  background: rgba(56, 189, 248, 0.1);
-  color: rgb(125 211 252);
+  border-color: rgba(16, 185, 129, 0.7);
+  background: rgba(16, 185, 129, 0.1);
+  color: #a7f3d0;
 }
 
 .alerts-row-action--primary {
-  border-color: rgba(110, 231, 183, 0.55);
-  color: rgb(167 243 208);
+  border-color: transparent;
+  background: var(--wb-action-primary);
+  color: var(--wb-obsidian-navy);
+}
+
+.alerts-row-action--primary:hover:not(:disabled) {
+  border-color: transparent;
+  background: var(--wb-action-primary-hover);
+  color: var(--wb-obsidian-navy);
 }
 
 .alerts-row-action--secondary {
@@ -288,6 +324,7 @@
   display: flex;
   flex-direction: column;
   min-block-size: 100%;
+  font-family: var(--wb-font-body);
 }
 
 .alerts-drawer__header {
@@ -301,6 +338,7 @@
 .alerts-drawer__title {
   margin: 0.45rem 0 0;
   color: #f8fafc;
+  font-family: var(--wb-font-heading);
   font-size: 1.18rem;
   font-weight: 800;
   line-height: 1.3;
@@ -332,6 +370,7 @@
 .alerts-drawer-card__title {
   margin: 0 0 0.7rem;
   color: #f8fafc;
+  font-family: var(--wb-font-heading);
   font-size: 0.8rem;
   font-weight: 800;
   letter-spacing: 0.08em;

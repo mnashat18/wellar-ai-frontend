@@ -1,24 +1,13 @@
-<section class="landing-shell">
+<section class="landing-shell" [class.reveal-enhanced]="revealEnabled">
   <section class="hero-section reveal">
-    <div class="hero-ambient" appMotionVisibility aria-hidden="true">
-      <span class="ambient-strand ambient-strand--a"></span>
-      <span class="ambient-strand ambient-strand--b"></span>
-      <span class="ambient-strand ambient-strand--c"></span>
-      <span class="ambient-node ambient-node--a"></span>
-      <span class="ambient-node ambient-node--b"></span>
-      <span class="ambient-node ambient-node--c"></span>
-      <span class="ambient-node ambient-node--d"></span>
-    </div>
     <div class="hero-layout">
       <div class="hero-copy">
-        <p class="hero-eyebrow">Enterprise workforce operations</p>
         <h1>
-          Coordinate workforce operations with
-          <span>clear operational visibility.</span>
+          <span class="hero-title__line hero-title__line--primary">Smarter Teams.</span>
+          <span class="hero-title__line hero-title__line--accent">Better Decisions.</span>
         </h1>
         <p class="hero-lead">
-          Organize workforce scope, coordinate Scan Requests, review returned Alerts, and track
-          Compliance coverage from the authenticated web application.
+          Bring your workforce, scan requests, alerts, and operational insights together in one intelligent workspace.
         </p>
         <div class="hero-actions">
           <a routerLink="/" [queryParams]="{ auth: 'signup' }" class="landing-cta">Start Organization</a>
@@ -31,7 +20,7 @@
         </div>
       </div>
 
-      <aside class="workflow-visual" aria-label="Wellar AI product walkthrough">
+      <aside class="workflow-visual" aria-label="Wisebase product walkthrough">
         <div class="presentation-stage">
           <span class="presentation-glow presentation-glow--cool" aria-hidden="true"></span>
           <span class="presentation-glow presentation-glow--warm" aria-hidden="true"></span>
@@ -63,7 +52,7 @@
     </div>
   </section>
 
-  <section id="product" class="product-section product-anchor reveal" tabindex="-1" aria-label="How Wellar AI works">
+  <section id="product" class="product-section product-anchor reveal" tabindex="-1" aria-label="How Wisebase works">
     <div class="section-heading">
       <p class="eyebrow">Product workflow</p>
       <h2>One operating path from workforce setup to coverage review.</h2>
@@ -161,15 +150,14 @@
 
     <div class="auth-header">
       <picture>
-        <source srcset="assets/logo/wellar-mark-96.webp" type="image/webp" />
-        <img class="auth-logo-img" src="assets/logo/wellar-mark-96.png" alt="Wellar app icon" width="96" height="96" decoding="async" />
+        <img class="auth-logo-img" src="/branding/wisebase-navigation.png" alt="Wisebase logo" width="96" height="96" decoding="async" />
       </picture>
       <h2 *ngIf="authMode === 'signup' && !inviteMode">Start your organization</h2>
       <h2 *ngIf="authMode === 'signup' && inviteMode">Create your account to join your organization</h2>
       <h2 *ngIf="authMode === 'login' && !inviteMode">Welcome back</h2>
       <h2 *ngIf="authMode === 'login' && inviteMode">Log in to join your organization</h2>
       <p *ngIf="inviteMode">
-        You were invited to join a Wellar AI organization. Sign in or create an account to continue.
+        You were invited to join a Wisebase organization. Sign in or create an account to continue.
       </p>
       <p *ngIf="!inviteMode && authMode === 'login'">Sign in to continue to your organization&rsquo;s workforce operations.</p>
       <p *ngIf="!inviteMode && authMode === 'signup'">Create your account to begin managed activation for your organization.</p>

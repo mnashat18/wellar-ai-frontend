@@ -8,7 +8,7 @@ import { RouterModule } from '@angular/router';
   imports: [CommonModule, RouterModule],
   template: `
     <section class="mx-auto max-w-3xl px-6 py-20 text-center text-white">
-      <p class="text-sm uppercase tracking-[0.2em] text-slate-400">Wellar Organization</p>
+      <p class="text-sm uppercase tracking-[0.2em] text-slate-400">Wisebase Organization</p>
       <h1 class="mt-4 text-4xl font-semibold">Organization activation is account-team managed.</h1>
       <p class="mt-4 text-slate-300">
         Use the main dashboard after sign-in and select the active organization to continue.

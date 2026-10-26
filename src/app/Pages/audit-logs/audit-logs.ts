@@ -16,6 +16,7 @@ import { mapSafeError } from '../../shared/errors/safe-error.mapper';
 
 export class AuditLogs implements OnInit {
   logs: AuditLog[] = [];
+  logReadState: 'loading' | 'loaded' | 'authentication_required' | 'permission_denied' | 'resource_unavailable' | 'unavailable' = 'loading';
   selectedLog: AuditLog | null = null;
   submitFeedback: { type: 'success' | 'error' | 'info'; message: string } | null = null;
   isAdminUser = false;
@@ -32,7 +33,12 @@ export class AuditLogs implements OnInit {
 
   ngOnInit() {
     this.auth.getVerifiedCurrentUser().subscribe((user) => {
-      if (!user) { this.canViewLogs = false; return; }
+      if (!user) {
+        this.canViewLogs = false;
+        this.logReadState = 'authentication_required';
+        this.cdr.detectChanges();
+        return;
+      }
       const role = this.roleName(user);
       const roleId = this.roleId(user);
       const allowed = (environment.AUDIT_LOG_REVIEW_ROLE_IDS ?? []).map(String);
@@ -158,6 +164,7 @@ export class AuditLogs implements OnInit {
   }
 
   private loadLogs() {
+    this.logReadState = 'loading';
     if (!this.canReviewLogs) {
       if (!this.canViewLogs) {
         this.logs = [];
@@ -176,6 +183,7 @@ export class AuditLogs implements OnInit {
         },
         error: (err) => {
           console.error('[audit-logs] audit_logs error:', mapSafeError(err).kind);
+          this.handleLogReadError(err);
         }
       });
       return;
@@ -188,6 +196,7 @@ export class AuditLogs implements OnInit {
       },
       error: (err) => {
         console.error('[audit-logs] audit_logs error:', mapSafeError(err).kind);
+        this.handleLogReadError(err);
       }
     });
   }
@@ -221,6 +230,17 @@ export class AuditLogs implements OnInit {
 
   private applyLogs(logs: AuditLogRecord[]) {
     this.logs = logs.map((log) => this.mapToAuditLog(log));
+    this.logReadState = 'loaded';
+    this.cdr.detectChanges();
+  }
+
+  private handleLogReadError(error: { status?: number }): void {
+    const status = error?.status;
+    this.logs = [];
+    if (status === 401) this.logReadState = 'authentication_required';
+    else if (status === 403) this.logReadState = 'permission_denied';
+    else if (status === 404) this.logReadState = 'resource_unavailable';
+    else this.logReadState = 'unavailable';
     this.cdr.detectChanges();
   }
 
