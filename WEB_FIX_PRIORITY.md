@@ -1,0 +1,24 @@
+# Web fix priority
+
+Audit basis: source review and local build/tests on 2026-10-14. Severity ranks engineering risk; owners should adjust against production telemetry. No code changes are made by this audit.
+
+| Priority | Severity | Fix / verification | Owner | Evidence and acceptance |
+|---|---|---|---|---|
+| P0 | Critical gate | Prove server-enforced tenant isolation for scans, scan results, workforce, requests, notifications, reports, and protected files; include guessed IDs and switched-workspace sessions | API / Directus / DB | API-level adversarial tests show zero cross-tenant rows/files; client filters do not count as proof. `operations-workflows.service.ts:508-529`; `directus-extensions/wellar-workspaces/src/index.js:2833-2871` |
+| P0 | High | Define and implement canonical scan job ID, tenant-scoped idempotency, durable acceptance/outbox, status and result retrieval contract | AI Server + API + Web + Mobile | Duplicate submissions and worker replays return one scan/result; cross-tenant status/result lookup denied. Shared schema/API change plan reviewed before client rollout. |
+| P1 | High | Replace broad scan-request page fan-out with paginated aggregate response; eliminate unfiltered 800 scan + 400 notification reads and avoid full reload after create | Web + API | Request count, bytes, and p95 per requests-page view measured and reduced; preserve queue totals and modal behavior. `operations-workflows.service.ts:546-617`; `requests.ts:358-364` |
+| P1 | High | Page/compress compliance data and enforce tenant filters on server; replace 800-row client aggregation with API summaries | API + DB + Web | Query plans and response sizes bounded as tenant grows; direct cross-tenant tests deny. `operations-workflows.service.ts:494-541` |
+| P1 | High | Add staging capacity/load test at 2,000 sessions plus 1.5x burst; include AI worker, database and 429/5xx drills | SRE + AI Server + API | Publish p50/p95/p99, error rates, DB pool, queue age, per-tenant fairness, and pass/fail thresholds. Current target is unmeasured. |
+| P1 | High | Add transactional outbox/retry and dead-letter monitoring for scan-request webhook | API / Directus | Simulated webhook timeout/downstream 5xx eventually delivers once; alert on oldest undelivered event. `index.js:2084-2138,2732-2818` |
+| P1 | Medium/High | Bound `/auth/refresh`; align session recovery and timeout behavior across guards and page loaders | Web + API | Delayed refresh terminates within deadline; UI can retry safely. `auth.ts:618-665` |
+| P1 | Medium/High | Verify production cookie flags, CORS and CSRF on all cookie-authenticated writes | API / SRE / Security | Browser and direct-origin tests demonstrate exact origins and CSRF rejection; evidence captured from deployed edge. `auth.ts:126-205`; extension-only Origin check `index.js:10-14` |
+| P2 | Medium | Define shared handling for 429/5xx: `Retry-After`, bounded exponential backoff with jitter for reads, and no write retry without idempotency | Web + API | Fault-injection tests show no request storm and no duplicate writes. Presence should honor server retry guidance and add jitter (`presence-heartbeat.service.ts:145-160`). |
+| P2 | Medium | Add browser RUM and route-level API telemetry with privacy-safe IDs; add alerts for scan queue age, errors, latency, and database saturation | Web + SRE + AI Server | Dashboards and alerts exist with owners and runbooks; no customer secrets or raw scan answers logged. |
+| P2 | Medium | Validate deployed Nginx/CDN headers, CSP, compression, TLS, HTML and asset caching across status codes | SRE | Synthetic check validates production behavior, not just checked-in `nginx.conf`. Narrow broad HTTPS CSP sources where compatibility allows. |
+| P3 | Low | Bring landing CSS under its 20 kB budget and set compressed route budgets; profile change detection and long lists with realistic 2,000-member data | Web | Build warning removed; Web Vitals and profiler demonstrate improvement. Current stylesheet is 21.26 kB; initial output is 953.44 kB raw / 204.80 kB estimated transfer. |
+| P3 | Low | Repair Directus extension test harness mismatch and rerun proof suite | API / Directus | All extension proof tests pass using the actual Directus handler context; current result 7 passed / 2 failed due missing `router.use`/`context.services` harness shape. |
+| P3 | Low | Review package vulnerabilities and automated dependency update policy | Web / Security | Lockfile-based audit artifacts and update ownership exist; not assessed in this audit. |
+
+## Suggested release gate
+
+Do not claim support for 2,000 active employees until P0 items and the P1 load test pass. Canary only after tenant isolation, idempotent scan submission/result retrieval, and webhook reliability are proven. Ramp using measured queue age, API error budget, p95 latency, and database pool headroom.
